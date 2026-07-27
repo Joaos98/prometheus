@@ -126,11 +126,11 @@ onMounted(async () => {
       expenses: Expense[]; expenseAmounts: ExpenseAmount[]; goals: SavingsGoal[];
     };
     currency.value = data.currency;
-    members.value = data.members;
-    incomeSources.value = data.incomeSources;
-    expenses.value = data.expenses;
-    expenseAmounts.value = data.expenseAmounts;
-    goals.value = data.goals;
+    members.value = data.members ?? [];
+    incomeSources.value = data.incomeSources ?? [];
+    expenses.value = data.expenses ?? [];
+    expenseAmounts.value = data.expenseAmounts ?? [];
+    goals.value = data.goals ?? [];
     if (currency.value) await refreshSummary();
   } catch (e) { appError.value = e instanceof Error ? e.message : String(e); }
   finally { loading.value = false; }
@@ -146,8 +146,8 @@ async function loadHouseholdData(): Promise<void> {
   const data = (await request.get("/api/household")) as {
     members: Member[]; incomeSources: IncomeSource[]; expenses: Expense[]; expenseAmounts: ExpenseAmount[]; goals: SavingsGoal[];
   };
-  members.value = data.members; incomeSources.value = data.incomeSources;
-  expenses.value = data.expenses; expenseAmounts.value = data.expenseAmounts; goals.value = data.goals;
+  members.value = data.members ?? []; incomeSources.value = data.incomeSources ?? [];
+  expenses.value = data.expenses ?? []; expenseAmounts.value = data.expenseAmounts ?? []; goals.value = data.goals ?? [];
 }
 
 function activeExpenses(): Expense[] {
