@@ -4,3 +4,7 @@ dist/
 *.db-journal
 *.db-wal
 *.db-shm
+.scratch/
+docs/agents/
+prometheus-system-plan.md
+prometheus-redesign-brief.md
