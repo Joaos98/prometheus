@@ -1,6 +1,13 @@
 <script setup lang="ts">
-import type { Expense, ExpenseAmount, IncomeSource, Member, MonthlySummary, SavingsGoal } from "@prometheus/engine";
+import type { Expense, ExpenseAmount, GoalProgress, IncomeSource, Member, MonthlySummary, SavingsGoal } from "@prometheus/engine";
 import { computed, onMounted, ref, watch } from "vue";
+import Sidebar from "./components/Sidebar.vue";
+import MonthBar from "./components/MonthBar.vue";
+import OverviewPage from "./pages/OverviewPage.vue";
+import IncomePage from "./pages/IncomePage.vue";
+import ExpensesPage from "./pages/ExpensesPage.vue";
+import GoalsPage from "./pages/GoalsPage.vue";
+import MembersPage from "./pages/MembersPage.vue";
 
 const currentMonth = (): string => new Date().toISOString().slice(0, 7);
 const monthLabel = (m: string): string => {
@@ -22,37 +29,28 @@ const appError = ref<string | null>(null);
 const displayMonth = ref(currentMonth());
 const jumpMonth = ref("");
 const currencyValue = ref("USD");
-const includeRestricted = ref(false);
-const householdIncome = computed(() => (summary.value?.members ?? []).reduce((s, m) => s + m.incomeCents, 0));
 const householdLeftover = computed(() => (summary.value?.members ?? []).reduce((s, m) => s + m.leftoverCents, 0));
 
 // --- member state ---
 const newMemberName = ref(""); const newMemberJoinedFrom = ref(""); const editingMemberId = ref<string | null>(null); const editingMemberName = ref(""); const departingMemberEffFrom = ref<Record<string, string>>({}); const showMemberForm = ref(false); const departingMember = ref<string | null>(null);
 // --- income state ---
-const newSourceMemberId = ref(""); const newSourceName = ref(""); const newSourceAmount = ref(""); const newSourceEffectiveFrom = ref(""); const newSourceRestricted = ref(false); const newSourceOneOff = ref(false); const editingSourceId = ref<string | null>(null); const editingSourceAmount = ref(""); const editingSourceEffectiveFrom = ref(""); const endingSourceEffectiveFrom = ref<Record<string, string>>({}); const showIncomeForm = ref(false);
-const endingSource = ref<string | null>(null);
+const newSourceMemberId = ref(""); const newSourceName = ref(""); const newSourceAmount = ref(""); const newSourceEffectiveFrom = ref(""); const newSourceRestricted = ref(false); const newSourceOneOff = ref(false); const editingSourceId = ref<string | null>(null); const editingSourceAmount = ref(""); const editingSourceEffectiveFrom = ref(""); const endingSourceEffectiveFrom = ref<Record<string, string>>({}); const showIncomeForm = ref(false); const endingSource = ref<string | null>(null);
 // --- expense state ---
 const newExpenseName = ref(""); const newExpenseParticipants = ref<string[]>([]); const newExpenseSplitRule = ref("even"); const newExpenseCustomMode = ref("percent"); const newExpenseCustomValues = ref<Record<string, number>>({}); const newExpenseOneOff = ref(false); const newExpenseEffectiveFrom = ref(""); const expenseAmountValues = ref<Record<string, string>>({}); const endingExpenseEffectiveFrom = ref<Record<string, string>>({}); const showChangeSplit = ref<string | null>(null); const changeSplitRule = ref("even"); const changeSplitEff = ref(""); const showChangeParticipants = ref<string | null>(null); const changeParticipantsList = ref<string[]>([]); const changeParticipantsEff = ref(""); const showExpenseForm = ref(false); const expandedExpense = ref<string | null>(null); const endingExpense = ref<string | null>(null);
 // --- goal state ---
 const newGoalName = ref(""); const newGoalParticipants = ref<string[]>([]); const newGoalSplitRule = ref("even"); const newGoalTarget = ref(""); const newGoalStartAmount = ref(""); const newGoalEffectiveFrom = ref(""); const goalContributionValues = ref<Record<string, string>>({}); const endingGoalEffectiveFrom = ref<Record<string, string>>({}); const showGoalForm = ref(false); const endingGoal = ref<string | null>(null);
 
+// --- helpers ---
 function shiftMonth(m: string, d: number): string { const [y, mn] = m.split("-").map(Number) as [number, number]; const t = y * 12 + (mn - 1) + d; return `${String(Math.floor(t / 12)).padStart(4, "0")}-${String((t % 12) + 1).padStart(2, "0")}`; }
-function goPrev() { displayMonth.value = shiftMonth(displayMonth.value, -1); }
-function goNext() { displayMonth.value = shiftMonth(displayMonth.value, 1); }
-function goToday() { displayMonth.value = currentMonth(); }
-function goJump() { const m = jumpMonth.value.trim(); if (/^\d{4}-\d{2}$/.test(m)) { displayMonth.value = m; jumpMonth.value = ""; } }
-
-function sourcesForMember(mid: string) { return incomeSources.value.filter(s => s.memberId === mid); }
-const latestAmount = (s: IncomeSource) => { const a = [...s.timeline].sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom)); return a[0]?.amountCents ?? 0; };
-function memberName(id: string) { return members.value.find(m => m.id === id)?.name ?? id; }
 function activeExpenses() { return expenses.value.filter(e => e.effectiveFrom <= displayMonth.value && (e.endedFrom === undefined || e.endedFrom > displayMonth.value)); }
 function expenseHasAmount(eid: string) { return expenseAmounts.value.some(a => a.expenseId === eid && a.month === displayMonth.value); }
 function expenseAmountCents(eid: string) { return expenseAmounts.value.find(a => a.expenseId === eid && a.month === displayMonth.value)?.amountCents; }
 function expenseShares(eid: string) { return (summary.value?.members ?? []).flatMap(m => m.shares.filter(s => s.expenseId === eid).map(s => ({ memberId: m.memberId, name: m.name, amountCents: s.amountCents }))); }
+function sourcesForMember(mid: string) { return incomeSources.value.filter(s => s.memberId === mid); }
+const latestAmount = (s: IncomeSource) => { const a = [...s.timeline].sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom)); return a[0]?.amountCents ?? 0; };
 function goalProgressPercent(gp: { accumulatedCents: number; targetAmountCents?: number }) { if (!gp.targetAmountCents || gp.targetAmountCents === 0) return 0; return Math.min(100, Math.round((gp.accumulatedCents / gp.targetAmountCents) * 100)); }
-function toggleParticipant(mid: string) { const i = newExpenseParticipants.value.indexOf(mid); if (i >= 0) newExpenseParticipants.value.splice(i, 1); else newExpenseParticipants.value.push(mid); }
-function toggleGoalParticipant(mid: string) { const i = newGoalParticipants.value.indexOf(mid); if (i >= 0) newGoalParticipants.value.splice(i, 1); else newGoalParticipants.value.push(mid); }
-
+function memberName(id: string) { return members.value.find(m => m.id === id)?.name ?? id; }
+function backdateWarning(eff: string): string | null { if (!eff || eff >= displayMonth.value) return null; const [y, m] = eff.split("-").map(Number) as [number, number]; const [cy, cm] = displayMonth.value.split("-").map(Number) as [number, number]; return `Will recompute ${(cy - y) * 12 + (cm - m) + 1} months`; }
 const formatCurrency = (cents: number, curr: string) => new Intl.NumberFormat(undefined, { style: "currency", currency: curr }).format(cents / 100);
 
 async function unwrapError(r: Response): Promise<never> { const b = (await r.json().catch(() => ({}))) as { error?: string }; throw new Error(b.error ?? `HTTP ${r.status}`); }
@@ -77,10 +75,9 @@ async function loadAll() { const d = (await request.get("/api/household")) as { 
 // --- member actions ---
 async function submitCurrency() { try { await request.post("/api/household/currency", { currency: currencyValue.value }); currency.value = currencyValue.value; await refreshSummary(); } catch (e) { appError.value = e instanceof Error ? e.message : String(e); } }
 async function submitMember() { const n = newMemberName.value.trim(); if (!n) return; try { const m = (await request.post("/api/members", { name: n, joinedFrom: newMemberJoinedFrom.value || undefined })) as Member; members.value = [...members.value, m]; newMemberName.value = ""; newMemberJoinedFrom.value = ""; showMemberForm.value = false; } catch (e) { appError.value = e instanceof Error ? e.message : String(e); } }
-async function departMember(id: string) { const eff = departingMemberEffFrom.value[id] ?? currentMonth(); try { await request.post(`/api/members/${id}/depart`, { effectiveFrom: eff }); delete departingMemberEffFrom.value[id]; await refreshSummary(); } catch (e) { appError.value = e instanceof Error ? e.message : String(e); } }
+async function departMember(id: string) { const eff = departingMemberEffFrom.value[id] ?? currentMonth(); try { await request.post(`/api/members/${id}/depart`, { effectiveFrom: eff }); await loadAll(); } catch (e) { appError.value = e instanceof Error ? e.message : String(e); } }
 function startRename(m: Member) { editingMemberId.value = m.id; editingMemberName.value = m.name; }
 async function commitRename(id: string) { const n = editingMemberName.value.trim(); if (!n) return; try { await request.patch(`/api/members/${id}`, { name: n }); members.value = members.value.map(m => m.id === id ? { ...m, name: n } : m); editingMemberId.value = null; } catch (e) { appError.value = e instanceof Error ? e.message : String(e); } }
-function cancelRename() { editingMemberId.value = null; }
 // --- income actions ---
 async function submitIncomeSource() { const mid = newSourceMemberId.value; const n = newSourceName.value.trim(); const a = parseFloat(newSourceAmount.value); const eff = newSourceEffectiveFrom.value; if (!mid || !n || isNaN(a) || !eff) return; try { const s = (await request.post("/api/income-sources", { memberId: mid, name: n, amountCents: Math.round(a * 100), effectiveFrom: eff, oneOff: newSourceOneOff.value, restrictedUse: newSourceRestricted.value })) as IncomeSource; incomeSources.value = [...incomeSources.value, s]; newSourceName.value = ""; newSourceAmount.value = ""; newSourceEffectiveFrom.value = ""; newSourceOneOff.value = false; newSourceRestricted.value = false; showIncomeForm.value = false; } catch (e) { appError.value = e instanceof Error ? e.message : String(e); } }
 function startEditSource(s: IncomeSource) { editingSourceId.value = s.id; editingSourceAmount.value = String(latestAmount(s) / 100); editingSourceEffectiveFrom.value = ""; }
@@ -89,269 +86,120 @@ async function endSource(id: string, eff: string) { try { await request.post(`/a
 // --- expense actions ---
 async function submitExpense() { const n = newExpenseName.value.trim(); const p = [...newExpenseParticipants.value]; const eff = newExpenseEffectiveFrom.value; if (!n || p.length === 0 || !eff) return; try { let r: Record<string, unknown>; if (newExpenseSplitRule.value === "custom") r = { method: "custom", mode: newExpenseCustomMode.value, values: { ...newExpenseCustomValues.value } }; else r = { method: newExpenseSplitRule.value }; const e = (await request.post("/api/expenses", { name: n, participants: p, splitRule: r, effectiveFrom: eff, oneOff: newExpenseOneOff.value })) as Expense; expenses.value = [...expenses.value, e]; newExpenseName.value = ""; newExpenseParticipants.value = []; newExpenseCustomValues.value = {}; newExpenseOneOff.value = false; newExpenseEffectiveFrom.value = ""; showExpenseForm.value = false; } catch (e) { appError.value = e instanceof Error ? e.message : String(e); } }
 async function submitExpenseAmount(eid: string) { const raw = expenseAmountValues.value[eid] ?? ""; const a = parseFloat(raw); if (isNaN(a)) return; try { await request.post(`/api/expenses/${eid}/amount`, { month: displayMonth.value, amountCents: Math.round(a * 100) }); delete expenseAmountValues.value[eid]; await loadAll(); await refreshSummary(); } catch (e) { appError.value = e instanceof Error ? e.message : String(e); } }
-function endExpense(id: string) { const eff = endingExpenseEffectiveFrom.value[id] ?? currentMonth(); request.post(`/api/expenses/${id}/end`, { effectiveFrom: eff }).then(async () => { delete endingExpenseEffectiveFrom.value[id]; await loadAll(); }).catch(e => { appError.value = e instanceof Error ? e.message : String(e); }); }
+function endExpense(id: string) { const eff = endingExpenseEffectiveFrom.value[id] ?? currentMonth(); request.post(`/api/expenses/${id}/end`, { effectiveFrom: eff }).then(async () => { await loadAll(); }).catch(e => { appError.value = e instanceof Error ? e.message : String(e); }); }
 async function submitChangeSplit(eid: string) { const eff = changeSplitEff.value.trim(); if (!eff) return; try { await request.post(`/api/expenses/${eid}/change-split`, { splitRule: { method: changeSplitRule.value }, effectiveFrom: eff }); await loadAll(); await refreshSummary(); showChangeSplit.value = null; } catch (e) { appError.value = e instanceof Error ? e.message : String(e); } }
 async function submitChangeParticipants(eid: string) { const eff = changeParticipantsEff.value.trim(); if (!eff) return; try { await request.post(`/api/expenses/${eid}/change-participants`, { participants: [...changeParticipantsList.value], effectiveFrom: eff }); await loadAll(); await refreshSummary(); showChangeParticipants.value = null; } catch (e) { appError.value = e instanceof Error ? e.message : String(e); } }
-function backdateWarning(eff: string): string | null { if (!eff || eff >= displayMonth.value) return null; const [y, m] = eff.split("-").map(Number) as [number, number]; const [cy, cm] = displayMonth.value.split("-").map(Number) as [number, number]; return `Will recompute ${(cy - y) * 12 + (cm - m) + 1} months`; }
 // --- goal actions ---
 async function submitGoal() { const n = newGoalName.value.trim(); const p = [...newGoalParticipants.value]; const eff = newGoalEffectiveFrom.value; if (!n || p.length === 0 || !eff) return; try { await request.post("/api/goals", { name: n, participants: p, splitRule: { method: newGoalSplitRule.value }, targetAmountCents: newGoalTarget.value ? Math.round(parseFloat(newGoalTarget.value) * 100) : undefined, startAmountCents: newGoalStartAmount.value ? Math.round(parseFloat(newGoalStartAmount.value) * 100) : undefined, effectiveFrom: eff }); await loadAll(); newGoalName.value = ""; newGoalParticipants.value = []; newGoalTarget.value = ""; newGoalStartAmount.value = ""; newGoalEffectiveFrom.value = ""; showGoalForm.value = false; } catch (e) { appError.value = e instanceof Error ? e.message : String(e); } }
 async function submitGoalContribution(gid: string) { const raw = goalContributionValues.value[gid] ?? ""; const a = parseFloat(raw); if (isNaN(a)) return; try { await request.post(`/api/goals/${gid}/contribution`, { month: displayMonth.value, amountCents: Math.round(a * 100) }); delete goalContributionValues.value[gid]; await loadAll(); await refreshSummary(); } catch (e) { appError.value = e instanceof Error ? e.message : String(e); } }
-async function endGoal(id: string) { const eff = endingGoalEffectiveFrom.value[id] ?? currentMonth(); try { await request.post(`/api/goals/${id}/end`, { effectiveFrom: eff }); delete endingGoalEffectiveFrom.value[id]; await loadAll(); } catch (e) { appError.value = e instanceof Error ? e.message : String(e); } }
+async function endGoal(id: string) { const eff = endingGoalEffectiveFrom.value[id] ?? currentMonth(); try { await request.post(`/api/goals/${id}/end`, { effectiveFrom: eff }); await loadAll(); } catch (e) { appError.value = e instanceof Error ? e.message : String(e); } }
 </script>
 
 <template>
   <div class="shell" v-if="currency !== null">
-    <aside class="sidebar">
-      <div class="sidebar-brand"><div class="planet-mark"><div></div></div><span>Prometheus</span></div>
-      <nav class="sidebar-nav">
-        <button :class="{ active: page === 'overview' }" @click="page = 'overview'"><span class="nav-dot">●</span> Overview</button>
-        <button :class="{ active: page === 'income' }" @click="page = 'income'"><span class="nav-dot">●</span> Income</button>
-        <button :class="{ active: page === 'expenses' }" @click="page = 'expenses'"><span class="nav-dot">●</span> Expenses</button>
-        <button :class="{ active: page === 'goals' }" @click="page = 'goals'"><span class="nav-dot">●</span> Goals</button>
-        <button :class="{ active: page === 'members' }" @click="page = 'members'"><span class="nav-dot">●</span> Members</button>
-      </nav>
-    </aside>
+    <Sidebar :page="page" @navigate="(p) => page = p as any" />
     <main class="content">
       <p v-if="appError" class="error-banner">{{ appError }}</p>
       <p v-else-if="loading" class="loading">Loading…</p>
       <template v-else-if="summary">
+        <MonthBar
+          :displayMonth="displayMonth" :monthLabel="monthLabel(displayMonth)" :jumpMonth="jumpMonth"
+          :pendingCount="summary.pendingExpenses.length + summary.pendingContributions.length"
+          @prev="displayMonth = shiftMonth(displayMonth, -1)" @next="displayMonth = shiftMonth(displayMonth, 1)"
+          @today="displayMonth = currentMonth()" @jump="() => { const m = jumpMonth.trim(); if (/^\d{4}-\d{2}$/.test(m)) { displayMonth = m; jumpMonth = ''; } }"
+          @update:jumpMonth="(v: string) => jumpMonth = v"
+        />
 
-        <!-- month bar -->
-        <header class="month-bar">
-          <div class="month-pill">
-            <button @click="goPrev" class="chevron">&lsaquo;</button>
-            <span class="month-label" @click="goToday">📅 {{ monthLabel(displayMonth) }}</span>
-            <button @click="goNext" class="chevron">&rsaquo;</button>
-          </div>
-          <button @click="goToday" class="today-btn">Today</button>
-          <span class="bar-divider"></span>
-          <div class="jump-wrap">
-            <span class="jump-icon">🔍</span>
-            <input v-model="jumpMonth" @keydown.enter="goJump" placeholder="Jump to YYYY-MM" class="jump-input" />
-          </div>
-          <span class="bar-spacer"></span>
-          <span v-if="summary.pendingExpenses.length > 0" class="pending-badge">🚩 {{ summary.pendingExpenses.length }} pending</span>
-        </header>
+        <OverviewPage v-if="page === 'overview'"
+          :summary="summary" :members="members" :expenses="expenses" :goals="goals"
+          :activeExpenses="activeExpenses" :expenseHasAmount="expenseHasAmount" :expenseAmountCents="expenseAmountCents"
+          :goalProgressPercent="goalProgressPercent" :memberName="memberName" :formatCurrency="formatCurrency"
+          :householdLeftover="householdLeftover" />
 
-        <!-- ========== OVERVIEW ========== -->
-        <template v-if="page === 'overview'">
-          <section class="balance-row">
-            <div class="balance-card" v-for="m in summary.members" :key="m.memberId">
-              <span class="balance-label">{{ m.name }}</span>
-              <span class="balance-value" :class="{ negative: m.leftoverCents < 0 }">{{ formatCurrency(m.leftoverCents, summary.currency) }}</span>
-            </div>
-            <div class="balance-card balance-total">
-              <span class="balance-label">Household</span>
-              <span class="balance-value" :class="{ negative: householdLeftover < 0 }">{{ formatCurrency(householdLeftover, summary.currency) }}</span>
-            </div>
-          </section>
+        <IncomePage v-if="page === 'income'"
+          :members="members" :incomeSources="incomeSources" :currency="summary.currency"
+          :showForm="showIncomeForm" :newSourceMemberId="newSourceMemberId" :newSourceName="newSourceName"
+          :newSourceAmount="newSourceAmount" :newSourceEffectiveFrom="newSourceEffectiveFrom"
+          :newSourceRestricted="newSourceRestricted" :newSourceOneOff="newSourceOneOff"
+          :editingSourceId="editingSourceId" :editingSourceAmount="editingSourceAmount" :editingSourceEffectiveFrom="editingSourceEffectiveFrom"
+          :endingSourceEffectiveFrom="endingSourceEffectiveFrom" :endingSource="endingSource"
+          :sourcesForMember="sourcesForMember" :latestAmount="latestAmount" :formatCurrency="formatCurrency"
+          @toggleForm="showIncomeForm = !showIncomeForm" @submitIncome="submitIncomeSource"
+          @startEdit="startEditSource" @commitEdit="commitEditSource"
+          @endSource="(id, eff) => endSource(id, eff)" @cancelEdit="editingSourceId = null"
+          @cancelEnd="endingSource = null" @startEndSource="(id) => endingSource = id"
+          @update:newSourceMemberId="(v) => newSourceMemberId = v" @update:newSourceName="(v) => newSourceName = v"
+          @update:newSourceAmount="(v) => newSourceAmount = v" @update:newSourceEffectiveFrom="(v) => newSourceEffectiveFrom = v"
+          @update:newSourceRestricted="(v) => newSourceRestricted = v" @update:newSourceOneOff="(v) => newSourceOneOff = v"
+          @update:editingSourceAmount="(v) => editingSourceAmount = v" @update:editingSourceEffectiveFrom="(v) => editingSourceEffectiveFrom = v"
+          @update:endingSourceEffectiveFrom="(id, v) => endingSourceEffectiveFrom[id] = v"
+        />
 
-          <section class="overview-grid">
-            <div class="card">
-              <h3 class="card-label">Active expenses</h3>
-              <ul class="ov-list">
-                <li v-for="e in activeExpenses()" :key="e.id" class="ov-row">
-                  <span :class="{ pending: !expenseHasAmount(e.id) }">{{ e.name }}</span>
-                  <span v-if="expenseHasAmount(e.id)">{{ formatCurrency(expenseAmountCents(e.id)!, summary.currency) }}</span>
-                  <span v-else class="pending-badge">pending</span>
-                  <span class="muted" style="font-size:11px">{{ e.participants.map(memberName).join(', ') }}</span>
-                </li>
-                <li v-if="activeExpenses().length === 0" class="ov-empty">No active expenses</li>
-              </ul>
-            </div>
-            <div class="card">
-              <h3 class="card-label">Goal progress</h3>
-              <ul class="ov-list">
-                <li v-for="gp in summary.goalProgress" :key="gp.goalId" class="ov-row">
-                  <svg class="orbit-ring" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="none" stroke="#262A38" stroke-width="3" /><circle cx="16" cy="16" r="13" fill="none" stroke="#7DC9E8" stroke-width="3" stroke-dasharray="81.7" :stroke-dashoffset="81.7 * (1 - goalProgressPercent(gp) / 100)" stroke-linecap="round" transform="rotate(-90 16 16)" /></svg>
-                  <span>{{ gp.goalName }}</span>
-                  <span class="muted" style="font-size:11px">{{ (goals.find(g => g.id === gp.goalId)?.participants ?? []).map(memberName).join(', ') }}</span>
-                  <span class="gp-pct">{{ goalProgressPercent(gp) }}%</span>
-                </li>
-                <li v-if="summary.goalProgress.length === 0" class="ov-empty">No goals yet</li>
-              </ul>
-            </div>
-          </section>
+        <ExpensesPage v-if="page === 'expenses'"
+          :members="members" :expenses="expenses" :currency="summary.currency" :displayMonth="displayMonth"
+          :showForm="showExpenseForm" :newExpenseName="newExpenseName" :newExpenseParticipants="newExpenseParticipants"
+          :newExpenseSplitRule="newExpenseSplitRule" :newExpenseCustomMode="newExpenseCustomMode" :newExpenseCustomValues="newExpenseCustomValues"
+          :newExpenseOneOff="newExpenseOneOff" :newExpenseEffectiveFrom="newExpenseEffectiveFrom"
+          :expenseAmountValues="expenseAmountValues" :endingExpenseEffectiveFrom="endingExpenseEffectiveFrom"
+          :showChangeSplit="showChangeSplit" :changeSplitRule="changeSplitRule" :changeSplitEff="changeSplitEff"
+          :showChangeParticipants="showChangeParticipants" :changeParticipantsList="changeParticipantsList"
+          :changeParticipantsEff="changeParticipantsEff" :expandedExpense="expandedExpense" :endingExpense="endingExpense"
+          :activeExpenses="activeExpenses" :expenseHasAmount="expenseHasAmount" :expenseAmountCents="expenseAmountCents"
+          :expenseShares="expenseShares" :memberName="memberName" :backdateWarning="backdateWarning"
+          :formatCurrency="formatCurrency"
+          @toggleForm="showExpenseForm = !showExpenseForm" @submitExpense="submitExpense"
+          @submitExpenseAmount="submitExpenseAmount" @endExpense="endExpense"
+          @submitChangeSplit="submitChangeSplit" @submitChangeParticipants="submitChangeParticipants"
+          @toggleParticipant="(id) => { const i = newExpenseParticipants.indexOf(id); if (i >= 0) newExpenseParticipants.splice(i, 1); else newExpenseParticipants.push(id); }"
+          @update:newExpenseName="(v) => newExpenseName = v" @update:newExpenseSplitRule="(v) => newExpenseSplitRule = v"
+          @update:newExpenseCustomMode="(v) => newExpenseCustomMode = v" @update:newExpenseCustomValues="(id, v) => newExpenseCustomValues[id] = v"
+          @update:newExpenseOneOff="(v) => newExpenseOneOff = v" @update:newExpenseEffectiveFrom="(v) => newExpenseEffectiveFrom = v"
+          @update:expenseAmountValues="(id, v) => expenseAmountValues[id] = v" @update:endingExpenseEffectiveFrom="(id, v) => endingExpenseEffectiveFrom[id] = v"
+          @update:changeSplitRule="(v) => changeSplitRule = v" @update:changeSplitEff="(v) => changeSplitEff = v"
+          @update:changeParticipantsEff="(v) => changeParticipantsEff = v" @toggleChangeParticipants="(id, checked) => { if (checked) changeParticipantsList.push(id); else { const i = changeParticipantsList.indexOf(id); if (i >= 0) changeParticipantsList.splice(i, 1); } }"
+          @openChangeSplit="(id, rule) => { showChangeSplit = id; changeSplitRule = rule; changeSplitEff = ''; }"
+          @openChangeParticipants="(id, list) => { showChangeParticipants = id; changeParticipantsList = [...list]; changeParticipantsEff = ''; }"
+          @closeChangeSplit="showChangeSplit = null" @closeChangeParticipants="showChangeParticipants = null"
+          @toggleDetails="(id) => expandedExpense = expandedExpense === id ? null : id"
+          @startEndExpense="(id) => endingExpense = id" @cancelEndExpense="endingExpense = null"
+        />
 
-          <section class="card">
-            <h3 class="card-label">Leftover</h3>
-            <div class="leftover-row">
-              <div class="leftover-col" v-for="m in summary.members" :key="m.memberId">
-                <span class="lcol-name">{{ m.name }}</span>
-                <div class="lcol-line"><span>Income</span><span>{{ formatCurrency(m.incomeCents - m.restrictedCents, summary.currency) }}</span></div>
-                <div class="lcol-line" v-if="m.restrictedCents > 0"><span>Restricted</span><span class="muted">{{ formatCurrency(m.restrictedCents, summary.currency) }}</span></div>
-                <div class="lcol-line"><span>− Shares</span><span>{{ formatCurrency(m.totalCents, summary.currency) }}</span></div>
-                <div class="lcol-line" v-if="m.contributionCents > 0"><span>− Goals</span><span>{{ formatCurrency(m.contributionCents, summary.currency) }}</span></div>
-                <div class="lcol-divider"></div>
-                <div class="lcol-line lcol-result"><span>= Leftover</span><span>{{ formatCurrency(m.leftoverCents, summary.currency) }}</span></div>
-              </div>
-            </div>
-          </section>
-        </template>
+        <GoalsPage v-if="page === 'goals'"
+          :members="members" :goals="goals" :currency="summary.currency"
+          :showForm="showGoalForm" :newGoalName="newGoalName" :newGoalParticipants="newGoalParticipants"
+          :newGoalSplitRule="newGoalSplitRule" :newGoalTarget="newGoalTarget" :newGoalStartAmount="newGoalStartAmount"
+          :newGoalEffectiveFrom="newGoalEffectiveFrom" :goalContributionValues="goalContributionValues"
+          :endingGoalEffectiveFrom="endingGoalEffectiveFrom" :endingGoal="endingGoal"
+          :goalProgress="summary.goalProgress" :goalProgressPercent="goalProgressPercent"
+          :memberName="memberName" :formatCurrency="formatCurrency"
+          @toggleForm="showGoalForm = !showGoalForm" @submitGoal="submitGoal"
+          @submitGoalContribution="submitGoalContribution" @endGoal="endGoal"
+          @toggleGoalParticipant="(id) => { const i = newGoalParticipants.indexOf(id); if (i >= 0) newGoalParticipants.splice(i, 1); else newGoalParticipants.push(id); }"
+          @update:newGoalName="(v) => newGoalName = v" @update:newGoalSplitRule="(v) => newGoalSplitRule = v"
+          @update:newGoalTarget="(v) => newGoalTarget = v" @update:newGoalStartAmount="(v) => newGoalStartAmount = v"
+          @update:newGoalEffectiveFrom="(v) => newGoalEffectiveFrom = v"
+          @update:goalContributionValues="(id, v) => goalContributionValues[id] = v"
+          @update:endingGoalEffectiveFrom="(id, v) => endingGoalEffectiveFrom[id] = v"
+          @startEndGoal="(id) => endingGoal = id" @cancelEndGoal="endingGoal = null"
+        />
 
-        <!-- ========== INCOME ========== -->
-        <template v-if="page === 'income'">
-          <div class="page-header"><h2>Income</h2><button @click="showIncomeForm = !showIncomeForm" class="btn-accent">{{ showIncomeForm ? 'Cancel' : '+ Add' }}</button></div>
-          <form v-if="showIncomeForm" @submit.prevent="submitIncomeSource" class="add-form">
-            <select v-model="newSourceMemberId" class="input"><option value="" disabled>Member</option><option v-for="m in members" :key="m.id" :value="m.id">{{ m.name }}</option></select>
-            <input v-model="newSourceName" placeholder="Source name" class="input" />
-            <input v-model="newSourceAmount" placeholder="Amount" type="number" step="0.01" min="0" class="input" />
-            <input v-model="newSourceEffectiveFrom" placeholder="From YYYY-MM" class="input input-sm" />
-            <label class="check"><input type="checkbox" v-model="newSourceRestricted" /> Restricted</label>
-            <label class="check"><input type="checkbox" v-model="newSourceOneOff" /> One-off</label>
-            <button type="submit" class="btn-accent">Save</button>
-          </form>
-          <div v-for="m in members" :key="m.id" class="card">
-            <h3 class="card-label" v-if="sourcesForMember(m.id).length > 0">{{ m.name }}</h3>
-            <ul class="ov-list">
-              <li v-for="s in sourcesForMember(m.id)" :key="s.id" class="ov-row">
-                <template v-if="editingSourceId === s.id">
-                  <input v-model="editingSourceAmount" placeholder="Amount" class="input input-sm" />
-                  <input v-model="editingSourceEffectiveFrom" placeholder="From YYYY-MM" class="input input-sm" />
-                  <button @click="commitEditSource()" class="btn-ghost">Save</button>
-                  <button @click="editingSourceId = null" class="btn-ghost">Cancel</button>
-                </template>
-                <template v-else>
-                  <span :class="{ ended: s.endedFrom }">{{ s.name }}</span>
-                  <span>{{ formatCurrency(latestAmount(s), summary.currency) }}</span>
-                  <span v-if="s.restrictedUse" class="tag">restricted</span>
-                  <button @click="startEditSource(s)" class="btn-ghost">Update</button>
-                  <template v-if="s.endedFrom === undefined">
-                    <template v-if="endingSource === s.id">
-                      <input v-model="endingSourceEffectiveFrom[s.id]" placeholder="End YYYY-MM" size="7" class="input input-xs" />
-                      <button @click="endSource(s.id, endingSourceEffectiveFrom[s.id] ?? currentMonth()); endingSource = null" class="btn-ghost danger">Confirm End</button>
-                      <button @click="endingSource = null" class="btn-ghost">Cancel</button>
-                    </template>
-                    <button v-else @click="endingSource = s.id" class="btn-ghost danger">End</button>
-                  </template>
-                </template>
-              </li>
-            </ul>
-          </div>
-        </template>
-
-        <!-- ========== EXPENSES ========== -->
-        <template v-if="page === 'expenses'">
-          <div class="page-header"><h2>Expenses</h2><button @click="showExpenseForm = !showExpenseForm" class="btn-accent">{{ showExpenseForm ? 'Cancel' : '+ Add' }}</button></div>
-          <form v-if="showExpenseForm" @submit.prevent="submitExpense" class="add-form">
-            <input v-model="newExpenseName" placeholder="Expense name" class="input" />
-            <fieldset class="check-group"><legend>Participants</legend><label v-for="m in members" :key="m.id" class="check"><input type="checkbox" :value="m.id" @change="toggleParticipant(m.id)" /> {{ m.name }}</label></fieldset>
-            <select v-model="newExpenseSplitRule" class="input"><option value="even">Even</option><option value="proportional">Proportional to Income</option><option value="custom">Custom</option></select>
-            <template v-if="newExpenseSplitRule === 'custom'">
-              <select v-model="newExpenseCustomMode" class="input input-sm"><option value="percent">Percent</option><option value="amount">Amount</option></select>
-              <div v-for="m in members" :key="m.id" class="cv-row"><label>{{ m.name }}</label><input type="number" :placeholder="newExpenseCustomMode === 'percent' ? '%' : '$'" min="0" :value="newExpenseCustomValues[m.id] ?? ''" class="input input-sm" @input="newExpenseCustomValues[m.id] = parseFloat(($event.target as HTMLInputElement).value) || 0" /></div>
-            </template>
-            <label class="check"><input type="checkbox" v-model="newExpenseOneOff" /> One-off</label>
-            <input v-model="newExpenseEffectiveFrom" placeholder="From YYYY-MM" class="input input-sm" />
-            <button type="submit" class="btn-accent">Save</button>
-          </form>
-          <div class="card" v-if="activeExpenses().length > 0">
-            <h3 class="card-label">Active this Month</h3>
-            <ul class="ov-list">
-              <li v-for="e in activeExpenses()" :key="e.id" class="ov-row exp-row" :class="{ pending: !expenseHasAmount(e.id) }">
-                <div class="exp-main"><span :class="{ ended: e.endedFrom }">{{ e.name }}</span><span v-if="expenseHasAmount(e.id)" class="exp-amt">{{ formatCurrency(expenseAmountCents(e.id)!, summary.currency) }}</span><span v-else class="pending-badge">pending</span><span class="muted">{{ e.splitRule.method === 'proportional' ? 'proportional' : e.splitRule.method }}</span><span class="muted">&bull;</span><span class="muted">{{ e.participants.map(memberName).join(', ') }}</span><button @click="expandedExpense = expandedExpense === e.id ? null : e.id" class="btn-ghost">{{ expandedExpense === e.id ? 'Hide' : 'Details' }}</button></div>
-                <div v-if="expandedExpense === e.id" class="exp-det">
-                  <div v-if="expenseShares(e.id).length > 0"><div v-for="s in expenseShares(e.id)" :key="s.memberId" class="share-row"><span>{{ s.name }}</span><span>{{ formatCurrency(s.amountCents, summary.currency) }}</span></div><div class="share-row share-total"><span>Total</span><span>{{ formatCurrency(expenseShares(e.id).reduce((sum, s) => sum + s.amountCents, 0), summary.currency) }}</span></div></div>
-                  <template v-if="!expenseHasAmount(e.id)"><input v-model="expenseAmountValues[e.id]" placeholder="$" type="number" step="0.01" min="0" class="input input-xs" /><button @click="submitExpenseAmount(e.id)" class="btn-accent">Save</button></template>
-                  <div v-if="e.endedFrom === undefined" class="exp-actions">
-                    <button @click="showChangeSplit = e.id; changeSplitRule = e.splitRule.method === 'even' ? 'even' : e.splitRule.method === 'proportional' ? 'proportional' : 'custom'; changeSplitEff = ''" class="btn-ghost">Change Split</button>
-                    <button @click="showChangeParticipants = e.id; changeParticipantsList = [...e.participants]; changeParticipantsEff = ''" class="btn-ghost">Change Participants</button>
-                    <template v-if="endingExpense === e.id">
-                      <input v-model="endingExpenseEffectiveFrom[e.id]" placeholder="End YYYY-MM" size="7" class="input input-xs" />
-                      <button @click="endExpense(e.id); endingExpense = null" class="btn-ghost danger">Confirm End</button>
-                      <button @click="endingExpense = null" class="btn-ghost">Cancel</button>
-                    </template>
-                    <button v-else @click="endingExpense = e.id" class="btn-ghost danger">End</button>
-                  </div>
-                  <div v-if="showChangeSplit === e.id" class="ch-form"><select v-model="changeSplitRule" class="input input-sm"><option value="even">Even</option><option value="proportional">Proportional</option></select> From <input v-model="changeSplitEff" placeholder="YYYY-MM" size="7" class="input input-xs" /><span v-if="backdateWarning(changeSplitEff)" class="pending-badge">{{ backdateWarning(changeSplitEff) }}</span><button @click="submitChangeSplit(e.id)" class="btn-accent">Confirm</button><button @click="showChangeSplit = null" class="btn-ghost">Cancel</button></div>
-                  <div v-if="showChangeParticipants === e.id" class="ch-form"><label v-for="m in members" :key="m.id" class="check"><input type="checkbox" :checked="changeParticipantsList.includes(m.id)" @change="changeParticipantsList.includes(m.id) ? changeParticipantsList = changeParticipantsList.filter(i => i !== m.id) : changeParticipantsList.push(m.id)" /> {{ m.name }}</label> From <input v-model="changeParticipantsEff" placeholder="YYYY-MM" size="7" class="input input-xs" /><span v-if="backdateWarning(changeParticipantsEff)" class="pending-badge">{{ backdateWarning(changeParticipantsEff) }}</span><button @click="submitChangeParticipants(e.id)" class="btn-accent">Confirm</button><button @click="showChangeParticipants = null" class="btn-ghost">Cancel</button></div>
-                </div>
-              </li>
-            </ul>
-          </div>
-        </template>
-
-        <!-- ========== GOALS ========== -->
-        <template v-if="page === 'goals'">
-          <div class="page-header"><h2>Goals</h2><button @click="showGoalForm = !showGoalForm" class="btn-accent">{{ showGoalForm ? 'Cancel' : '+ Add' }}</button></div>
-          <form v-if="showGoalForm" @submit.prevent="submitGoal" class="add-form">
-            <input v-model="newGoalName" placeholder="Goal name" class="input" />
-            <fieldset class="check-group"><legend>Participants</legend><label v-for="m in members" :key="m.id" class="check"><input type="checkbox" :value="m.id" @change="toggleGoalParticipant(m.id)" /> {{ m.name }}</label></fieldset>
-            <select v-model="newGoalSplitRule" class="input"><option value="even">Even</option><option value="proportional">Proportional</option></select>
-            <input v-model="newGoalTarget" placeholder="Target amount (optional)" type="number" step="0.01" min="0" class="input" />
-            <input v-model="newGoalStartAmount" placeholder="Start amount (optional)" type="number" step="0.01" min="0" class="input" />
-            <input v-model="newGoalEffectiveFrom" placeholder="From YYYY-MM" class="input input-sm" />
-            <button type="submit" class="btn-accent">Save</button>
-          </form>
-          <div class="card" v-if="summary.goalProgress.length > 0">
-            <h3 class="card-label">Progress</h3>
-            <ul class="ov-list">
-              <li v-for="gp in summary.goalProgress" :key="gp.goalId" class="ov-row">
-                <svg class="orbit-ring" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="none" stroke="#262A38" stroke-width="3" /><circle cx="16" cy="16" r="13" fill="none" stroke="#7DC9E8" stroke-width="3" stroke-dasharray="81.7" :stroke-dashoffset="81.7 * (1 - goalProgressPercent(gp) / 100)" stroke-linecap="round" transform="rotate(-90 16 16)" /></svg>
-                <span>{{ gp.goalName }}</span>
-                <span>{{ formatCurrency(gp.accumulatedCents, summary.currency) }}<template v-if="gp.targetAmountCents !== undefined"> / {{ formatCurrency(gp.targetAmountCents, summary.currency) }}</template></span>
-                <span class="gp-pct">{{ goalProgressPercent(gp) }}%</span>
-              </li>
-            </ul>
-          </div>
-          <div class="card" v-if="goals.length > 0">
-            <h3 class="card-label">Manage</h3>
-            <ul class="ov-list">
-              <li v-for="g in goals" :key="g.id" class="ov-row">
-                <span :class="{ ended: g.endedFrom !== undefined }">{{ g.name }}</span>
-                <template v-if="g.endedFrom === undefined">
-                  <input v-model="goalContributionValues[g.id]" placeholder="$" type="number" step="0.01" min="0" class="input input-xs" /><button @click="submitGoalContribution(g.id)" class="btn-accent">Save</button>
-                  <template v-if="endingGoal === g.id">
-                    <input v-model="endingGoalEffectiveFrom[g.id]" placeholder="End YYYY-MM" size="7" class="input input-xs" />
-                    <button @click="endGoal(g.id); endingGoal = null" class="btn-ghost danger">Confirm End</button>
-                    <button @click="endingGoal = null" class="btn-ghost">Cancel</button>
-                  </template>
-                  <button v-else @click="endingGoal = g.id" class="btn-ghost danger">End</button>
-                </template>
-                <span v-else class="muted">ended {{ g.endedFrom }}</span>
-              </li>
-            </ul>
-          </div>
-        </template>
-
-        <!-- ========== MEMBERS ========== -->
-        <template v-if="page === 'members'">
-          <div class="page-header"><h2>Members</h2><button @click="showMemberForm = !showMemberForm" class="btn-accent">{{ showMemberForm ? 'Cancel' : '+ Add' }}</button></div>
-          <form v-if="showMemberForm" @submit.prevent="submitMember" class="add-form">
-            <input v-model="newMemberName" placeholder="Member name" class="input" />
-            <input v-model="newMemberJoinedFrom" placeholder="From YYYY-MM" size="7" class="input input-sm" />
-            <button type="submit" class="btn-accent">Save</button>
-          </form>
-          <div class="card">
-            <ul class="ov-list">
-              <li v-for="m in members" :key="m.id" class="ov-row">
-                <template v-if="editingMemberId === m.id">
-                  <input v-model="editingMemberName" class="input input-sm" /><button @click="commitRename(m.id)" class="btn-ghost">Save</button><button @click="cancelRename" class="btn-ghost">Cancel</button>
-                </template>
-                <template v-else>
-                  <span>{{ m.name }}</span>
-                  <span v-if="m.joinedFrom" class="muted">since {{ m.joinedFrom }}</span>
-                  <span v-if="m.departedFrom" class="tag ended">departed {{ m.departedFrom }}</span>
-                  <button @click="startRename(m)" class="btn-ghost">Rename</button>
-                  <template v-if="m.departedFrom === undefined">
-                    <template v-if="departingMember === m.id">
-                      <input v-model="departingMemberEffFrom[m.id]" placeholder="Depart YYYY-MM" size="7" class="input input-xs" />
-                      <button @click="departMember(m.id); departingMember = null" class="btn-ghost danger">Confirm Depart</button>
-                      <button @click="departingMember = null" class="btn-ghost">Cancel</button>
-                    </template>
-                    <button v-else @click="departingMember = m.id" class="btn-ghost danger">Depart</button>
-                  </template>
-                </template>
-              </li>
-            </ul>
-          </div>
-        </template>
-
+        <MembersPage v-if="page === 'members'"
+          :members="members" :showForm="showMemberForm" :newMemberName="newMemberName"
+          :newMemberJoinedFrom="newMemberJoinedFrom" :editingMemberId="editingMemberId"
+          :editingMemberName="editingMemberName" :departingMemberEffFrom="departingMemberEffFrom"
+          :departingMember="departingMember"
+          @toggleForm="showMemberForm = !showMemberForm" @submitMember="submitMember"
+          @departMember="departMember" @startRename="startRename" @commitRename="commitRename"
+          @cancelRename="editingMemberId = null"
+          @update:newMemberName="(v) => newMemberName = v" @update:newMemberJoinedFrom="(v) => newMemberJoinedFrom = v"
+          @update:editingMemberName="(v) => editingMemberName = v"
+          @update:departingMemberEffFrom="(id, v) => departingMemberEffFrom[id] = v"
+          @startDepart="(id) => departingMember = id" @cancelDepart="departingMember = null"
+        />
       </template>
     </main>
   </div>
 
-  <!-- Setup (before currency set) -->
   <div class="setup-outer" v-else-if="currency === null && !loading">
     <div class="card setup-card">
       <h2>Welcome to Prometheus</h2>
@@ -393,7 +241,6 @@ body { margin: 0; }
 .error-banner { background: rgba(248,113,113,0.12); color: var(--danger); padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; }
 .loading { color: var(--muted); padding: 40px; text-align: center; }
 
-/* month bar */
 .month-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
 .month-pill { display: flex; align-items: center; background: var(--card); border: 0.5px solid var(--border); border-radius: 10px; overflow: hidden; }
 .month-pill .chevron { all: unset; cursor: pointer; padding: 6px 10px; font-size: 18px; color: var(--text2); }
@@ -410,7 +257,6 @@ body { margin: 0; }
 .bar-spacer { flex: 1; }
 .pending-badge { font-size: 11px; background: rgba(232,147,92,0.12); color: var(--accent); padding: 4px 10px; border-radius: 8px; font-weight: 500; }
 
-/* balance cards */
 .balance-row { display: flex; gap: 12px; margin-bottom: 20px; }
 .balance-card { flex: 1; background: var(--card); border-radius: var(--radius); padding: 16px 20px; display: flex; flex-direction: column; gap: 4px; border: 0.5px solid var(--border); }
 .balance-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
@@ -418,7 +264,6 @@ body { margin: 0; }
 .balance-value.negative { color: var(--danger); }
 .balance-total .balance-value { color: var(--accent); }
 
-/* cards */
 .overview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
 .card { background: var(--card); border-radius: var(--radius); padding: 20px; border: 0.5px solid var(--border); margin-bottom: 16px; }
 .card-label { font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 12px; }
@@ -432,12 +277,10 @@ body { margin: 0; }
 .tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: rgba(139,146,165,0.12); color: var(--text2); }
 .tag.ended { background: rgba(139,146,165,0.06); }
 
-/* orbit ring */
 .orbit-ring { width: 24px; height: 24px; flex-shrink: 0; }
 .orbit-ring circle:last-child { transition: stroke-dashoffset 0.6s ease; }
 .gp-pct { margin-left: auto; font-size: 12px; color: var(--ice); font-weight: 500; }
 
-/* leftover */
 .leftover-row { display: flex; gap: 24px; flex-wrap: wrap; }
 .leftover-col { flex: 1; min-width: 200px; }
 .lcol-name { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px; }
@@ -447,10 +290,9 @@ body { margin: 0; }
 .lcol-divider { height: 0.5px; background: var(--border); margin: 6px 0; }
 .lcol-result { font-weight: 500; }
 .lcol-result span:last-child { color: var(--accent); }
-.muted { color: var(--muted); }
 .lcol-line .muted { color: var(--muted); }
+.muted { color: var(--muted); }
 
-/* pages */
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .page-header h2 { margin: 0; font-size: 18px; font-weight: 500; }
 .add-form { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 0 0 16px; margin-bottom: 16px; border-bottom: 0.5px solid var(--border); }
@@ -484,7 +326,6 @@ select.input { color: var(--text); }
 .share-total { border-top: 0.5px solid var(--border); margin-top: 2px; padding-top: 4px; font-weight: 500; }
 .ch-form { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
 
-/* setup */
 .setup-outer { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
 .setup-card { max-width: 400px; }
 .setup-card h2 { margin: 0 0 4px; font-weight: 500; }
