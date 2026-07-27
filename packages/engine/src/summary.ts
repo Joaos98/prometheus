@@ -2,16 +2,21 @@ import type {
   Expense,
   Household,
   MemberSummary,
+  Month,
   MonthlySummary,
   Share,
 } from "./types.js";
 
 export function computeMonthlySummary(
   household: Household,
-  month: string,
+  month: Month,
 ): MonthlySummary {
   const activeExpenses = household.expenses.filter(
     (e) => e.effectiveFrom <= month,
+  );
+
+  const memberOrder = new Map<string, number>(
+    household.members.map((member, index) => [member.id, index]),
   );
 
   const sharesByMember = new Map<string, Share[]>();
@@ -25,7 +30,12 @@ export function computeMonthlySummary(
     );
     if (!amount) continue;
 
-    const shares = splitEvenly(amount.amountCents, expense.participants);
+    const orderedParticipants = [...expense.participants].sort(
+      (a, b) =>
+        (memberOrder.get(a) ?? Number.MAX_SAFE_INTEGER) -
+        (memberOrder.get(b) ?? Number.MAX_SAFE_INTEGER),
+    );
+    const shares = splitEvenly(amount.amountCents, orderedParticipants);
     for (const [memberId, amountCents] of shares) {
       sharesByMember.get(memberId)?.push({
         expenseId: expense.id,
@@ -51,8 +61,9 @@ export function computeMonthlySummary(
 /**
  * Divides an amount into integer-cent Shares, one per participant, using
  * largest-remainder apportionment: leftover cents go one each to the first
- * participants in household member order. Shares always sum exactly to the
- * total, and identical inputs always produce identical outputs.
+ * participants in household member order (participants are pre-sorted by the
+ * caller). Shares always sum exactly to the total, and identical inputs
+ * always produce identical outputs.
  */
 function splitEvenly(
   amountCents: number,

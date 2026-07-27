@@ -37,7 +37,6 @@ const format = (cents: number, currency: string): string =>
             {{ format(share.amountCents, summary.currency) }}
           </li>
         </ul>
-        <p>Total: {{ format(member.totalCents, summary.currency) }}</p>
       </section>
     </template>
   </main>

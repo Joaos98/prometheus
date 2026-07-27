@@ -51,6 +51,20 @@ test("leftover cents are distributed to the first participants in member order, 
   expect(total).toBe(10001);
 });
 
+test("member order, not participants array order, decides who takes leftover cents", () => {
+  const reversed: Household = {
+    ...household,
+    expenses: [{ ...household.expenses[0]!, participants: ["m2", "m1"] }],
+    expenseAmounts: [{ expenseId: "e1", month: "2026-07", amountCents: 10001 }],
+  };
+  const summary = computeMonthlySummary(reversed, "2026-07");
+
+  const ana = summary.members.find((m) => m.memberId === "m1");
+  const bruno = summary.members.find((m) => m.memberId === "m2");
+  expect(ana?.shares[0]?.amountCents).toBe(5001);
+  expect(bruno?.shares[0]?.amountCents).toBe(5000);
+});
+
 test("repeated computation of the same inputs produces identical results", () => {
   const first = computeMonthlySummary(household, "2026-07");
   const second = computeMonthlySummary(household, "2026-07");
