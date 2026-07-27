@@ -3,11 +3,13 @@ import Database from "better-sqlite3";
 import type {
   Expense,
   ExpenseAmount,
+  GoalContribution,
   Household,
   IncomeSource,
   IncomeSourceEntry,
   Member,
   Month,
+  SavingsGoal,
   SplitRule,
 } from "@prometheus/engine";
 import type { DataStore } from "./store.js";
@@ -31,6 +33,7 @@ export class SqliteStore implements DataStore {
         id TEXT PRIMARY KEY,
         member_id TEXT NOT NULL,
         name TEXT NOT NULL,
+        restricted_use INTEGER NOT NULL DEFAULT 0,
         ended_from TEXT
       );
       CREATE TABLE IF NOT EXISTS income_source_entries (
@@ -48,6 +51,22 @@ export class SqliteStore implements DataStore {
         participants TEXT NOT NULL,
         position INTEGER NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS goals (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        effective_from TEXT NOT NULL,
+        ended_from TEXT,
+        target_amount_cents INTEGER,
+        split_rule TEXT NOT NULL,
+        participants TEXT NOT NULL,
+        position INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS goal_contributions (
+        goal_id TEXT NOT NULL,
+        month TEXT NOT NULL,
+        amount_cents INTEGER NOT NULL,
+        PRIMARY KEY (goal_id, month)
+      );
       CREATE TABLE IF NOT EXISTS expense_amounts (
         expense_id TEXT NOT NULL,
         month TEXT NOT NULL,
@@ -60,6 +79,11 @@ export class SqliteStore implements DataStore {
 
   private migrate(): void {
     this.addColumnIfMissing("expenses", "ended_from", "TEXT");
+    this.addColumnIfMissing(
+      "income_sources",
+      "restricted_use",
+      "INTEGER NOT NULL DEFAULT 0",
+    );
   }
 
   private addColumnIfMissing(
@@ -125,15 +149,16 @@ export class SqliteStore implements DataStore {
     name: string,
     amountCents: number,
     effectiveFrom: Month,
+    restrictedUse = false,
   ): IncomeSource {
     const id = randomUUID();
     const insert = this.db.transaction(
       (): void => {
         this.db
           .prepare(
-            "INSERT INTO income_sources (id, member_id, name) VALUES (?, ?, ?)",
+            "INSERT INTO income_sources (id, member_id, name, restricted_use) VALUES (?, ?, ?, ?)",
           )
-          .run(id, memberId, name);
+          .run(id, memberId, name, restrictedUse ? 1 : 0);
         this.db
           .prepare(
             "INSERT INTO income_source_entries (source_id, amount_cents, effective_from) VALUES (?, ?, ?)",
@@ -147,18 +172,20 @@ export class SqliteStore implements DataStore {
       memberId,
       name,
       timeline: [{ amountCents, effectiveFrom }],
+      ...(restrictedUse ? { restrictedUse: true } : {}),
     };
   }
 
   getIncomeSources(): IncomeSource[] {
     const sourceRows = this.db
       .prepare(
-        "SELECT id, member_id, name, ended_from FROM income_sources ORDER BY id",
+        "SELECT id, member_id, name, restricted_use, ended_from FROM income_sources ORDER BY id",
       )
       .all() as Array<{
       id: string;
       member_id: string;
       name: string;
+      restricted_use: number;
       ended_from: string | null;
     }>;
     const entryRows = this.db
@@ -186,6 +213,7 @@ export class SqliteStore implements DataStore {
       memberId: row.member_id,
       name: row.name,
       timeline: entriesBySource.get(row.id) ?? [],
+      ...(row.restricted_use ? { restrictedUse: true } : {}),
       ...(row.ended_from ? { endedFrom: row.ended_from } : {}),
     }));
   }
@@ -343,6 +371,104 @@ export class SqliteStore implements DataStore {
     }));
   }
 
+  addGoal(
+    name: string,
+    participants: string[],
+    splitRule: SplitRule,
+    targetAmountCents: number | undefined,
+    effectiveFrom: Month,
+  ): SavingsGoal {
+    const id = randomUUID();
+    const maxPos = (
+      this.db
+        .prepare("SELECT COALESCE(MAX(position), -1) AS maxPos FROM goals")
+        .get() as { maxPos: number }
+    ).maxPos;
+    this.db
+      .prepare(
+        "INSERT INTO goals (id, name, effective_from, target_amount_cents, split_rule, participants, position) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run(
+        id,
+        name,
+        effectiveFrom,
+        targetAmountCents ?? null,
+        JSON.stringify(splitRule),
+        JSON.stringify(participants),
+        maxPos + 1,
+      );
+    return {
+      id,
+      name,
+      participants,
+      splitRule,
+      effectiveFrom,
+      ...(targetAmountCents !== undefined ? { targetAmountCents } : {}),
+    };
+  }
+
+  getGoals(): SavingsGoal[] {
+    const rows = this.db
+      .prepare(
+        "SELECT id, name, effective_from, ended_from, target_amount_cents, split_rule, participants FROM goals ORDER BY position",
+      )
+      .all() as Array<{
+      id: string;
+      name: string;
+      effective_from: string;
+      ended_from: string | null;
+      target_amount_cents: number | null;
+      split_rule: string;
+      participants: string;
+    }>;
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      effectiveFrom: row.effective_from,
+      ...(row.ended_from ? { endedFrom: row.ended_from } : {}),
+      ...(row.target_amount_cents !== null
+        ? { targetAmountCents: row.target_amount_cents }
+        : {}),
+      splitRule: JSON.parse(row.split_rule) as SplitRule,
+      participants: JSON.parse(row.participants) as string[],
+    }));
+  }
+
+  endGoal(id: string, effectiveFrom: Month): void {
+    this.db
+      .prepare("UPDATE goals SET ended_from = ? WHERE id = ?")
+      .run(effectiveFrom, id);
+  }
+
+  setGoalContribution(
+    goalId: string,
+    month: Month,
+    amountCents: number,
+  ): void {
+    this.db
+      .prepare(
+        "INSERT OR REPLACE INTO goal_contributions (goal_id, month, amount_cents) VALUES (?, ?, ?)",
+      )
+      .run(goalId, month, amountCents);
+  }
+
+  getGoalContributions(): GoalContribution[] {
+    const rows = this.db
+      .prepare(
+        "SELECT goal_id, month, amount_cents FROM goal_contributions ORDER BY goal_id, month",
+      )
+      .all() as Array<{
+      goal_id: string;
+      month: string;
+      amount_cents: number;
+    }>;
+    return rows.map((row) => ({
+      goalId: row.goal_id,
+      month: row.month,
+      amountCents: row.amount_cents,
+    }));
+  }
+
   getHousehold(): Household {
     const householdRow = this.db
       .prepare("SELECT currency FROM household WHERE id = 1")
@@ -351,6 +477,8 @@ export class SqliteStore implements DataStore {
     const members = this.getMembers();
 
     const incomeSources = this.getIncomeSources();
+    const goals = this.getGoals();
+    const goalContributions = this.getGoalContributions();
 
     const expenseRows = this.db
       .prepare(
@@ -392,6 +520,8 @@ export class SqliteStore implements DataStore {
       currency: householdRow?.currency ?? "USD",
       members,
       incomeSources,
+      goals,
+      goalContributions,
       expenses,
       expenseAmounts,
     };
@@ -400,7 +530,7 @@ export class SqliteStore implements DataStore {
   replaceHousehold(household: Household): void {
     const replace = this.db.transaction((h: Household): void => {
       this.db.exec(
-        "DELETE FROM expense_amounts; DELETE FROM expenses; DELETE FROM income_source_entries; DELETE FROM income_sources; DELETE FROM members; DELETE FROM household;",
+        "DELETE FROM goal_contributions; DELETE FROM goals; DELETE FROM expense_amounts; DELETE FROM expenses; DELETE FROM income_source_entries; DELETE FROM income_sources; DELETE FROM members; DELETE FROM household;",
       );
 
       this.db
@@ -415,7 +545,7 @@ export class SqliteStore implements DataStore {
       });
 
       const insertSource = this.db.prepare(
-        "INSERT INTO income_sources (id, member_id, name, ended_from) VALUES (?, ?, ?, ?)",
+        "INSERT INTO income_sources (id, member_id, name, restricted_use, ended_from) VALUES (?, ?, ?, ?, ?)",
       );
       const insertEntry = this.db.prepare(
         "INSERT INTO income_source_entries (source_id, amount_cents, effective_from) VALUES (?, ?, ?)",
@@ -425,6 +555,7 @@ export class SqliteStore implements DataStore {
           source.id,
           source.memberId,
           source.name,
+          source.restrictedUse ? 1 : 0,
           source.endedFrom ?? null,
         );
         for (const entry of source.timeline) {
@@ -452,6 +583,29 @@ export class SqliteStore implements DataStore {
       );
       for (const amount of h.expenseAmounts) {
         insertAmount.run(amount.expenseId, amount.month, amount.amountCents);
+      }
+
+      const insertGoal = this.db.prepare(
+        "INSERT INTO goals (id, name, effective_from, ended_from, target_amount_cents, split_rule, participants, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      );
+      h.goals.forEach((goal, index) => {
+        insertGoal.run(
+          goal.id,
+          goal.name,
+          goal.effectiveFrom,
+          goal.endedFrom ?? null,
+          goal.targetAmountCents ?? null,
+          JSON.stringify(goal.splitRule),
+          JSON.stringify(goal.participants),
+          index,
+        );
+      });
+
+      const insertContribution = this.db.prepare(
+        "INSERT INTO goal_contributions (goal_id, month, amount_cents) VALUES (?, ?, ?)",
+      );
+      for (const c of h.goalContributions) {
+        insertContribution.run(c.goalId, c.month, c.amountCents);
       }
     });
 

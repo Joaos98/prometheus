@@ -19,6 +19,8 @@ const household: Household = {
     },
   ],
   expenseAmounts: [{ expenseId: "e1", month: "2026-07", amountCents: 150000 }],
+  goals: [],
+  goalContributions: [],
 };
 
 test("an even split divides the expense equally among its participants", () => {
@@ -247,7 +249,7 @@ test("an active expense with no amount for the Month is flagged as pending and c
   const summary = computeMonthlySummary(h, "2026-07");
 
   expect(summary.pendingExpenses).toEqual([
-    { expenseId: "e1", expenseName: "Rent" },
+    { itemId: "e1", itemName: "Rent" },
   ]);
   for (const member of summary.members) {
     expect(member.shares).toEqual([]);
@@ -452,7 +454,7 @@ test("when no participant has income, a proportional split falls back to even wi
   expect(ana.totalCents).toBe(50000);
   expect(bruno.totalCents).toBe(50000);
   expect(summary.fallbackExpenses).toEqual([
-    { expenseId: "e1", expenseName: "Rent" },
+    { itemId: "e1", itemName: "Rent" },
   ]);
 });
 
@@ -677,6 +679,8 @@ test("a one-off income source affects exactly its own Month and carries nothing 
     ],
     expenses: [],
     expenseAmounts: [],
+    goals: [],
+    goalContributions: [],
   };
 
   expect(
@@ -706,9 +710,104 @@ test("a one-off expense affects exactly its own Month and nothing before or afte
       },
     ],
     expenseAmounts: [{ expenseId: "repair", month: "2026-05", amountCents: 20000 }],
+    goals: [],
+    goalContributions: [],
   };
 
   expect(computeMonthlySummary(h, "2026-04").members[0]!.totalCents).toBe(0);
   expect(computeMonthlySummary(h, "2026-05").members[0]!.totalCents).toBe(20000);
   expect(computeMonthlySummary(h, "2026-06").members[0]!.totalCents).toBe(0);
+});
+
+test("proportional split uses Spendable Income, excluding restricted-use sources", () => {
+  const h: Household = {
+    currency: "USD",
+    members: [
+      { id: "m1", name: "Ana" },
+      { id: "m2", name: "Bruno" },
+    ],
+    incomeSources: [
+      {
+        id: "salary1",
+        memberId: "m1",
+        name: "Salary",
+        timeline: [{ amountCents: 500000, effectiveFrom: "2026-01" }],
+      },
+      {
+        id: "voucher",
+        memberId: "m1",
+        name: "Meal Voucher",
+        timeline: [{ amountCents: 80000, effectiveFrom: "2026-01" }],
+        restrictedUse: true,
+      },
+      {
+        id: "salary2",
+        memberId: "m2",
+        name: "Salary",
+        timeline: [{ amountCents: 400000, effectiveFrom: "2026-01" }],
+      },
+    ],
+    expenses: [
+      {
+        id: "e1",
+        name: "Rent",
+        participants: ["m1", "m2"],
+        splitRule: { method: "proportional" },
+        effectiveFrom: "2026-01",
+      },
+    ],
+    expenseAmounts: [{ expenseId: "e1", month: "2026-07", amountCents: 90000 }],
+    goals: [],
+    goalContributions: [],
+  };
+
+  const summary = computeMonthlySummary(h, "2026-07");
+  const ana = summary.members.find((m) => m.memberId === "m1")!;
+  const bruno = summary.members.find((m) => m.memberId === "m2")!;
+
+  // Ana: spendable=500000, Bruno: spendable=400000 → Ana 5/9, Bruno 4/9
+  expect(ana.incomeCents).toBe(580000); // total including restricted
+  expect(ana.restrictedCents).toBe(80000);
+  expect(ana.totalCents).toBe(50000); // 5/9 of 90000
+  expect(bruno.incomeCents).toBe(400000);
+  expect(bruno.restrictedCents).toBe(0);
+  expect(bruno.totalCents).toBe(40000); // 4/9 of 90000
+});
+
+test("Leftover Balance defaults to Spendable Income minus expense Shares", () => {
+  const h: Household = {
+    currency: "USD",
+    members: [{ id: "m1", name: "Ana" }],
+    incomeSources: [
+      {
+        id: "s1",
+        memberId: "m1",
+        name: "Salary",
+        timeline: [{ amountCents: 500000, effectiveFrom: "2026-01" }],
+      },
+      {
+        id: "v1",
+        memberId: "m1",
+        name: "Voucher",
+        timeline: [{ amountCents: 50000, effectiveFrom: "2026-01" }],
+        restrictedUse: true,
+      },
+    ],
+    expenses: [
+      {
+        id: "e1",
+        name: "Rent",
+        participants: ["m1"],
+        splitRule: { method: "even" },
+        effectiveFrom: "2026-01",
+      },
+    ],
+    expenseAmounts: [{ expenseId: "e1", month: "2026-07", amountCents: 300000 }],
+    goals: [],
+    goalContributions: [],
+  };
+
+  const summary = computeMonthlySummary(h, "2026-07");
+  const ana = summary.members[0]!;
+  expect(ana.leftoverCents).toBe(200000); // (500000 - 50000 restricted) - 300000
 });

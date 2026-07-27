@@ -17,6 +17,8 @@ const summary: MonthlySummary = {
       memberId: "m1",
       name: "Ana",
       incomeCents: 500000,
+      restrictedCents: 0,
+      contributionCents: 0,
       shares: [{ expenseId: "e1", expenseName: "Rent", amountCents: 75000 }],
       totalCents: 75000,
       leftoverCents: 425000,
@@ -25,13 +27,18 @@ const summary: MonthlySummary = {
       memberId: "m2",
       name: "Bruno",
       incomeCents: 400000,
+      restrictedCents: 0,
+      contributionCents: 0,
       shares: [{ expenseId: "e1", expenseName: "Rent", amountCents: 75000 }],
       totalCents: 75000,
       leftoverCents: 325000,
     },
   ],
   pendingExpenses: [],
+  pendingContributions: [],
   fallbackExpenses: [],
+  fallbackContributions: [],
+  goalProgress: [],
 };
 
 const memberList: Member[] = [

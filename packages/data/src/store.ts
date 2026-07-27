@@ -21,6 +21,7 @@ export interface DataStore {
     name: string,
     amountCents: number,
     effectiveFrom: Month,
+    restrictedUse?: boolean,
   ): IncomeSource;
   getIncomeSources(): IncomeSource[];
   updateIncomeSourceAmount(

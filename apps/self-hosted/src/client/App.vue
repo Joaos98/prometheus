@@ -5,7 +5,7 @@ import type {
   IncomeSource,
   Member,
   MonthlySummary,
-  PendingExpense,
+  PendingItem,
 } from "@prometheus/engine";
 import { onMounted, ref, watch } from "vue";
 
@@ -57,6 +57,8 @@ const newSourceName = ref("");
 const newSourceAmount = ref("");
 const newSourceEffectiveFrom = ref("");
 const newSourceOneOff = ref(false);
+const newSourceRestricted = ref(false);
+const includeRestricted = ref(false);
 const editingSourceId = ref<string | null>(null);
 const editingSourceAmount = ref("");
 const editingSourceEffectiveFrom = ref("");
@@ -227,12 +229,14 @@ async function submitIncomeSource(): Promise<void> {
       amountCents: Math.round(amountDollars * 100),
       effectiveFrom,
       oneOff: newSourceOneOff.value,
+      restrictedUse: newSourceRestricted.value,
     })) as IncomeSource;
     incomeSources.value = [...incomeSources.value, source];
     newSourceName.value = "";
     newSourceAmount.value = "";
     newSourceEffectiveFrom.value = "";
     newSourceOneOff.value = false;
+    newSourceRestricted.value = false;
   } catch (e) {
     appError.value = e instanceof Error ? e.message : String(e);
   }
@@ -511,6 +515,7 @@ const formatCurrency = (cents: number, curr: string): string =>
           <input v-model="newSourceAmount" placeholder="Amount" type="number" step="0.01" min="0" />
           <input v-model="newSourceEffectiveFrom" placeholder="From (YYYY-MM)" />
           <label><input type="checkbox" v-model="newSourceOneOff" /> One-off</label>
+          <label><input type="checkbox" v-model="newSourceRestricted" /> Restricted</label>
           <button type="submit">Add Income</button>
         </form>
       </section>
@@ -521,8 +526,8 @@ const formatCurrency = (cents: number, curr: string): string =>
         <div v-if="summary.pendingExpenses.length > 0">
           <h3>Pending (unentered this Month)</h3>
           <ul>
-            <li v-for="pe in summary.pendingExpenses" :key="pe.expenseId">
-              {{ pe.expenseName }}
+            <li v-for="pe in summary.pendingExpenses" :key="pe.itemId">
+              {{ pe.itemName }}
             </li>
           </ul>
         </div>
@@ -530,8 +535,8 @@ const formatCurrency = (cents: number, curr: string): string =>
         <div v-if="summary.fallbackExpenses.length > 0">
           <h3>Split Fallbacks (even substitute)</h3>
           <ul>
-            <li v-for="fe in summary.fallbackExpenses" :key="fe.expenseId">
-              {{ fe.expenseName }} — no participant had income; split evenly
+            <li v-for="fe in summary.fallbackExpenses" :key="fe.itemId">
+              {{ fe.itemName }} — no participant had income; split evenly
             </li>
           </ul>
         </div>
@@ -646,12 +651,20 @@ const formatCurrency = (cents: number, curr: string): string =>
 
       <section>
         <h2>Leftover</h2>
+        <label>
+          <input type="checkbox" v-model="includeRestricted" />
+          Include restricted income
+        </label>
         <section v-for="member in summary.members" :key="member.memberId">
           <h3>{{ member.name }}</h3>
+          <p v-if="member.restrictedCents > 0">
+            Restricted: {{ formatCurrency(member.restrictedCents, summary.currency) }}
+          </p>
           <p>
-            Income: {{ formatCurrency(member.incomeCents, summary.currency) }}
+            Income:
+            {{ formatCurrency(includeRestricted ? member.incomeCents : member.incomeCents - member.restrictedCents, summary.currency) }}
             − Shares: {{ formatCurrency(member.totalCents, summary.currency) }}
-            = {{ formatCurrency(member.leftoverCents, summary.currency) }}
+            = {{ formatCurrency(includeRestricted ? member.incomeCents - member.totalCents : member.leftoverCents, summary.currency) }}
           </p>
         </section>
       </section>

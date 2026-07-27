@@ -12,6 +12,8 @@ const household: Household = {
     { id: "m2", name: "Bruno" },
   ],
   incomeSources: [],
+  goals: [],
+  goalContributions: [],
   expenses: [
     {
       id: "e1",

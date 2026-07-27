@@ -98,6 +98,7 @@ app.post("/api/income-sources", (req, res) => {
     name,
     amountCents,
     effectiveFrom,
+    Boolean(req.body.restrictedUse),
   );
   if (req.body.oneOff) {
     store.endIncomeSource(source.id, nextMonth(effectiveFrom));

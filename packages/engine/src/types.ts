@@ -4,6 +4,10 @@ export type Month = string;
 export interface Member {
   id: string;
   name: string;
+  /** Members join and depart Effective From a Month. */
+  joinedFrom?: Month;
+  /** Members are never deleted — departed members remain in past Months. */
+  departedFrom?: Month;
 }
 
 export type SplitRule =
@@ -37,6 +41,31 @@ export interface Household {
   incomeSources: IncomeSource[];
   expenses: Expense[];
   expenseAmounts: ExpenseAmount[];
+  goals: SavingsGoal[];
+  goalContributions: GoalContribution[];
+}
+
+export interface SavingsGoal {
+  id: string;
+  name: string;
+  participants: string[];
+  splitRule: SplitRule;
+  effectiveFrom: Month;
+  endedFrom?: Month;
+  targetAmountCents?: number;
+}
+
+export interface GoalContribution {
+  goalId: string;
+  month: Month;
+  amountCents: number;
+}
+
+export interface GoalProgress {
+  goalId: string;
+  goalName: string;
+  targetAmountCents?: number;
+  accumulatedCents: number;
 }
 
 export interface IncomeSourceEntry {
@@ -51,6 +80,8 @@ export interface IncomeSource {
   timeline: IncomeSourceEntry[];
   /** If set, the source is not effective in or after this Month. */
   endedFrom?: Month;
+  /** Flagged once at setup; restricted-use income is excluded from spendable figures. */
+  restrictedUse?: boolean;
 }
 
 /** One Participant's Share of a single Expense for the Month. */
@@ -64,25 +95,30 @@ export interface MemberSummary {
   memberId: string;
   name: string;
   incomeCents: number;
+  restrictedCents: number;
   shares: Share[];
   totalCents: number;
+  contributionCents: number;
   leftoverCents: number;
 }
 
-export interface PendingExpense {
-  expenseId: string;
-  expenseName: string;
+export interface PendingItem {
+  itemId: string;
+  itemName: string;
 }
 
-export interface FallbackExpense {
-  expenseId: string;
-  expenseName: string;
+export interface FallbackItem {
+  itemId: string;
+  itemName: string;
 }
 
 export interface MonthlySummary {
   month: Month;
   currency: string;
   members: MemberSummary[];
-  pendingExpenses: PendingExpense[];
-  fallbackExpenses: FallbackExpense[];
+  goalProgress: GoalProgress[];
+  pendingExpenses: PendingItem[];
+  pendingContributions: PendingItem[];
+  fallbackExpenses: FallbackItem[];
+  fallbackContributions: FallbackItem[];
 }

@@ -1,7 +1,9 @@
 export type {
   Expense,
   ExpenseAmount,
-  FallbackExpense,
+  FallbackItem,
+  GoalContribution,
+  GoalProgress,
   Household,
   IncomeSource,
   IncomeSourceEntry,
@@ -9,7 +11,8 @@ export type {
   MemberSummary,
   Month,
   MonthlySummary,
-  PendingExpense,
+  PendingItem,
+  SavingsGoal,
   Share,
   SplitRule,
 } from "./types.js";
