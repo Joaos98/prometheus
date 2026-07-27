@@ -55,7 +55,7 @@ async function doEndGoal(id: string) { await props.api.endGoal(id, endingEffecti
     <div class="field"><span class="field-label">Target (optional)</span><input v-model="newGoalTarget" placeholder="0.00" type="number" step="0.01" min="0" class="input" /></div>
     <div class="field"><span class="field-label">Start amount (optional)</span><input v-model="newGoalStartAmount" placeholder="0.00" type="number" step="0.01" min="0" class="input" /></div>
     <div class="field"><span class="field-label">From</span><MonthPicker v-model="newGoalEffectiveFrom" placeholder="From" /></div>
-    <input v-model="newGoalCategory" list="goal-cats" placeholder="Category (optional)" class="input input-sm" />
+    <div class="field"><span class="field-label">Category (optional)</span><input v-model="newGoalCategory" list="goal-cats" placeholder="e.g. Travel" class="input" /></div>
     <button type="submit" class="btn-accent">Save</button>
   </form>
   <div class="card" v-if="goalProgress.length > 0">

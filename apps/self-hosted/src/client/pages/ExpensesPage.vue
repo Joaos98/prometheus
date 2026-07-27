@@ -70,7 +70,7 @@ function openChangeParticipants(e: Expense) { showChangeParticipants.value = e.i
       <div v-for="m in members" :key="m.id" class="cv-row"><label>{{ m.name }}</label><input type="number" :placeholder="newExpenseCustomMode === 'percent' ? '%' : '$'" min="0" :value="newExpenseCustomValues[m.id] ?? ''" class="input input-sm" @input="newExpenseCustomValues[m.id] = parseFloat(($event.target as HTMLInputElement).value) || 0" /></div>
     </template>
     <label class="check"><input type="checkbox" v-model="newExpenseOneOff" /> One-off <InfoTip tip="Applies to a single month only; does not carry forward." /></label>
-    <input v-model="newExpenseCategory" list="expense-cats" placeholder="Category (optional)" class="input input-sm" />
+    <div class="field"><span class="field-label">Category (optional)</span><input v-model="newExpenseCategory" list="expense-cats" placeholder="e.g. Housing" class="input" /></div>
     <div class="field"><span class="field-label">From</span><MonthPicker v-model="newExpenseEffectiveFrom" placeholder="From" /></div>
     <button type="submit" class="btn-accent">Save</button>
   </form>

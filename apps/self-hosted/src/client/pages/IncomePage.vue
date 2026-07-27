@@ -59,7 +59,7 @@ async function endSource(id: string) { await props.api.endIncome(id, endingSourc
     <input v-model="newSourceName" placeholder="Source name" class="input" />
     <input v-model="newSourceAmount" placeholder="Amount" type="number" step="0.01" min="0" class="input" />
     <MonthPicker v-model="newSourceEffectiveFrom" placeholder="From" />
-    <input v-model="newSourceCategory" list="income-cats" placeholder="Category (optional)" class="input input-sm" />
+    <div class="field"><span class="field-label">Category (optional)</span><input v-model="newSourceCategory" list="income-cats" placeholder="e.g. Salary" class="input" /></div>
     <label class="check"><input type="checkbox" v-model="newSourceRestricted" /> Restricted <InfoTip tip="Excluded from spendable income and proportional split calculations; shown separately on the dashboard." /></label>
     <label class="check"><input type="checkbox" v-model="newSourceOneOff" /> One-off <InfoTip tip="Applies to a single month only; does not carry forward." /></label>
     <button type="submit" class="btn-accent">Save</button>
