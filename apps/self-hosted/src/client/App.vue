@@ -27,13 +27,14 @@ const householdIncome = computed(() => (summary.value?.members ?? []).reduce((s,
 const householdLeftover = computed(() => (summary.value?.members ?? []).reduce((s, m) => s + m.leftoverCents, 0));
 
 // --- member state ---
-const newMemberName = ref(""); const newMemberJoinedFrom = ref(""); const editingMemberId = ref<string | null>(null); const editingMemberName = ref(""); const departingMemberEffFrom = ref<Record<string, string>>({}); const showMemberForm = ref(false);
+const newMemberName = ref(""); const newMemberJoinedFrom = ref(""); const editingMemberId = ref<string | null>(null); const editingMemberName = ref(""); const departingMemberEffFrom = ref<Record<string, string>>({}); const showMemberForm = ref(false); const departingMember = ref<string | null>(null);
 // --- income state ---
 const newSourceMemberId = ref(""); const newSourceName = ref(""); const newSourceAmount = ref(""); const newSourceEffectiveFrom = ref(""); const newSourceRestricted = ref(false); const newSourceOneOff = ref(false); const editingSourceId = ref<string | null>(null); const editingSourceAmount = ref(""); const editingSourceEffectiveFrom = ref(""); const endingSourceEffectiveFrom = ref<Record<string, string>>({}); const showIncomeForm = ref(false);
+const endingSource = ref<string | null>(null);
 // --- expense state ---
-const newExpenseName = ref(""); const newExpenseParticipants = ref<string[]>([]); const newExpenseSplitRule = ref("even"); const newExpenseCustomMode = ref("percent"); const newExpenseCustomValues = ref<Record<string, number>>({}); const newExpenseOneOff = ref(false); const newExpenseEffectiveFrom = ref(""); const expenseAmountValues = ref<Record<string, string>>({}); const endingExpenseEffectiveFrom = ref<Record<string, string>>({}); const showChangeSplit = ref<string | null>(null); const changeSplitRule = ref("even"); const changeSplitEff = ref(""); const showChangeParticipants = ref<string | null>(null); const changeParticipantsList = ref<string[]>([]); const changeParticipantsEff = ref(""); const showExpenseForm = ref(false); const expandedExpense = ref<string | null>(null);
+const newExpenseName = ref(""); const newExpenseParticipants = ref<string[]>([]); const newExpenseSplitRule = ref("even"); const newExpenseCustomMode = ref("percent"); const newExpenseCustomValues = ref<Record<string, number>>({}); const newExpenseOneOff = ref(false); const newExpenseEffectiveFrom = ref(""); const expenseAmountValues = ref<Record<string, string>>({}); const endingExpenseEffectiveFrom = ref<Record<string, string>>({}); const showChangeSplit = ref<string | null>(null); const changeSplitRule = ref("even"); const changeSplitEff = ref(""); const showChangeParticipants = ref<string | null>(null); const changeParticipantsList = ref<string[]>([]); const changeParticipantsEff = ref(""); const showExpenseForm = ref(false); const expandedExpense = ref<string | null>(null); const endingExpense = ref<string | null>(null);
 // --- goal state ---
-const newGoalName = ref(""); const newGoalParticipants = ref<string[]>([]); const newGoalSplitRule = ref("even"); const newGoalTarget = ref(""); const newGoalStartAmount = ref(""); const newGoalEffectiveFrom = ref(""); const goalContributionValues = ref<Record<string, string>>({}); const endingGoalEffectiveFrom = ref<Record<string, string>>({}); const showGoalForm = ref(false);
+const newGoalName = ref(""); const newGoalParticipants = ref<string[]>([]); const newGoalSplitRule = ref("even"); const newGoalTarget = ref(""); const newGoalStartAmount = ref(""); const newGoalEffectiveFrom = ref(""); const goalContributionValues = ref<Record<string, string>>({}); const endingGoalEffectiveFrom = ref<Record<string, string>>({}); const showGoalForm = ref(false); const endingGoal = ref<string | null>(null);
 
 function shiftMonth(m: string, d: number): string { const [y, mn] = m.split("-").map(Number) as [number, number]; const t = y * 12 + (mn - 1) + d; return `${String(Math.floor(t / 12)).padStart(4, "0")}-${String((t % 12) + 1).padStart(2, "0")}`; }
 function goPrev() { displayMonth.value = shiftMonth(displayMonth.value, -1); }
@@ -153,6 +154,7 @@ async function endGoal(id: string) { const eff = endingGoalEffectiveFrom.value[i
                   <span :class="{ pending: !expenseHasAmount(e.id) }">{{ e.name }}</span>
                   <span v-if="expenseHasAmount(e.id)">{{ formatCurrency(expenseAmountCents(e.id)!, summary.currency) }}</span>
                   <span v-else class="pending-badge">pending</span>
+                  <span class="muted" style="font-size:11px">{{ e.participants.map(memberName).join(', ') }}</span>
                 </li>
                 <li v-if="activeExpenses().length === 0" class="ov-empty">No active expenses</li>
               </ul>
@@ -163,6 +165,7 @@ async function endGoal(id: string) { const eff = endingGoalEffectiveFrom.value[i
                 <li v-for="gp in summary.goalProgress" :key="gp.goalId" class="ov-row">
                   <svg class="orbit-ring" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="none" stroke="#262A38" stroke-width="3" /><circle cx="16" cy="16" r="13" fill="none" stroke="#7DC9E8" stroke-width="3" stroke-dasharray="81.7" :stroke-dashoffset="81.7 * (1 - goalProgressPercent(gp) / 100)" stroke-linecap="round" transform="rotate(-90 16 16)" /></svg>
                   <span>{{ gp.goalName }}</span>
+                  <span class="muted" style="font-size:11px">{{ (goals.find(g => g.id === gp.goalId)?.participants ?? []).map(memberName).join(', ') }}</span>
                   <span class="gp-pct">{{ goalProgressPercent(gp) }}%</span>
                 </li>
                 <li v-if="summary.goalProgress.length === 0" class="ov-empty">No goals yet</li>
@@ -206,13 +209,21 @@ async function endGoal(id: string) { const eff = endingGoalEffectiveFrom.value[i
                   <input v-model="editingSourceAmount" placeholder="Amount" class="input input-sm" />
                   <input v-model="editingSourceEffectiveFrom" placeholder="From YYYY-MM" class="input input-sm" />
                   <button @click="commitEditSource()" class="btn-ghost">Save</button>
+                  <button @click="editingSourceId = null" class="btn-ghost">Cancel</button>
                 </template>
                 <template v-else>
                   <span :class="{ ended: s.endedFrom }">{{ s.name }}</span>
                   <span>{{ formatCurrency(latestAmount(s), summary.currency) }}</span>
                   <span v-if="s.restrictedUse" class="tag">restricted</span>
                   <button @click="startEditSource(s)" class="btn-ghost">Update</button>
-                  <template v-if="s.endedFrom === undefined"><input v-model="endingSourceEffectiveFrom[s.id]" placeholder="End YYYY-MM" size="7" class="input input-xs" /><button @click="endSource(s.id, endingSourceEffectiveFrom[s.id] ?? currentMonth())" class="btn-ghost danger">End</button></template>
+                  <template v-if="s.endedFrom === undefined">
+                    <template v-if="endingSource === s.id">
+                      <input v-model="endingSourceEffectiveFrom[s.id]" placeholder="End YYYY-MM" size="7" class="input input-xs" />
+                      <button @click="endSource(s.id, endingSourceEffectiveFrom[s.id] ?? currentMonth()); endingSource = null" class="btn-ghost danger">Confirm End</button>
+                      <button @click="endingSource = null" class="btn-ghost">Cancel</button>
+                    </template>
+                    <button v-else @click="endingSource = s.id" class="btn-ghost danger">End</button>
+                  </template>
                 </template>
               </li>
             </ul>
@@ -238,17 +249,22 @@ async function endGoal(id: string) { const eff = endingGoalEffectiveFrom.value[i
             <h3 class="card-label">Active this Month</h3>
             <ul class="ov-list">
               <li v-for="e in activeExpenses()" :key="e.id" class="ov-row exp-row" :class="{ pending: !expenseHasAmount(e.id) }">
-                <div class="exp-main"><span :class="{ ended: e.endedFrom }">{{ e.name }}</span><span v-if="expenseHasAmount(e.id)" class="exp-amt">{{ formatCurrency(expenseAmountCents(e.id)!, summary.currency) }}</span><span v-else class="pending-badge">pending</span><span class="muted">{{ e.splitRule.method === 'proportional' ? 'prop' : e.splitRule.method }}</span><span class="muted">{{ e.participants.map(memberName).join(', ') }}</span><button @click="expandedExpense = expandedExpense === e.id ? null : e.id" class="btn-ghost">{{ expandedExpense === e.id ? 'Hide' : 'Details' }}</button></div>
+                <div class="exp-main"><span :class="{ ended: e.endedFrom }">{{ e.name }}</span><span v-if="expenseHasAmount(e.id)" class="exp-amt">{{ formatCurrency(expenseAmountCents(e.id)!, summary.currency) }}</span><span v-else class="pending-badge">pending</span><span class="muted">{{ e.splitRule.method === 'proportional' ? 'proportional' : e.splitRule.method }}</span><span class="muted">&bull;</span><span class="muted">{{ e.participants.map(memberName).join(', ') }}</span><button @click="expandedExpense = expandedExpense === e.id ? null : e.id" class="btn-ghost">{{ expandedExpense === e.id ? 'Hide' : 'Details' }}</button></div>
                 <div v-if="expandedExpense === e.id" class="exp-det">
                   <div v-if="expenseShares(e.id).length > 0"><div v-for="s in expenseShares(e.id)" :key="s.memberId" class="share-row"><span>{{ s.name }}</span><span>{{ formatCurrency(s.amountCents, summary.currency) }}</span></div><div class="share-row share-total"><span>Total</span><span>{{ formatCurrency(expenseShares(e.id).reduce((sum, s) => sum + s.amountCents, 0), summary.currency) }}</span></div></div>
                   <template v-if="!expenseHasAmount(e.id)"><input v-model="expenseAmountValues[e.id]" placeholder="$" type="number" step="0.01" min="0" class="input input-xs" /><button @click="submitExpenseAmount(e.id)" class="btn-accent">Save</button></template>
                   <div v-if="e.endedFrom === undefined" class="exp-actions">
                     <button @click="showChangeSplit = e.id; changeSplitRule = e.splitRule.method === 'even' ? 'even' : e.splitRule.method === 'proportional' ? 'proportional' : 'custom'; changeSplitEff = ''" class="btn-ghost">Change Split</button>
                     <button @click="showChangeParticipants = e.id; changeParticipantsList = [...e.participants]; changeParticipantsEff = ''" class="btn-ghost">Change Participants</button>
-                    <input v-model="endingExpenseEffectiveFrom[e.id]" placeholder="End YYYY-MM" size="7" class="input input-xs" /><button @click="endExpense(e.id)" class="btn-ghost danger">End</button>
+                    <template v-if="endingExpense === e.id">
+                      <input v-model="endingExpenseEffectiveFrom[e.id]" placeholder="End YYYY-MM" size="7" class="input input-xs" />
+                      <button @click="endExpense(e.id); endingExpense = null" class="btn-ghost danger">Confirm End</button>
+                      <button @click="endingExpense = null" class="btn-ghost">Cancel</button>
+                    </template>
+                    <button v-else @click="endingExpense = e.id" class="btn-ghost danger">End</button>
                   </div>
-                  <div v-if="showChangeSplit === e.id" class="ch-form"><select v-model="changeSplitRule" class="input input-sm"><option value="even">Even</option><option value="proportional">Proportional</option></select> From <input v-model="changeSplitEff" placeholder="YYYY-MM" size="7" class="input input-xs" /><span v-if="backdateWarning(changeSplitEff)" class="pending-badge">{{ backdateWarning(changeSplitEff) }}</span><button @click="submitChangeSplit(e.id)" class="btn-accent">Confirm</button></div>
-                  <div v-if="showChangeParticipants === e.id" class="ch-form"><label v-for="m in members" :key="m.id" class="check"><input type="checkbox" :checked="changeParticipantsList.includes(m.id)" @change="changeParticipantsList.includes(m.id) ? changeParticipantsList = changeParticipantsList.filter(i => i !== m.id) : changeParticipantsList.push(m.id)" /> {{ m.name }}</label> From <input v-model="changeParticipantsEff" placeholder="YYYY-MM" size="7" class="input input-xs" /><span v-if="backdateWarning(changeParticipantsEff)" class="pending-badge">{{ backdateWarning(changeParticipantsEff) }}</span><button @click="submitChangeParticipants(e.id)" class="btn-accent">Confirm</button></div>
+                  <div v-if="showChangeSplit === e.id" class="ch-form"><select v-model="changeSplitRule" class="input input-sm"><option value="even">Even</option><option value="proportional">Proportional</option></select> From <input v-model="changeSplitEff" placeholder="YYYY-MM" size="7" class="input input-xs" /><span v-if="backdateWarning(changeSplitEff)" class="pending-badge">{{ backdateWarning(changeSplitEff) }}</span><button @click="submitChangeSplit(e.id)" class="btn-accent">Confirm</button><button @click="showChangeSplit = null" class="btn-ghost">Cancel</button></div>
+                  <div v-if="showChangeParticipants === e.id" class="ch-form"><label v-for="m in members" :key="m.id" class="check"><input type="checkbox" :checked="changeParticipantsList.includes(m.id)" @change="changeParticipantsList.includes(m.id) ? changeParticipantsList = changeParticipantsList.filter(i => i !== m.id) : changeParticipantsList.push(m.id)" /> {{ m.name }}</label> From <input v-model="changeParticipantsEff" placeholder="YYYY-MM" size="7" class="input input-xs" /><span v-if="backdateWarning(changeParticipantsEff)" class="pending-badge">{{ backdateWarning(changeParticipantsEff) }}</span><button @click="submitChangeParticipants(e.id)" class="btn-accent">Confirm</button><button @click="showChangeParticipants = null" class="btn-ghost">Cancel</button></div>
                 </div>
               </li>
             </ul>
@@ -285,7 +301,12 @@ async function endGoal(id: string) { const eff = endingGoalEffectiveFrom.value[i
                 <span :class="{ ended: g.endedFrom !== undefined }">{{ g.name }}</span>
                 <template v-if="g.endedFrom === undefined">
                   <input v-model="goalContributionValues[g.id]" placeholder="$" type="number" step="0.01" min="0" class="input input-xs" /><button @click="submitGoalContribution(g.id)" class="btn-accent">Save</button>
-                  <input v-model="endingGoalEffectiveFrom[g.id]" placeholder="End YYYY-MM" size="7" class="input input-xs" /><button @click="endGoal(g.id)" class="btn-ghost danger">End</button>
+                  <template v-if="endingGoal === g.id">
+                    <input v-model="endingGoalEffectiveFrom[g.id]" placeholder="End YYYY-MM" size="7" class="input input-xs" />
+                    <button @click="endGoal(g.id); endingGoal = null" class="btn-ghost danger">Confirm End</button>
+                    <button @click="endingGoal = null" class="btn-ghost">Cancel</button>
+                  </template>
+                  <button v-else @click="endingGoal = g.id" class="btn-ghost danger">End</button>
                 </template>
                 <span v-else class="muted">ended {{ g.endedFrom }}</span>
               </li>
@@ -312,7 +333,14 @@ async function endGoal(id: string) { const eff = endingGoalEffectiveFrom.value[i
                   <span v-if="m.joinedFrom" class="muted">since {{ m.joinedFrom }}</span>
                   <span v-if="m.departedFrom" class="tag ended">departed {{ m.departedFrom }}</span>
                   <button @click="startRename(m)" class="btn-ghost">Rename</button>
-                  <template v-if="m.departedFrom === undefined"><input v-model="departingMemberEffFrom[m.id]" placeholder="Depart YYYY-MM" size="7" class="input input-xs" /><button @click="departMember(m.id)" class="btn-ghost danger">Depart</button></template>
+                  <template v-if="m.departedFrom === undefined">
+                    <template v-if="departingMember === m.id">
+                      <input v-model="departingMemberEffFrom[m.id]" placeholder="Depart YYYY-MM" size="7" class="input input-xs" />
+                      <button @click="departMember(m.id); departingMember = null" class="btn-ghost danger">Confirm Depart</button>
+                      <button @click="departingMember = null" class="btn-ghost">Cancel</button>
+                    </template>
+                    <button v-else @click="departingMember = m.id" class="btn-ghost danger">Depart</button>
+                  </template>
                 </template>
               </li>
             </ul>
