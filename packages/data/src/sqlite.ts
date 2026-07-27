@@ -270,6 +270,50 @@ export class SqliteStore implements DataStore {
       .run(effectiveFrom, id);
   }
 
+  private getExpenseById(id: string): Expense | undefined {
+    return this.getExpenses().find((e) => e.id === id);
+  }
+
+  changeExpenseSplitRule(
+    id: string,
+    splitRule: SplitRule,
+    effectiveFrom: Month,
+  ): Expense {
+    const old = this.getExpenseById(id);
+    if (!old) throw new Error("Expense not found");
+
+    const change = this.db.transaction((): Expense => {
+      this.endExpense(id, effectiveFrom);
+      return this.addExpense(
+        old.name,
+        old.participants,
+        splitRule,
+        effectiveFrom,
+      );
+    });
+    return change();
+  }
+
+  changeExpenseParticipants(
+    id: string,
+    participants: string[],
+    effectiveFrom: Month,
+  ): Expense {
+    const old = this.getExpenseById(id);
+    if (!old) throw new Error("Expense not found");
+
+    const change = this.db.transaction((): Expense => {
+      this.endExpense(id, effectiveFrom);
+      return this.addExpense(
+        old.name,
+        participants,
+        old.splitRule,
+        effectiveFrom,
+      );
+    });
+    return change();
+  }
+
   setExpenseAmount(
     expenseId: string,
     month: Month,

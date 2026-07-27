@@ -39,6 +39,16 @@ export interface DataStore {
   ): Expense;
   getExpenses(): Expense[];
   endExpense(id: string, effectiveFrom: Month): void;
+  changeExpenseSplitRule(
+    id: string,
+    splitRule: SplitRule,
+    effectiveFrom: Month,
+  ): Expense;
+  changeExpenseParticipants(
+    id: string,
+    participants: string[],
+    effectiveFrom: Month,
+  ): Expense;
   setExpenseAmount(
     expenseId: string,
     month: Month,

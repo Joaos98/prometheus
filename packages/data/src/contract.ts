@@ -283,5 +283,26 @@ export function runDataStoreContract(
       expect(second.getExpenseAmounts()[0]!.amountCents).toBe(152000);
       second.close();
     });
+
+    test("changeExpenseSplitRule ends the old expense and creates a new one with the new rule", () => {
+      const store = makeStore(freshPath());
+      const expense = store.addExpense("Rent", ["m1", "m2"], { method: "even" }, "2026-01");
+      const changed = store.changeExpenseSplitRule(expense.id, { method: "proportional" }, "2026-04");
+      const all = store.getExpenses();
+      expect(all).toHaveLength(2);
+      expect(all[0]!.endedFrom).toBe("2026-04");
+      expect(changed.splitRule).toEqual({ method: "proportional" });
+      expect(changed.effectiveFrom).toBe("2026-04");
+      store.close();
+    });
+
+    test("changeExpenseParticipants ends old expense and creates new one with new participants", () => {
+      const store = makeStore(freshPath());
+      const expense = store.addExpense("Rent", ["m1", "m2"], { method: "even" }, "2026-01");
+      const changed = store.changeExpenseParticipants(expense.id, ["m1"], "2026-06");
+      expect(changed.participants).toEqual(["m1"]);
+      expect(changed.effectiveFrom).toBe("2026-06");
+      store.close();
+    });
   });
 }

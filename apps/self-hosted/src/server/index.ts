@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { SqliteStore } from "@prometheus/data";
-import { computeMonthlySummary, validateCustomSplitRule, validateExpenseAmount } from "@prometheus/engine";
+import { computeMonthlySummary, type SplitRule, validateCustomSplitRule, validateExpenseAmount } from "@prometheus/engine";
 import express from "express";
 
 const currentMonth = (): string => new Date().toISOString().slice(0, 7);
@@ -192,6 +192,60 @@ app.post("/api/expenses/:id/amount", (req, res) => {
   }
   store.setExpenseAmount(req.params.id, month, amountCents);
   res.json({ expenseId: req.params.id, month, amountCents });
+});
+
+app.post("/api/expenses/:id/change-split", (req, res) => {
+  const { splitRule, effectiveFrom } = req.body as Record<string, unknown>;
+  if (!effectiveFrom || typeof effectiveFrom !== "string") {
+    res.status(400).json({ error: "effectiveFrom is required" });
+    return;
+  }
+  const rule = splitRule as { method: string };
+  const validMethods = ["even", "proportional", "custom"];
+  if (!rule || !validMethods.includes(rule.method)) {
+    res.status(400).json({ error: "invalid splitRule" });
+    return;
+  }
+  const validationError = validateCustomSplitRule(rule as never);
+  if (validationError) {
+    res.status(400).json({ error: validationError });
+    return;
+  }
+  try {
+    const expense = store.changeExpenseSplitRule(
+      req.params.id,
+      rule as SplitRule,
+      effectiveFrom,
+    );
+    res.json(expense);
+  } catch {
+    res.status(404).json({ error: "expense not found" });
+  }
+});
+
+app.post("/api/expenses/:id/change-participants", (req, res) => {
+  const { participants, effectiveFrom } = req.body as Record<
+    string,
+    unknown
+  >;
+  if (!Array.isArray(participants)) {
+    res.status(400).json({ error: "participants must be an array" });
+    return;
+  }
+  if (!effectiveFrom || typeof effectiveFrom !== "string") {
+    res.status(400).json({ error: "effectiveFrom is required" });
+    return;
+  }
+  try {
+    const expense = store.changeExpenseParticipants(
+      req.params.id,
+      participants as string[],
+      effectiveFrom,
+    );
+    res.json(expense);
+  } catch {
+    res.status(404).json({ error: "expense not found" });
+  }
 });
 
 app.get("/api/summary", (req, res) => {

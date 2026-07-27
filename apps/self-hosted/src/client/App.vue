@@ -68,6 +68,13 @@ const newExpenseCustomValues = ref<Record<string, number>>({});
 const newExpenseEffectiveFrom = ref("");
 const expenseAmountValues = ref<Record<string, string>>({});
 const endingExpenseEffectiveFrom = ref<Record<string, string>>({});
+const endingSourceEffectiveFrom = ref<Record<string, string>>({});
+const showChangeSplit = ref<string | null>(null);
+const changeSplitRule = ref("even");
+const changeSplitEff = ref("");
+const showChangeParticipants = ref<string | null>(null);
+const changeParticipantsList = ref<string[]>([]);
+const changeParticipantsEff = ref("");
 
 async function unwrapError(r: Response): Promise<never> {
   const body = (await r.json().catch(() => ({}))) as { error?: string };
@@ -316,10 +323,10 @@ async function commitEditSource(): Promise<void> {
   }
 }
 
-async function endSource(id: string): Promise<void> {
+async function endSource(id: string, effectiveFrom: string): Promise<void> {
   try {
     await request.post(`/api/income-sources/${id}/end`, {
-      effectiveFrom: currentMonth(),
+      effectiveFrom,
     });
     const data = (await request.get("/api/household")) as {
       incomeSources: IncomeSource[];
@@ -328,6 +335,49 @@ async function endSource(id: string): Promise<void> {
   } catch (e) {
     appError.value = e instanceof Error ? e.message : String(e);
   }
+}
+
+async function submitChangeSplit(expenseId: string): Promise<void> {
+  const eff = changeSplitEff.value.trim();
+  if (!eff) return;
+  try {
+    await request.post(`/api/expenses/${expenseId}/change-split`, {
+      splitRule: { method: changeSplitRule.value },
+      effectiveFrom: eff,
+    });
+    await reloadExpenseData();
+    await refreshSummary();
+    showChangeSplit.value = null;
+  } catch (e) {
+    appError.value = e instanceof Error ? e.message : String(e);
+  }
+}
+
+async function submitChangeParticipants(expenseId: string): Promise<void> {
+  const eff = changeParticipantsEff.value.trim();
+  if (!eff) return;
+  try {
+    await request.post(`/api/expenses/${expenseId}/change-participants`, {
+      participants: [...changeParticipantsList.value],
+      effectiveFrom: eff,
+    });
+    await reloadExpenseData();
+    await refreshSummary();
+    showChangeParticipants.value = null;
+  } catch (e) {
+    appError.value = e instanceof Error ? e.message : String(e);
+  }
+}
+
+function backdateWarning(eff: string): string | null {
+  if (!eff || eff >= displayMonth.value) return null;
+  const [y, m] = eff.split("-").map(Number) as [number, number];
+  const [cy, cm] = displayMonth.value.split("-").map(Number) as [
+    number,
+    number,
+  ];
+  const months = (cy - y) * 12 + (cm - m);
+  return `Will recompute ${months + 1} Month${months === 0 ? "" : "s"} (${eff} through ${displayMonth.value})`;
 }
 
 function startRename(member: Member): void {
@@ -388,6 +438,10 @@ const formatCurrency = (cents: number, curr: string): string =>
         </span>
       </nav>
 
+      <div v-if="expenses.filter(e => e.effectiveFrom > displayMonth).length > 0" style="color:dodgerblue">
+        Scheduled: {{ expenses.filter(e => e.effectiveFrom > displayMonth).length }} expense(s) become active after this Month
+      </div>
+
       <h2>{{ summary.month }}</h2>
 
       <section>
@@ -432,7 +486,10 @@ const formatCurrency = (cents: number, curr: string): string =>
                   (from {{ source.timeline[source.timeline.length - 1]?.effectiveFrom }})
                 </span>
                 <button @click="startEditSource(source)">Update</button>
-                <button v-if="source.endedFrom === undefined" @click="endSource(source.id)">End</button>
+                <template v-if="source.endedFrom === undefined">
+                  <input v-model="endingSourceEffectiveFrom[source.id]" placeholder="End from YYYY-MM" size="7" />
+                  <button @click="endSource(source.id, endingSourceEffectiveFrom[source.id] ?? currentMonth())">End</button>
+                </template>
               </template>
             </li>
           </ul>
@@ -504,6 +561,28 @@ const formatCurrency = (cents: number, curr: string): string =>
                 <br />End from
                 <input v-model="endingExpenseEffectiveFrom[expense.id]" placeholder="YYYY-MM" />
                 <button @click="endExpense(expense.id)">End</button>
+
+                <br /><button @click="showChangeSplit = expense.id; changeSplitRule = expense.splitRule.method === 'even' ? 'even' : expense.splitRule.method === 'proportional' ? 'proportional' : 'custom'; changeSplitEff = ''">Change Split</button>
+                <br /><button @click="showChangeParticipants = expense.id; changeParticipantsList = [...expense.participants]; changeParticipantsEff = ''">Change Participants</button>
+
+                <template v-if="showChangeSplit === expense.id">
+                  <br />New split:
+                  <select v-model="changeSplitRule"><option value="even">Even</option><option value="proportional">Proportional</option><option value="custom">Custom</option></select>
+                  From <input v-model="changeSplitEff" placeholder="YYYY-MM" size="7" />
+                  <span v-if="backdateWarning(changeSplitEff)" style="color:orange">{{ backdateWarning(changeSplitEff) }}</span>
+                  <button @click="submitChangeSplit(expense.id)">Confirm</button>
+                </template>
+
+                <template v-if="showChangeParticipants === expense.id">
+                  <br />New participants:
+                  <label v-for="member in members" :key="member.id">
+                    <input type="checkbox" :checked="changeParticipantsList.includes(member.id)" @change="changeParticipantsList.includes(member.id) ? changeParticipantsList = changeParticipantsList.filter(i => i !== member.id) : changeParticipantsList.push(member.id)" />
+                    {{ member.name }}
+                  </label>
+                  From <input v-model="changeParticipantsEff" placeholder="YYYY-MM" size="7" />
+                  <span v-if="backdateWarning(changeParticipantsEff)" style="color:orange">{{ backdateWarning(changeParticipantsEff) }}</span>
+                  <button @click="submitChangeParticipants(expense.id)">Confirm</button>
+                </template>
               </template>
             </li>
           </ul>

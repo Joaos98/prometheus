@@ -6,8 +6,12 @@
 
 **Status:** ready-for-agent
 
-- [ ] Every change form (income, split rule, participants) offers an Effective From Month defaulting to the current Month
-- [ ] Back-dating to Month M recomputes Months ≥ M and leaves earlier Months untouched (engine seam)
-- [ ] Before confirming a back-dated change, the UI lists the Months that will recompute
-- [ ] Future-dated changes apply to their target Month's rendering and are listed as scheduled on the dashboard until then
-- [ ] Engine seam: identical inputs produce identical outputs across recomputation after any back-dated change (determinism holds)
+- [x] Every change form (income, split rule, participants) offers an Effective From Month defaulting to the current Month
+- [x] Back-dating to Month M recomputes Months ≥ M and leaves earlier Months untouched (engine seam)
+- [x] Before confirming a back-dated change, the UI lists the Months that will recompute
+- [x] Future-dated changes apply to their target Month's rendering and are listed as scheduled on the dashboard until then
+- [x] Engine seam: identical inputs produce identical outputs across recomputation after any back-dated change (determinism holds)
+
+## Comments
+
+Implemented. Data layer: changeExpenseSplitRule and changeExpenseParticipants — each ends the old expense and creates a new one with the updated rule/participants effective from the chosen Month. Server: POST /api/expenses/:id/change-split and .../change-participants. Client: income source end now takes an effective-from input; each expense shows Change Split and Change Participants inline forms with effective-from and backdate warning (shows which Months will recompute); scheduled expenses with future effective-from are listed on the dashboard.
