@@ -55,6 +55,24 @@ export class SqliteStore implements DataStore {
         PRIMARY KEY (expense_id, month)
       );
     `);
+    this.migrate();
+  }
+
+  private migrate(): void {
+    this.addColumnIfMissing("expenses", "ended_from", "TEXT");
+  }
+
+  private addColumnIfMissing(
+    table: string,
+    column: string,
+    type: string,
+  ): void {
+    const cols = this.db
+      .prepare(`PRAGMA table_info('${table}')`)
+      .all() as Array<{ name: string }>;
+    if (!cols.some((c) => c.name === column)) {
+      this.db.exec(`ALTER TABLE "${table}" ADD COLUMN "${column}" ${type}`);
+    }
   }
 
   getCurrency(): string | null {
