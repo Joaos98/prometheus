@@ -4,6 +4,7 @@ import type {
   IncomeSource,
   Member,
   MonthlySummary,
+  SavingsGoal,
 } from "@prometheus/engine";
 import { flushPromises, mount } from "@vue/test-utils";
 import { expect, test, vi } from "vitest";
@@ -52,6 +53,7 @@ const householdData = {
   incomeSources: [] as IncomeSource[],
   expenses: [] as Expense[],
   expenseAmounts: [] as ExpenseAmount[],
+  goals: [] as SavingsGoal[],
 };
 
 test("when no currency is set the setup screen appears", async () => {
@@ -83,6 +85,7 @@ test("when currency is set the dashboard renders members, income, expenses and l
             ...householdData,
             currency: "USD",
             members: memberList,
+        goals: [] as SavingsGoal[],
           }),
         };
       }

@@ -6,9 +6,9 @@
 
 **Status:** ready-for-agent
 
-- [ ] Adding a member accepts a joined-Effective-From Month; Months before it exclude the member entirely (engine seam)
-- [ ] Departing a member Effective From M removes them from all active expenses and goals from M onward, preserving their participation in earlier Months
-- [ ] A departed member no longer appears as a Participant option for changes effective from their departure Month onward
-- [ ] Browsing any past Month still renders the departed member's Income, Shares, and Leftover Balance for that Month
-- [ ] A member referenced by no Month can be fully removed; a referenced member can only be departed, never deleted — the UI makes this distinction clear
-- [ ] Engine seam: summaries for Months ≥ M contain no Shares for the departed member; earlier Months are byte-for-byte unchanged
+- [x] Adding a member accepts a joined-Effective-From Month; Months before it exclude the member entirely (engine seam)
+- [x] Departing a member Effective From M removes them from all active expenses and goals from M onward, preserving their participation in earlier Months
+- [x] A departed member no longer appears as a Participant option for changes effective from their departure Month onward
+- [x] Browsing any past Month still renders the departed member's Income, Shares, and Leftover Balance for that Month
+- [x] A member referenced by no Month can be fully removed; a referenced member can only be departed, never deleted — the UI makes this distinction clear
+- [x] Engine seam: summaries for Months ≥ M contain no Shares for the departed member; earlier Months are byte-for-byte unchanged

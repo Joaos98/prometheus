@@ -49,13 +49,26 @@ app.post("/api/household/currency", (req, res) => {
 });
 
 app.post("/api/members", (req, res) => {
-  const { name } = req.body as Record<string, unknown>;
+  const { name, joinedFrom } = req.body as Record<string, unknown>;
   if (!name || typeof name !== "string") {
     res.status(400).json({ error: "name is required" });
     return;
   }
-  const member = store.addMember(name);
+  const member = store.addMember(
+    name,
+    typeof joinedFrom === "string" ? joinedFrom : undefined,
+  );
   res.status(201).json(member);
+});
+
+app.post("/api/members/:id/depart", (req, res) => {
+  const { effectiveFrom } = req.body as Record<string, unknown>;
+  if (!effectiveFrom || typeof effectiveFrom !== "string") {
+    res.status(400).json({ error: "effectiveFrom is required" });
+    return;
+  }
+  store.departMember(req.params.id, effectiveFrom);
+  res.json({ id: req.params.id, departedFrom: effectiveFrom });
 });
 
 app.patch("/api/members/:id", (req, res) => {
@@ -261,6 +274,64 @@ app.post("/api/expenses/:id/change-participants", (req, res) => {
   } catch {
     res.status(404).json({ error: "expense not found" });
   }
+});
+
+app.post("/api/goals", (req, res) => {
+  const { name, participants, splitRule, targetAmountCents, effectiveFrom } =
+    req.body as Record<string, unknown>;
+  if (!name || typeof name !== "string") {
+    res.status(400).json({ error: "name is required" });
+    return;
+  }
+  if (!Array.isArray(participants)) {
+    res.status(400).json({ error: "participants must be an array" });
+    return;
+  }
+  if (!effectiveFrom || typeof effectiveFrom !== "string") {
+    res.status(400).json({ error: "effectiveFrom is required" });
+    return;
+  }
+  const rule =
+    splitRule && typeof splitRule === "object"
+      ? (splitRule as { method: string })
+      : { method: "even" };
+  const validMethods = ["even", "proportional", "custom"];
+  if (!validMethods.includes(rule.method)) {
+    res.status(400).json({ error: "invalid splitRule.method" });
+    return;
+  }
+  const goal = store.addGoal(
+    name,
+    participants as string[],
+    rule as { method: "even" } | { method: "proportional" },
+    typeof targetAmountCents === "number" ? (targetAmountCents as number) : undefined,
+    effectiveFrom,
+  );
+  res.status(201).json(goal);
+});
+
+app.post("/api/goals/:id/end", (req, res) => {
+  const { effectiveFrom } = req.body as Record<string, unknown>;
+  if (!effectiveFrom || typeof effectiveFrom !== "string") {
+    res.status(400).json({ error: "effectiveFrom is required" });
+    return;
+  }
+  store.endGoal(req.params.id, effectiveFrom);
+  res.json({ id: req.params.id, endedFrom: effectiveFrom });
+});
+
+app.post("/api/goals/:id/contribution", (req, res) => {
+  const { month, amountCents } = req.body as Record<string, unknown>;
+  if (!month || typeof month !== "string") {
+    res.status(400).json({ error: "month is required" });
+    return;
+  }
+  if (typeof amountCents !== "number" || !Number.isInteger(amountCents)) {
+    res.status(400).json({ error: "amountCents must be an integer" });
+    return;
+  }
+  store.setGoalContribution(req.params.id, month, amountCents);
+  res.json({ goalId: req.params.id, month, amountCents });
 });
 
 app.get("/api/summary", (req, res) => {

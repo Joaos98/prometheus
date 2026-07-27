@@ -27,6 +27,8 @@ export class SqliteStore implements DataStore {
       CREATE TABLE IF NOT EXISTS members (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
+        joined_from TEXT,
+        departed_from TEXT,
         position INTEGER NOT NULL
       );
       CREATE TABLE IF NOT EXISTS income_sources (
@@ -84,6 +86,8 @@ export class SqliteStore implements DataStore {
       "restricted_use",
       "INTEGER NOT NULL DEFAULT 0",
     );
+    this.addColumnIfMissing("members", "joined_from", "TEXT");
+    this.addColumnIfMissing("members", "departed_from", "TEXT");
   }
 
   private addColumnIfMissing(
@@ -115,7 +119,7 @@ export class SqliteStore implements DataStore {
       .run(currency);
   }
 
-  addMember(name: string): Member {
+  addMember(name: string, joinedFrom?: Month): Member {
     const id = randomUUID();
     const maxPos = (
       this.db
@@ -123,16 +127,36 @@ export class SqliteStore implements DataStore {
         .get() as { maxPos: number }
     ).maxPos;
     this.db
-      .prepare("INSERT INTO members (id, name, position) VALUES (?, ?, ?)")
-      .run(id, name, maxPos + 1);
-    return { id, name };
+      .prepare(
+        "INSERT INTO members (id, name, joined_from, position) VALUES (?, ?, ?, ?)",
+      )
+      .run(id, name, joinedFrom ?? null, maxPos + 1);
+    return { id, name, ...(joinedFrom ? { joinedFrom } : {}) };
   }
 
   getMembers(): Member[] {
     const rows = this.db
-      .prepare("SELECT id, name FROM members ORDER BY position")
-      .all() as Array<{ id: string; name: string }>;
-    return rows.map((row) => ({ id: row.id, name: row.name }));
+      .prepare(
+        "SELECT id, name, joined_from, departed_from FROM members ORDER BY position",
+      )
+      .all() as Array<{
+      id: string;
+      name: string;
+      joined_from: string | null;
+      departed_from: string | null;
+    }>;
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      ...(row.joined_from ? { joinedFrom: row.joined_from } : {}),
+      ...(row.departed_from ? { departedFrom: row.departed_from } : {}),
+    }));
+  }
+
+  departMember(id: string, effectiveFrom: Month): void {
+    this.db
+      .prepare("UPDATE members SET departed_from = ? WHERE id = ?")
+      .run(effectiveFrom, id);
   }
 
   renameMember(id: string, name: string): void {
@@ -538,10 +562,16 @@ export class SqliteStore implements DataStore {
         .run(h.currency);
 
       const insertMember = this.db.prepare(
-        "INSERT INTO members (id, name, position) VALUES (?, ?, ?)",
+        "INSERT INTO members (id, name, joined_from, departed_from, position) VALUES (?, ?, ?, ?, ?)",
       );
       h.members.forEach((member, index) => {
-        insertMember.run(member.id, member.name, index);
+        insertMember.run(
+          member.id,
+          member.name,
+          member.joinedFrom ?? null,
+          member.departedFrom ?? null,
+          index,
+        );
       });
 
       const insertSource = this.db.prepare(

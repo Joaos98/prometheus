@@ -6,10 +6,10 @@
 
 **Status:** ready-for-agent
 
-- [ ] Create a goal with a name, optional target amount, Participants (exactly one = individual goal), and any Split Rule — even, proportional, or custom in either mode
-- [ ] Contributions are entered per Month and split among Participants by the goal's rule, summing exactly after rounding (engine seam)
-- [ ] Each goal displays accumulated contributions versus its target (or versus no target for open-ended goals)
-- [ ] An active goal with no contribution entered for a Month is flagged pending; an explicit $0 is not flagged
-- [ ] Ending a goal Effective From M removes it from M onward; history keeps it and its accumulated total
-- [ ] Leftover Balance = Spendable Income − expense Shares − contribution Shares (engine seam); negative values display plainly
-- [ ] No withdrawal or spending-from-goal concept exists anywhere
+- [x] Create a goal with a name, optional target amount, Participants, and any Split Rule
+- [x] Contributions are entered per Month and split among Participants by the goal's rule, summing exactly after rounding
+- [x] Each goal displays accumulated contributions versus its target
+- [x] An active goal with no contribution entered for a Month is flagged pending; an explicit $0 is not flagged
+- [x] Ending a goal Effective From M removes it from M onward; history keeps it and its accumulated total
+- [x] Leftover Balance = Spendable Income − expense Shares − contribution Shares; negative values display plainly
+- [x] No withdrawal or spending-from-goal concept exists anywhere

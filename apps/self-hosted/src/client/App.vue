@@ -5,7 +5,7 @@ import type {
   IncomeSource,
   Member,
   MonthlySummary,
-  PendingItem,
+  SavingsGoal,
 } from "@prometheus/engine";
 import { onMounted, ref, watch } from "vue";
 
@@ -16,6 +16,7 @@ const members = ref<Member[]>([]);
 const incomeSources = ref<IncomeSource[]>([]);
 const expenses = ref<Expense[]>([]);
 const expenseAmounts = ref<ExpenseAmount[]>([]);
+const goals = ref<SavingsGoal[]>([]);
 const summary = ref<MonthlySummary | null>(null);
 const loading = ref(true);
 const appError = ref<string | null>(null);
@@ -49,8 +50,10 @@ function goToMonth(): void {
 
 const currencyValue = ref("USD");
 const newMemberName = ref("");
+const newMemberJoinedFrom = ref("");
 const editingMemberId = ref<string | null>(null);
 const editingMemberName = ref("");
+const departingMemberEffFrom = ref<Record<string, string>>({});
 
 const newSourceMemberId = ref("");
 const newSourceName = ref("");
@@ -79,6 +82,14 @@ const changeSplitEff = ref("");
 const showChangeParticipants = ref<string | null>(null);
 const changeParticipantsList = ref<string[]>([]);
 const changeParticipantsEff = ref("");
+
+const newGoalName = ref("");
+const newGoalParticipants = ref<string[]>([]);
+const newGoalSplitRule = ref("even");
+const newGoalTarget = ref("");
+const newGoalEffectiveFrom = ref("");
+const goalContributionValues = ref<Record<string, string>>({});
+const endingGoalEffectiveFrom = ref<Record<string, string>>({});
 
 async function unwrapError(r: Response): Promise<never> {
   const body = (await r.json().catch(() => ({}))) as { error?: string };
@@ -113,18 +124,20 @@ const request = {
 
 onMounted(async () => {
   try {
-    const data = (await request.get("/api/household")) as {
-      currency: string | null;
-      members: Member[];
-      incomeSources: IncomeSource[];
-      expenses: Expense[];
-      expenseAmounts: ExpenseAmount[];
-    };
-    currency.value = data.currency;
-    members.value = data.members;
-    incomeSources.value = data.incomeSources;
-    expenses.value = data.expenses;
-    expenseAmounts.value = data.expenseAmounts;
+  const data = (await request.get("/api/household")) as {
+    currency: string | null;
+    members: Member[];
+    incomeSources: IncomeSource[];
+    expenses: Expense[];
+    expenseAmounts: ExpenseAmount[];
+    goals: SavingsGoal[];
+  };
+  currency.value = data.currency;
+  members.value = data.members;
+  incomeSources.value = data.incomeSources;
+  expenses.value = data.expenses;
+  expenseAmounts.value = data.expenseAmounts;
+  goals.value = data.goals;
 
     if (currency.value) {
       summary.value = (await request.get(
@@ -208,9 +221,24 @@ async function submitMember(): Promise<void> {
   const name = newMemberName.value.trim();
   if (!name) return;
   try {
-    const member = (await request.post("/api/members", { name })) as Member;
+    const member = (await request.post("/api/members", {
+      name,
+      joinedFrom: newMemberJoinedFrom.value || undefined,
+    })) as Member;
     members.value = [...members.value, member];
     newMemberName.value = "";
+    newMemberJoinedFrom.value = "";
+  } catch (e) {
+    appError.value = e instanceof Error ? e.message : String(e);
+  }
+}
+
+async function departMember(id: string): Promise<void> {
+  const eff = departingMemberEffFrom.value[id] ?? currentMonth();
+  try {
+    await request.post(`/api/members/${id}/depart`, { effectiveFrom: eff });
+    delete departingMemberEffFrom.value[id];
+    await refreshSummary();
   } catch (e) {
     appError.value = e instanceof Error ? e.message : String(e);
   }
@@ -390,6 +418,78 @@ function backdateWarning(eff: string): string | null {
   return `Will recompute ${months + 1} Month${months === 0 ? "" : "s"} (${eff} through ${displayMonth.value})`;
 }
 
+function toggleGoalParticipant(memberId: string): void {
+  const idx = newGoalParticipants.value.indexOf(memberId);
+  if (idx >= 0) newGoalParticipants.value.splice(idx, 1);
+  else newGoalParticipants.value.push(memberId);
+}
+
+async function submitGoal(): Promise<void> {
+  const name = newGoalName.value.trim();
+  const participants = [...newGoalParticipants.value];
+  const effectiveFrom = newGoalEffectiveFrom.value;
+  if (!name || participants.length === 0 || !effectiveFrom) return;
+  try {
+    await request.post("/api/goals", {
+      name,
+      participants,
+      splitRule: { method: newGoalSplitRule.value },
+      targetAmountCents: newGoalTarget.value ? Math.round(parseFloat(newGoalTarget.value) * 100) : undefined,
+      effectiveFrom,
+    });
+    await loadHouseholdData();
+    newGoalName.value = "";
+    newGoalParticipants.value = [];
+    newGoalTarget.value = "";
+    newGoalEffectiveFrom.value = "";
+  } catch (e) {
+    appError.value = e instanceof Error ? e.message : String(e);
+  }
+}
+
+async function submitGoalContribution(goalId: string): Promise<void> {
+  const raw = goalContributionValues.value[goalId] ?? "";
+  const amountDollars = parseFloat(raw);
+  if (isNaN(amountDollars)) return;
+  try {
+    await request.post(`/api/goals/${goalId}/contribution`, {
+      month: displayMonth.value,
+      amountCents: Math.round(amountDollars * 100),
+    });
+    delete goalContributionValues.value[goalId];
+    await loadHouseholdData();
+    await refreshSummary();
+  } catch (e) {
+    appError.value = e instanceof Error ? e.message : String(e);
+  }
+}
+
+async function endGoal(id: string): Promise<void> {
+  const eff = endingGoalEffectiveFrom.value[id] ?? currentMonth();
+  try {
+    await request.post(`/api/goals/${id}/end`, { effectiveFrom: eff });
+    delete endingGoalEffectiveFrom.value[id];
+    await loadHouseholdData();
+  } catch (e) {
+    appError.value = e instanceof Error ? e.message : String(e);
+  }
+}
+
+async function loadHouseholdData(): Promise<void> {
+  const data = (await request.get("/api/household")) as {
+    members: Member[];
+    incomeSources: IncomeSource[];
+    expenses: Expense[];
+    expenseAmounts: ExpenseAmount[];
+    goals: SavingsGoal[];
+  };
+  members.value = data.members;
+  incomeSources.value = data.incomeSources;
+  expenses.value = data.expenses;
+  expenseAmounts.value = data.expenseAmounts;
+  goals.value = data.goals;
+}
+
 function startRename(member: Member): void {
   editingMemberId.value = member.id;
   editingMemberName.value = member.name;
@@ -458,6 +558,7 @@ const formatCurrency = (cents: number, curr: string): string =>
         <h2>Members</h2>
         <form @submit.prevent="submitMember">
           <input v-model="newMemberName" placeholder="Member name" />
+          <input v-model="newMemberJoinedFrom" placeholder="From (YYYY-MM)" size="7" />
           <button type="submit">Add</button>
         </form>
         <ul>
@@ -467,10 +568,15 @@ const formatCurrency = (cents: number, curr: string): string =>
               <button @click="commitRename(member.id)">Save</button>
               <button @click="cancelRename">Cancel</button>
             </template>
-            <template v-else>
-              {{ member.name }}
-              <button @click="startRename(member)">Rename</button>
-            </template>
+              <template v-else>
+                {{ member.name }}
+                <button @click="startRename(member)">Rename</button>
+                <template v-if="member.departedFrom === undefined">
+                  <input v-model="departingMemberEffFrom[member.id]" placeholder="Depart YYYY-MM" size="7" />
+                  <button @click="departMember(member.id)">Depart</button>
+                </template>
+                <span v-else style="color:gray">(departed {{ member.departedFrom }})</span>
+              </template>
           </li>
         </ul>
       </section>
@@ -650,6 +756,74 @@ const formatCurrency = (cents: number, curr: string): string =>
       </section>
 
       <section>
+        <h2>Goals</h2>
+
+        <div v-if="summary.pendingContributions.length > 0">
+          <h3>Pending contributions this Month</h3>
+          <ul>
+            <li v-for="pc in summary.pendingContributions" :key="pc.itemId">
+              {{ pc.itemName }}
+            </li>
+          </ul>
+        </div>
+
+        <div v-if="summary.goalProgress.length > 0">
+          <h3>Progress</h3>
+          <ul>
+            <li v-for="gp in summary.goalProgress" :key="gp.goalId">
+              {{ gp.goalName }}:
+              {{ formatCurrency(gp.accumulatedCents, summary.currency) }}
+              <template v-if="gp.targetAmountCents !== undefined">
+                of {{ formatCurrency(gp.targetAmountCents, summary.currency) }}
+              </template>
+            </li>
+          </ul>
+        </div>
+
+        <section>
+          <h3>All Goals</h3>
+          <ul>
+            <li v-for="g in goals" :key="g.id">
+              <strong>
+                <span v-if="g.endedFrom !== undefined" style="text-decoration: line-through">{{ g.name }}</span>
+                <span v-else>{{ g.name }}</span>
+              </strong>
+              <template v-if="g.targetAmountCents !== undefined">
+                (target: {{ formatCurrency(g.targetAmountCents, summary.currency) }})
+              </template>
+              <template v-if="g.endedFrom === undefined">
+                <br />Contribution {{ displayMonth }}
+                <input v-model="goalContributionValues[g.id]" placeholder="$" type="number" step="0.01" min="0" />
+                <button @click="submitGoalContribution(g.id)">Save</button>
+                <br />End from
+                <input v-model="endingGoalEffectiveFrom[g.id]" placeholder="YYYY-MM" />
+                <button @click="endGoal(g.id)">End</button>
+              </template>
+            </li>
+          </ul>
+          <p v-if="goals.length === 0">No goals defined.</p>
+        </section>
+
+        <form @submit.prevent="submitGoal">
+          <input v-model="newGoalName" placeholder="Goal name" />
+          <fieldset>
+            <legend>Participants</legend>
+            <label v-for="member in members" :key="member.id">
+              <input type="checkbox" :value="member.id" @change="toggleGoalParticipant(member.id)" />
+              {{ member.name }}
+            </label>
+          </fieldset>
+          <select v-model="newGoalSplitRule">
+            <option value="even">Even</option>
+            <option value="proportional">Proportional</option>
+          </select>
+          <input v-model="newGoalTarget" placeholder="Target amount (optional)" type="number" step="0.01" min="0" />
+          <input v-model="newGoalEffectiveFrom" placeholder="From (YYYY-MM)" />
+          <button type="submit">Add Goal</button>
+        </form>
+      </section>
+
+      <section>
         <h2>Leftover</h2>
         <label>
           <input type="checkbox" v-model="includeRestricted" />
@@ -657,14 +831,24 @@ const formatCurrency = (cents: number, curr: string): string =>
         </label>
         <section v-for="member in summary.members" :key="member.memberId">
           <h3>{{ member.name }}</h3>
-          <p v-if="member.restrictedCents > 0">
-            Restricted: {{ formatCurrency(member.restrictedCents, summary.currency) }}
+          <p v-if="member.restrictedCents > 0 || member.contributionCents > 0">
+            <template v-if="member.restrictedCents > 0">
+              Restricted: {{ formatCurrency(member.restrictedCents, summary.currency) }}
+            </template>
+            <template v-if="member.contributionCents > 0">
+              Goals: {{ formatCurrency(member.contributionCents, summary.currency) }}
+            </template>
           </p>
           <p>
-            Income:
-            {{ formatCurrency(includeRestricted ? member.incomeCents : member.incomeCents - member.restrictedCents, summary.currency) }}
-            − Shares: {{ formatCurrency(member.totalCents, summary.currency) }}
-            = {{ formatCurrency(includeRestricted ? member.incomeCents - member.totalCents : member.leftoverCents, summary.currency) }}
+            Leftover:
+            {{
+              formatCurrency(
+                includeRestricted
+                  ? member.incomeCents - member.contributionCents - member.totalCents
+                  : member.leftoverCents,
+                summary.currency,
+              )
+            }}
           </p>
         </section>
       </section>

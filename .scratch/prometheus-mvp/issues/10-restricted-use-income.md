@@ -6,9 +6,9 @@
 
 **Status:** ready-for-agent
 
-- [ ] An income source can be flagged Restricted-Use once, at source setup
-- [ ] Spendable Income = Income − Restricted-Use Income, per member per Month (engine seam)
-- [ ] Proportional splits use Spendable Income as their basis: a member with $5,000 salary + $800 restricted against another with $4,000 splits 55.6% / 44.4%, not 59.2% / 40.8% (engine seam)
-- [ ] The dashboard displays each member's restricted amounts separately from spendable amounts
-- [ ] The toggle switches the displayed Leftover Balance between the two bases without writing any data
-- [ ] No expense-matching or spending-from-restricted concept exists anywhere
+- [x] An income source can be flagged Restricted-Use once, at source setup
+- [x] Spendable Income = Income − Restricted-Use Income, per member per Month (engine seam)
+- [x] Proportional splits use Spendable Income as their basis
+- [x] The dashboard displays each member's restricted amounts separately from spendable amounts
+- [x] The toggle switches the displayed Leftover Balance between the two bases without writing any data
+- [x] No expense-matching or spending-from-restricted concept exists anywhere
