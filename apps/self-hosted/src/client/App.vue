@@ -72,6 +72,7 @@ const showMemberForm = ref(false);
 const showIncomeForm = ref(false);
 const showExpenseForm = ref(false);
 const showGoalForm = ref(false);
+const expandedExpense = ref<string | null>(null);
 
 function shiftMonth(month: string, delta: number): string {
   const [y, m] = month.split("-").map(Number) as [number, number];
@@ -156,6 +157,14 @@ function activeExpenses(): Expense[] {
 function expenseHasAmount(expenseId: string): boolean {
   return expenseAmounts.value.some(a => a.expenseId === expenseId && a.month === displayMonth.value);
 }
+function expenseAmountCents(expenseId: string): number | undefined {
+  return expenseAmounts.value.find(a => a.expenseId === expenseId && a.month === displayMonth.value)?.amountCents;
+}
+function expenseShares(expenseId: string): Array<{ memberId: string; name: string; amountCents: number }> {
+  return (summary.value?.members ?? [])
+    .flatMap(m => m.shares.filter(s => s.expenseId === expenseId).map(s => ({ memberId: m.memberId, name: m.name, amountCents: s.amountCents })));
+}
+function memberName(id: string): string { return members.value.find(m => m.id === id)?.name ?? id; }
 function toggleParticipant(memberId: string): void {
   const idx = newExpenseParticipants.value.indexOf(memberId);
   if (idx >= 0) newExpenseParticipants.value.splice(idx, 1); else newExpenseParticipants.value.push(memberId);
@@ -451,24 +460,47 @@ async function endGoal(id: string): Promise<void> {
             <div class="subsection" v-if="activeExpenses().length > 0">
               <h3 class="subsection-title">Active this Month</h3>
               <ul class="item-list">
-                <li v-for="expense in activeExpenses()" :key="expense.id" class="item-row" :class="{ pending: !expenseHasAmount(expense.id) }">
-                  <span class="item-name" :class="{ ended: expense.endedFrom }">{{ expense.name }}</span>
-                  <span v-if="!expenseHasAmount(expense.id)" class="badge badge-warn">pending</span>
-                  <template v-else>
-                    <span class="item-value">Amount entered</span>
-                  </template>
-                  <span class="item-meta">{{ expense.splitRule.method }} &bull; {{ expense.participants.length }} participant(s)</span>
-                  <div class="item-detail">
-                    <template v-if="!expenseHasAmount(expense.id)">
-                      <input v-model="expenseAmountValues[expense.id]" placeholder="$" type="number" step="0.01" min="0" class="input input-xs" />
-                      <button @click="submitExpenseAmount(expense.id)" class="btn btn-tiny">Save</button>
+                <li v-for="expense in activeExpenses()" :key="expense.id" class="item-row expense-item" :class="{ pending: !expenseHasAmount(expense.id) }">
+                  <div class="expense-main">
+                    <span class="item-name" :class="{ ended: expense.endedFrom }">{{ expense.name }}</span>
+                    <template v-if="expenseHasAmount(expense.id)">
+                      <span class="item-value expense-amount">{{ formatCurrency(expenseAmountCents(expense.id)!, summary.currency) }}</span>
                     </template>
-                    <template v-if="expense.endedFrom === undefined">
+                    <span v-else class="badge badge-warn">pending</span>
+                    <span class="item-meta">{{ expense.splitRule.method === 'proportional' ? 'proportional' : expense.splitRule.method === 'custom' ? expense.splitRule.mode === 'percent' ? 'custom %' : 'custom $' : 'even' }}</span>
+                    <span class="item-meta">{{ expense.participants.map(memberName).join(', ') }}</span>
+                    <button @click="expandedExpense = expandedExpense === expense.id ? null : expense.id" class="btn btn-tiny">{{ expandedExpense === expense.id ? 'Hide' : 'Details' }}</button>
+                  </div>
+
+                  <div v-if="expandedExpense === expense.id" class="expense-detail">
+                    <template v-if="expenseShares(expense.id).length > 0">
+                      <div class="share-list">
+                        <div v-for="s in expenseShares(expense.id)" :key="s.memberId" class="share-row">
+                          <span>{{ s.name }}</span>
+                          <span>{{ formatCurrency(s.amountCents, summary.currency) }}</span>
+                        </div>
+                        <div class="share-row share-total">
+                          <span>Total</span>
+                          <span>{{ formatCurrency(expenseShares(expense.id).reduce((sum, s) => sum + s.amountCents, 0), summary.currency) }}</span>
+                        </div>
+                      </div>
+                    </template>
+                    <p v-else-if="expenseHasAmount(expense.id)" class="dim-text">Even split: {{ formatCurrency(expenseAmountCents(expense.id)! / (expense.participants.length || 1), summary.currency) }} per person</p>
+
+                    <template v-if="!expenseHasAmount(expense.id)">
+                      <span class="edit-row">
+                        <input v-model="expenseAmountValues[expense.id]" placeholder="$" type="number" step="0.01" min="0" class="input input-xs" />
+                        <button @click="submitExpenseAmount(expense.id)" class="btn btn-tiny btn-primary">Save</button>
+                      </span>
+                    </template>
+
+                    <div class="expense-actions" v-if="expense.endedFrom === undefined">
                       <button @click="showChangeSplit = expense.id; changeSplitRule = expense.splitRule.method === 'even' ? 'even' : expense.splitRule.method === 'proportional' ? 'proportional' : 'custom'; changeSplitEff = ''" class="btn btn-tiny">Change Split</button>
                       <button @click="showChangeParticipants = expense.id; changeParticipantsList = [...expense.participants]; changeParticipantsEff = ''" class="btn btn-tiny">Change Participants</button>
                       <input v-model="endingExpenseEffectiveFrom[expense.id]" placeholder="End YYYY-MM" size="7" class="input input-xs" />
                       <button @click="endExpense(expense.id)" class="btn btn-tiny btn-danger">End</button>
-                    </template>
+                    </div>
+
                     <div v-if="showChangeSplit === expense.id" class="change-form">
                       <select v-model="changeSplitRule" class="input input-sm"><option value="even">Even</option><option value="proportional">Proportional</option></select>
                       From <input v-model="changeSplitEff" placeholder="YYYY-MM" size="7" class="input input-xs" />
@@ -476,9 +508,7 @@ async function endGoal(id: string): Promise<void> {
                       <button @click="submitChangeSplit(expense.id)" class="btn btn-tiny btn-primary">Confirm</button>
                     </div>
                     <div v-if="showChangeParticipants === expense.id" class="change-form">
-                      <label v-for="member in members" :key="member.id" class="checkbox-label">
-                        <input type="checkbox" :checked="changeParticipantsList.includes(member.id)" @change="changeParticipantsList.includes(member.id) ? changeParticipantsList = changeParticipantsList.filter(i => i !== member.id) : changeParticipantsList.push(member.id)" /> {{ member.name }}
-                      </label>
+                      <label v-for="member in members" :key="member.id" class="checkbox-label"><input type="checkbox" :checked="changeParticipantsList.includes(member.id)" @change="changeParticipantsList.includes(member.id) ? changeParticipantsList = changeParticipantsList.filter(i => i !== member.id) : changeParticipantsList.push(member.id)" /> {{ member.name }}</label>
                       From <input v-model="changeParticipantsEff" placeholder="YYYY-MM" size="7" class="input input-xs" />
                       <span v-if="backdateWarning(changeParticipantsEff)" class="badge badge-warn">{{ backdateWarning(changeParticipantsEff) }}</span>
                       <button @click="submitChangeParticipants(expense.id)" class="btn btn-tiny btn-primary">Confirm</button>
@@ -692,4 +722,14 @@ select.input { background: #fff; }
 
 .edit-row { display: flex; gap: 4px; align-items: center; }
 .inline-form { display: inline-flex; gap: 4px; align-items: center; }
+
+.expense-item { flex-direction: column; align-items: stretch; }
+.expense-main { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.expense-amount { font-weight: 600; }
+.expense-detail { padding: 6px 0 6px 8px; display: flex; flex-direction: column; gap: 6px; }
+.expense-actions { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.share-list { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.share-row { display: flex; justify-content: space-between; padding: 2px 0; max-width: 200px; }
+.share-total { border-top: 1px solid var(--border); margin-top: 2px; padding-top: 4px; font-weight: 600; }
+.dim-text { color: var(--text-dim); font-size: 12px; margin: 0; }
 </style>
