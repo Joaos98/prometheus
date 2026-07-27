@@ -1,0 +1,53 @@
+/** A calendar month, "YYYY-MM" (e.g. "2026-07"). */
+export type Month = string;
+
+export interface Member {
+  id: string;
+  name: string;
+}
+
+export type SplitRule = { method: "even" };
+
+export interface Expense {
+  id: string;
+  name: string;
+  /** Member ids of the Participants the Expense is divided among. */
+  participants: string[];
+  splitRule: SplitRule;
+  effectiveFrom: Month;
+}
+
+/** The actual amount entered for an Expense in a given Month, in integer cents. */
+export interface ExpenseAmount {
+  expenseId: string;
+  month: Month;
+  amountCents: number;
+}
+
+export interface Household {
+  /** ISO 4217 currency code, set once at setup and immutable. */
+  currency: string;
+  members: Member[];
+  expenses: Expense[];
+  expenseAmounts: ExpenseAmount[];
+}
+
+/** One Participant's Share of a single Expense for the Month. */
+export interface Share {
+  expenseId: string;
+  expenseName: string;
+  amountCents: number;
+}
+
+export interface MemberSummary {
+  memberId: string;
+  name: string;
+  shares: Share[];
+  totalCents: number;
+}
+
+export interface MonthlySummary {
+  month: Month;
+  currency: string;
+  members: MemberSummary[];
+}

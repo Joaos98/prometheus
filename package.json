@@ -1,0 +1,11 @@
+{
+  "name": "prometheus",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "build": "pnpm --filter @prometheus/self-hosted build",
+    "start": "pnpm --filter @prometheus/self-hosted start"
+  }
+}
