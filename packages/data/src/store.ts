@@ -23,6 +23,7 @@ export interface DataStore {
     amountCents: number,
     effectiveFrom: Month,
     restrictedUse?: boolean,
+    category?: string,
   ): IncomeSource;
   getIncomeSources(): IncomeSource[];
   updateIncomeSourceAmount(
@@ -38,6 +39,7 @@ export interface DataStore {
     participants: string[],
     splitRule: SplitRule,
     effectiveFrom: Month,
+    category?: string,
   ): Expense;
   getExpenses(): Expense[];
   endExpense(id: string, effectiveFrom: Month): void;
@@ -66,6 +68,7 @@ export interface DataStore {
     targetAmountCents: number | undefined,
     startAmountCents: number | undefined,
     effectiveFrom: Month,
+    category?: string,
   ): SavingsGoal;
   getGoals(): SavingsGoal[];
   endGoal(id: string, effectiveFrom: Month): void;

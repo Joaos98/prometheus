@@ -25,6 +25,7 @@ const newSourceAmount = ref("");
 const newSourceEffectiveFrom = ref("");
 const newSourceRestricted = ref(false);
 const newSourceOneOff = ref(false);
+const newSourceCategory = ref("");
 const editingSourceId = ref<string | null>(null);
 const editingSourceAmount = ref("");
 const editingSourceEffectiveFrom = ref("");
@@ -38,8 +39,8 @@ const latestAmount = (s: IncomeSource) => { const a = [...s.timeline].sort((a, b
 async function submit() {
   const a = parseFloat(newSourceAmount.value);
   if (!newSourceName.value.trim() || !newSourceMemberId.value || isNaN(a) || !newSourceEffectiveFrom.value) return;
-  await props.api.submitIncome(newSourceName.value.trim(), newSourceMemberId.value, Math.round(a * 100), newSourceEffectiveFrom.value, newSourceRestricted.value, newSourceOneOff.value);
-  newSourceName.value = ""; newSourceAmount.value = ""; newSourceEffectiveFrom.value = ""; newSourceOneOff.value = false; newSourceRestricted.value = false; showForm.value = false;
+  await props.api.submitIncome(newSourceName.value.trim(), newSourceMemberId.value, Math.round(a * 100), newSourceEffectiveFrom.value, newSourceRestricted.value, newSourceOneOff.value, newSourceCategory.value.trim() || undefined);
+  newSourceName.value = ""; newSourceAmount.value = ""; newSourceEffectiveFrom.value = ""; newSourceOneOff.value = false; newSourceRestricted.value = false; newSourceCategory.value = ""; showForm.value = false;
 }
 function startEdit(s: IncomeSource) { editingSourceId.value = s.id; editingSourceAmount.value = String(latestAmount(s) / 100); editingSourceEffectiveFrom.value = ""; }
 async function commitEdit() {
@@ -58,6 +59,7 @@ async function endSource(id: string) { await props.api.endIncome(id, endingSourc
     <input v-model="newSourceName" placeholder="Source name" class="input" />
     <input v-model="newSourceAmount" placeholder="Amount" type="number" step="0.01" min="0" class="input" />
     <MonthPicker v-model="newSourceEffectiveFrom" placeholder="From" />
+    <input v-model="newSourceCategory" list="income-cats" placeholder="Category (optional)" class="input input-sm" />
     <label class="check"><input type="checkbox" v-model="newSourceRestricted" /> Restricted <InfoTip tip="Excluded from spendable income and proportional split calculations; shown separately on the dashboard." /></label>
     <label class="check"><input type="checkbox" v-model="newSourceOneOff" /> One-off <InfoTip tip="Applies to a single month only; does not carry forward." /></label>
     <button type="submit" class="btn-accent">Save</button>
@@ -89,4 +91,7 @@ async function endSource(id: string) { await props.api.endIncome(id, endingSourc
       </li>
     </ul>
   </div>
+  <datalist id="income-cats">
+    <option v-for="c in [...new Set(incomeSources.map(s => s.category).filter(Boolean))]" :key="c" :value="c" />
+  </datalist>
 </template>

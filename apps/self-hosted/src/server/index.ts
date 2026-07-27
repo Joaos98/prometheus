@@ -114,6 +114,7 @@ app.post("/api/income-sources", (req, res) => {
     amountCents,
     effectiveFrom,
     Boolean(req.body.restrictedUse),
+    typeof req.body.category === "string" ? req.body.category : undefined,
   );
   if (req.body.oneOff) {
     store.endIncomeSource(source.id, nextMonth(effectiveFrom));
@@ -182,6 +183,7 @@ app.post("/api/expenses", (req, res) => {
     participants as string[],
     typedRule as { method: "even" } | { method: "proportional" } | { method: "custom"; mode: "percent" | "amount"; values: Record<string, number> },
     effectiveFrom,
+    typeof req.body.category === "string" ? req.body.category : undefined,
   );
   if (req.body.oneOff) {
     store.endExpense(expense.id, nextMonth(effectiveFrom));
@@ -309,6 +311,7 @@ app.post("/api/goals", (req, res) => {
     typeof targetAmountCents === "number" ? (targetAmountCents as number) : undefined,
     typeof startAmountCents === "number" ? (startAmountCents as number) : undefined,
     effectiveFrom,
+    typeof req.body.category === "string" ? req.body.category : undefined,
   );
   res.status(201).json(goal);
 });

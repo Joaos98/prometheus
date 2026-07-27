@@ -22,6 +22,7 @@ const props = defineProps<{
 const showForm = ref(false);
 const newGoalName = ref(""); const newGoalParticipants = ref<string[]>([]); const newGoalSplitRule = ref("even");
 const newGoalTarget = ref(""); const newGoalStartAmount = ref(""); const newGoalEffectiveFrom = ref("");
+const newGoalCategory = ref("");
 const contributionValue = ref(""); const endingGoalId = ref<string | null>(null); const endingEffectiveFrom = ref("");
 
 const formatCurrency = (cents: number) => new Intl.NumberFormat(undefined, { style: "currency", currency: props.currency }).format(cents / 100);
@@ -34,8 +35,9 @@ async function submit() {
   if (!n || p.length === 0 || !eff) return;
   await props.api.submitGoal(n, p, { method: newGoalSplitRule.value },
     newGoalTarget.value ? Math.round(parseFloat(newGoalTarget.value) * 100) : undefined,
-    newGoalStartAmount.value ? Math.round(parseFloat(newGoalStartAmount.value) * 100) : undefined, eff);
-  newGoalName.value = ""; newGoalParticipants.value = []; newGoalTarget.value = ""; newGoalStartAmount.value = ""; newGoalEffectiveFrom.value = ""; showForm.value = false;
+    newGoalStartAmount.value ? Math.round(parseFloat(newGoalStartAmount.value) * 100) : undefined, eff,
+    newGoalCategory.value.trim() || undefined);
+  newGoalName.value = ""; newGoalParticipants.value = []; newGoalTarget.value = ""; newGoalStartAmount.value = ""; newGoalEffectiveFrom.value = ""; newGoalCategory.value = ""; showForm.value = false;
 }
 async function submitContribution(gid: string) { const a = parseFloat(contributionValue.value); if (isNaN(a)) return; await props.api.submitGoalContribution(gid, Math.round(a * 100)); contributionValue.value = ""; }
 async function doEndGoal(id: string) { await props.api.endGoal(id, endingEffectiveFrom.value); endingGoalId.value = null; }
@@ -53,6 +55,7 @@ async function doEndGoal(id: string) { await props.api.endGoal(id, endingEffecti
     <div class="field"><span class="field-label">Target (optional)</span><input v-model="newGoalTarget" placeholder="0.00" type="number" step="0.01" min="0" class="input" /></div>
     <div class="field"><span class="field-label">Start amount (optional)</span><input v-model="newGoalStartAmount" placeholder="0.00" type="number" step="0.01" min="0" class="input" /></div>
     <div class="field"><span class="field-label">From</span><MonthPicker v-model="newGoalEffectiveFrom" placeholder="From" /></div>
+    <input v-model="newGoalCategory" list="goal-cats" placeholder="Category (optional)" class="input input-sm" />
     <button type="submit" class="btn-accent">Save</button>
   </form>
   <div class="card" v-if="goalProgress.length > 0">
@@ -86,4 +89,7 @@ async function doEndGoal(id: string) { await props.api.endGoal(id, endingEffecti
       </li>
     </ul>
   </div>
+  <datalist id="goal-cats">
+    <option v-for="c in [...new Set(goals.map(g => g.category).filter(Boolean))]" :key="c" :value="c" />
+  </datalist>
 </template>

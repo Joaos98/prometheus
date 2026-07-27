@@ -19,6 +19,7 @@ export type SplitRule =
 export interface Expense {
   id: string;
   name: string;
+  category?: string;
   /** Member ids of the Participants the Expense is divided among. */
   participants: string[];
   splitRule: SplitRule;
@@ -48,6 +49,7 @@ export interface Household {
 export interface SavingsGoal {
   id: string;
   name: string;
+  category?: string;
   participants: string[];
   splitRule: SplitRule;
   effectiveFrom: Month;
@@ -78,6 +80,7 @@ export interface IncomeSource {
   id: string;
   memberId: string;
   name: string;
+  category?: string;
   timeline: IncomeSourceEntry[];
   /** If set, the source is not effective in or after this Month. */
   endedFrom?: Month;

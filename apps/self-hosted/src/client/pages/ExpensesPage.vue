@@ -28,6 +28,7 @@ const showForm = ref(false);
 const newExpenseName = ref(""); const newExpenseParticipants = ref<string[]>([]); const newExpenseSplitRule = ref("even");
 const newExpenseCustomMode = ref("percent"); const newExpenseCustomValues = ref<Record<string, number>>({});
 const newExpenseOneOff = ref(false); const newExpenseEffectiveFrom = ref("");
+const newExpenseCategory = ref("");
 const amountValue = ref(""); const expandedExpense = ref<string | null>(null);
 const endingExpenseId = ref<string | null>(null); const endingEff = ref("");
 
@@ -46,8 +47,8 @@ async function submit() {
   let r: Record<string, unknown>;
   if (newExpenseSplitRule.value === "custom") r = { method: "custom", mode: newExpenseCustomMode.value, values: { ...newExpenseCustomValues.value } };
   else r = { method: newExpenseSplitRule.value };
-  await props.api.submitExpense(n, p, r, eff, newExpenseOneOff.value);
-  newExpenseName.value = ""; newExpenseParticipants.value = []; newExpenseCustomValues.value = {}; newExpenseOneOff.value = false; newExpenseEffectiveFrom.value = ""; showForm.value = false;
+  await props.api.submitExpense(n, p, r, eff, newExpenseOneOff.value, newExpenseCategory.value.trim() || undefined);
+  newExpenseName.value = ""; newExpenseParticipants.value = []; newExpenseCustomValues.value = {}; newExpenseOneOff.value = false; newExpenseEffectiveFrom.value = ""; newExpenseCategory.value = ""; showForm.value = false;
 }
 async function submitAmount(eid: string) { const a = parseFloat(amountValue.value); if (isNaN(a)) return; await props.api.submitExpenseAmount(eid, Math.round(a * 100)); amountValue.value = ""; }
 async function doEndExpense(id: string) { await props.api.endExpense(id, endingEff.value); endingExpenseId.value = null; }
@@ -69,6 +70,7 @@ function openChangeParticipants(e: Expense) { showChangeParticipants.value = e.i
       <div v-for="m in members" :key="m.id" class="cv-row"><label>{{ m.name }}</label><input type="number" :placeholder="newExpenseCustomMode === 'percent' ? '%' : '$'" min="0" :value="newExpenseCustomValues[m.id] ?? ''" class="input input-sm" @input="newExpenseCustomValues[m.id] = parseFloat(($event.target as HTMLInputElement).value) || 0" /></div>
     </template>
     <label class="check"><input type="checkbox" v-model="newExpenseOneOff" /> One-off <InfoTip tip="Applies to a single month only; does not carry forward." /></label>
+    <input v-model="newExpenseCategory" list="expense-cats" placeholder="Category (optional)" class="input input-sm" />
     <div class="field"><span class="field-label">From</span><MonthPicker v-model="newExpenseEffectiveFrom" placeholder="From" /></div>
     <button type="submit" class="btn-accent">Save</button>
   </form>
@@ -118,4 +120,7 @@ function openChangeParticipants(e: Expense) { showChangeParticipants.value = e.i
       </li>
     </ul>
   </div>
+  <datalist id="expense-cats">
+    <option v-for="c in [...new Set(expenses.map(e => e.category).filter(Boolean))]" :key="c" :value="c" />
+  </datalist>
 </template>
