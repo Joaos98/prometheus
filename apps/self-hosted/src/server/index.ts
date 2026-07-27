@@ -119,7 +119,7 @@ app.post("/api/income-sources/:id/end", (req, res) => {
 });
 
 app.post("/api/expenses", (req, res) => {
-  const { name, participants, effectiveFrom } = req.body as Record<
+  const { name, participants, splitRule, effectiveFrom } = req.body as Record<
     string,
     unknown
   >;
@@ -135,9 +135,18 @@ app.post("/api/expenses", (req, res) => {
     res.status(400).json({ error: "effectiveFrom is required" });
     return;
   }
+  const rule =
+    splitRule && typeof splitRule === "object"
+      ? (splitRule as { method: string })
+      : { method: "even" };
+  if (rule.method !== "even" && rule.method !== "proportional") {
+    res.status(400).json({ error: "invalid splitRule.method" });
+    return;
+  }
   const expense = store.addExpense(
     name,
     participants as string[],
+    rule as { method: "even" } | { method: "proportional" },
     effectiveFrom,
   );
   res.status(201).json(expense);

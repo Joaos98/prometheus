@@ -193,6 +193,7 @@ export class SqliteStore implements DataStore {
   addExpense(
     name: string,
     participants: string[],
+    splitRule: SplitRule,
     effectiveFrom: Month,
   ): Expense {
     const id = randomUUID();
@@ -209,7 +210,7 @@ export class SqliteStore implements DataStore {
         id,
         name,
         effectiveFrom,
-        JSON.stringify({ method: "even" }),
+        JSON.stringify(splitRule),
         JSON.stringify(participants),
         maxPos + 1,
       );
@@ -217,7 +218,7 @@ export class SqliteStore implements DataStore {
       id,
       name,
       participants,
-      splitRule: { method: "even" },
+      splitRule,
       effectiveFrom,
     };
   }

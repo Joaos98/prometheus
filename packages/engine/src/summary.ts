@@ -1,4 +1,5 @@
 import type {
+  FallbackExpense,
   Household,
   IncomeSource,
   MemberSummary,
@@ -33,6 +34,7 @@ export function computeMonthlySummary(
   }
 
   const pending: PendingExpense[] = [];
+  const fallback: FallbackExpense[] = [];
 
   for (const expense of activeExpenses) {
     const amount = household.expenseAmounts.find(
@@ -48,7 +50,20 @@ export function computeMonthlySummary(
         (memberOrder.get(a) ?? Number.MAX_SAFE_INTEGER) -
         (memberOrder.get(b) ?? Number.MAX_SAFE_INTEGER),
     );
-    const shares = splitEvenly(amount.amountCents, orderedParticipants);
+
+    let shares: Array<[string, number]>;
+    if (expense.splitRule.method === "proportional") {
+      shares = computeProportionalShares(
+        amount.amountCents,
+        expense,
+        incomeByMember,
+        memberOrder,
+        fallback,
+      );
+    } else {
+      shares = splitEvenly(amount.amountCents, orderedParticipants);
+    }
+
     for (const [memberId, amountCents] of shares) {
       sharesByMember.get(memberId)?.push({
         expenseId: expense.id,
@@ -72,7 +87,13 @@ export function computeMonthlySummary(
     };
   });
 
-  return { month, currency: household.currency, members, pendingExpenses: pending };
+  return {
+    month,
+    currency: household.currency,
+    members,
+    pendingExpenses: pending,
+    fallbackExpenses: fallback,
+  };
 }
 
 function computeIncomeByMember(
@@ -98,6 +119,57 @@ function computeIncomeByMember(
   }
 
   return totals;
+}
+
+function computeProportionalShares(
+  amountCents: number,
+  expense: { id: string; name: string; participants: string[] },
+  incomes: Map<string, number>,
+  memberOrder: Map<string, number>,
+  fallback: FallbackExpense[],
+): Array<[string, number]> {
+  const totalIncome = expense.participants.reduce(
+    (sum, p) => sum + (incomes.get(p) ?? 0),
+    0,
+  );
+
+  if (totalIncome === 0) {
+    fallback.push({ expenseId: expense.id, expenseName: expense.name });
+    const ordered = [...expense.participants].sort(
+      (a, b) =>
+        (memberOrder.get(a) ?? Number.MAX_SAFE_INTEGER) -
+        (memberOrder.get(b) ?? Number.MAX_SAFE_INTEGER),
+    );
+    return splitEvenly(amountCents, ordered);
+  }
+
+  const exact = expense.participants.map((p) => ({
+    memberId: p,
+    exact: (amountCents * (incomes.get(p) ?? 0)) / totalIncome,
+  }));
+
+  const floored = exact.map((e) => ({
+    memberId: e.memberId,
+    amount: Math.floor(e.exact),
+    remainder: e.exact - Math.floor(e.exact),
+  }));
+
+  let distributed = 0;
+  for (const f of floored) distributed += f.amount;
+  let remaining = amountCents - distributed;
+
+  const sorted = [...floored].sort((a, b) => {
+    if (b.remainder !== a.remainder) return b.remainder - a.remainder;
+    const orderA = memberOrder.get(a.memberId) ?? Number.MAX_SAFE_INTEGER;
+    const orderB = memberOrder.get(b.memberId) ?? Number.MAX_SAFE_INTEGER;
+    return orderA - orderB;
+  });
+
+  for (let i = 0; i < remaining; i++) {
+    sorted[i]!.amount++;
+  }
+
+  return sorted.map((s) => [s.memberId, s.amount]);
 }
 
 /**

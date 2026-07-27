@@ -1,4 +1,4 @@
-import type { Expense, ExpenseAmount, Household, IncomeSource, Member, Month } from "@prometheus/engine";
+import type { Expense, ExpenseAmount, Household, IncomeSource, Member, Month, SplitRule } from "@prometheus/engine";
 
 /**
  * The single internal data-access interface. All persistence flows through
@@ -34,6 +34,7 @@ export interface DataStore {
   addExpense(
     name: string,
     participants: string[],
+    splitRule: SplitRule,
     effectiveFrom: Month,
   ): Expense;
   getExpenses(): Expense[];

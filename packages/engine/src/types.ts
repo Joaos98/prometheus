@@ -6,7 +6,7 @@ export interface Member {
   name: string;
 }
 
-export type SplitRule = { method: "even" };
+export type SplitRule = { method: "even" } | { method: "proportional" };
 
 export interface Expense {
   id: string;
@@ -70,9 +70,15 @@ export interface PendingExpense {
   expenseName: string;
 }
 
+export interface FallbackExpense {
+  expenseId: string;
+  expenseName: string;
+}
+
 export interface MonthlySummary {
   month: Month;
   currency: string;
   members: MemberSummary[];
   pendingExpenses: PendingExpense[];
+  fallbackExpenses: FallbackExpense[];
 }

@@ -1,6 +1,7 @@
 export type {
   Expense,
   ExpenseAmount,
+  FallbackExpense,
   Household,
   IncomeSource,
   IncomeSourceEntry,

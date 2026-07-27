@@ -31,6 +31,7 @@ const summary: MonthlySummary = {
     },
   ],
   pendingExpenses: [],
+  fallbackExpenses: [],
 };
 
 const memberList: Member[] = [

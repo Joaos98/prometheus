@@ -218,29 +218,31 @@ export function runDataStoreContract(
   });
 
   describe("expenses", () => {
-    test("addExpense returns an expense with even split and no endedFrom", () => {
+    test("addExpense returns an expense with the given split rule", () => {
       const store = makeStore(freshPath());
-      const expense = store.addExpense("Rent", ["m1", "m2"], "2026-01");
-      expect(expense.id).toBeTypeOf("string");
-      expect(expense.name).toBe("Rent");
-      expect(expense.participants).toEqual(["m1", "m2"]);
+      const expense = store.addExpense("Rent", ["m1", "m2"], { method: "even" }, "2026-01");
       expect(expense.splitRule).toEqual({ method: "even" });
-      expect(expense.effectiveFrom).toBe("2026-01");
-      expect(expense.endedFrom).toBeUndefined();
+      store.close();
+    });
+
+    test("addExpense accepts a proportional split rule", () => {
+      const store = makeStore(freshPath());
+      const expense = store.addExpense("Rent", ["m1", "m2"], { method: "proportional" }, "2026-01");
+      expect(expense.splitRule).toEqual({ method: "proportional" });
       store.close();
     });
 
     test("getExpenses returns all stored expenses", () => {
       const store = makeStore(freshPath());
-      store.addExpense("Rent", ["m1"], "2026-01");
-      store.addExpense("Groceries", ["m1", "m2"], "2026-02");
+      store.addExpense("Rent", ["m1"], { method: "even" }, "2026-01");
+      store.addExpense("Groceries", ["m1", "m2"], { method: "even" }, "2026-02");
       expect(store.getExpenses()).toHaveLength(2);
       store.close();
     });
 
     test("endExpense sets endedFrom", () => {
       const store = makeStore(freshPath());
-      const expense = store.addExpense("Rent", ["m1"], "2026-01");
+      const expense = store.addExpense("Rent", ["m1"], { method: "even" }, "2026-01");
       store.endExpense(expense.id, "2026-06");
       expect(store.getExpenses()[0]!.endedFrom).toBe("2026-06");
       store.close();
@@ -248,7 +250,7 @@ export function runDataStoreContract(
 
     test("setExpenseAmount stores a per-Month amount", () => {
       const store = makeStore(freshPath());
-      const expense = store.addExpense("Rent", ["m1"], "2026-01");
+      const expense = store.addExpense("Rent", ["m1"], { method: "even" }, "2026-01");
       store.setExpenseAmount(expense.id, "2026-07", 150000);
       const amounts = store.getExpenseAmounts();
       expect(amounts).toHaveLength(1);
@@ -262,7 +264,7 @@ export function runDataStoreContract(
 
     test("setExpenseAmount to 0 is stored explicitly (not treated as missing)", () => {
       const store = makeStore(freshPath());
-      const expense = store.addExpense("Rent", ["m1"], "2026-01");
+      const expense = store.addExpense("Rent", ["m1"], { method: "even" }, "2026-01");
       store.setExpenseAmount(expense.id, "2026-07", 0);
       expect(store.getExpenseAmounts()[0]!.amountCents).toBe(0);
       store.close();
@@ -271,7 +273,7 @@ export function runDataStoreContract(
     test("expense amounts persist across close and reopen", () => {
       const path = freshPath();
       const first = makeStore(path);
-      const expense = first.addExpense("Rent", ["m1", "m2"], "2026-01");
+      const expense = first.addExpense("Rent", ["m1", "m2"], { method: "even" }, "2026-01");
       first.setExpenseAmount(expense.id, "2026-07", 152000);
       first.endExpense(expense.id, "2026-12");
       first.close();

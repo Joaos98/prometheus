@@ -323,3 +323,135 @@ test("Leftover Balance = Spendable Income − Σ expense Shares, negative when e
   expect(ana.leftoverCents).toBe(425000); // 500000 income - 75000 expense share
   expect(bruno.leftoverCents).toBe(-75000); // 0 income - 75000 expense share
 });
+
+test("a proportional split distributes shares weighted by each participant's income", () => {
+  const h: Household = {
+    ...household,
+    incomeSources: [
+      {
+        id: "is1",
+        memberId: "m1",
+        name: "Salary",
+        timeline: [{ amountCents: 600000, effectiveFrom: "2026-01" }],
+      },
+      {
+        id: "is2",
+        memberId: "m2",
+        name: "Salary",
+        timeline: [{ amountCents: 400000, effectiveFrom: "2026-01" }],
+      },
+    ],
+    expenses: [
+      {
+        id: "e1",
+        name: "Rent",
+        participants: ["m1", "m2"],
+        splitRule: { method: "proportional" },
+        effectiveFrom: "2026-01",
+      },
+    ],
+    expenseAmounts: [{ expenseId: "e1", month: "2026-07", amountCents: 100000 }],
+  };
+
+  const summary = computeMonthlySummary(h, "2026-07");
+
+  const ana = summary.members.find((m) => m.memberId === "m1")!;
+  const bruno = summary.members.find((m) => m.memberId === "m2")!;
+  expect(ana.totalCents).toBe(60000); // 60% of 1000.00
+  expect(bruno.totalCents).toBe(40000); // 40% of 1000.00
+  expect(ana.totalCents + bruno.totalCents).toBe(100000);
+  expect(summary.fallbackExpenses).toEqual([]);
+});
+
+test("a proportional split with leftover cents distributes them exactly to sum to the total", () => {
+  const h: Household = {
+    ...household,
+    incomeSources: [
+      {
+        id: "is1",
+        memberId: "m1",
+        name: "Salary",
+        timeline: [{ amountCents: 500000, effectiveFrom: "2026-01" }],
+      },
+      {
+        id: "is2",
+        memberId: "m2",
+        name: "Salary",
+        timeline: [{ amountCents: 500000, effectiveFrom: "2026-01" }],
+      },
+    ],
+    expenses: [
+      {
+        id: "e1",
+        name: "Rent",
+        participants: ["m1", "m2"],
+        splitRule: { method: "proportional" },
+        effectiveFrom: "2026-01",
+      },
+    ],
+    expenseAmounts: [{ expenseId: "e1", month: "2026-07", amountCents: 10001 }],
+  };
+
+  const summary = computeMonthlySummary(h, "2026-07");
+
+  const total = summary.members.reduce((s, m) => s + m.totalCents, 0);
+  expect(total).toBe(10001);
+});
+
+test("a zero-income participant gets a zero share from proportional split when others have income", () => {
+  const h: Household = {
+    ...household,
+    incomeSources: [
+      {
+        id: "is1",
+        memberId: "m1",
+        name: "Salary",
+        timeline: [{ amountCents: 500000, effectiveFrom: "2026-01" }],
+      },
+    ],
+    expenses: [
+      {
+        id: "e1",
+        name: "Rent",
+        participants: ["m1", "m2"],
+        splitRule: { method: "proportional" },
+        effectiveFrom: "2026-01",
+      },
+    ],
+    expenseAmounts: [{ expenseId: "e1", month: "2026-07", amountCents: 100000 }],
+  };
+
+  const summary = computeMonthlySummary(h, "2026-07");
+
+  const ana = summary.members.find((m) => m.memberId === "m1")!;
+  const bruno = summary.members.find((m) => m.memberId === "m2")!;
+  expect(ana.totalCents).toBe(100000);
+  expect(bruno.totalCents).toBe(0);
+});
+
+test("when no participant has income, a proportional split falls back to even with a flag", () => {
+  const h: Household = {
+    ...household,
+    incomeSources: [],
+    expenses: [
+      {
+        id: "e1",
+        name: "Rent",
+        participants: ["m1", "m2"],
+        splitRule: { method: "proportional" },
+        effectiveFrom: "2026-01",
+      },
+    ],
+    expenseAmounts: [{ expenseId: "e1", month: "2026-07", amountCents: 100000 }],
+  };
+
+  const summary = computeMonthlySummary(h, "2026-07");
+
+  const ana = summary.members.find((m) => m.memberId === "m1")!;
+  const bruno = summary.members.find((m) => m.memberId === "m2")!;
+  expect(ana.totalCents).toBe(50000);
+  expect(bruno.totalCents).toBe(50000);
+  expect(summary.fallbackExpenses).toEqual([
+    { expenseId: "e1", expenseName: "Rent" },
+  ]);
+});

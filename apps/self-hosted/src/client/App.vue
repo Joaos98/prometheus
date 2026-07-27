@@ -33,6 +33,7 @@ const editingSourceEffectiveFrom = ref("");
 
 const newExpenseName = ref("");
 const newExpenseParticipants = ref<string[]>([]);
+const newExpenseSplitRule = ref("even");
 const newExpenseEffectiveFrom = ref("");
 const expenseAmountValues = ref<Record<string, string>>({});
 const endingExpenseEffectiveFrom = ref<Record<string, string>>({});
@@ -202,11 +203,13 @@ async function submitExpense(): Promise<void> {
     const expense = (await request.post("/api/expenses", {
       name,
       participants,
+      splitRule: { method: newExpenseSplitRule.value },
       effectiveFrom,
     })) as Expense;
     expenses.value = [...expenses.value, expense];
     newExpenseName.value = "";
     newExpenseParticipants.value = [];
+    newExpenseSplitRule.value = "even";
     newExpenseEffectiveFrom.value = "";
   } catch (e) {
     appError.value = e instanceof Error ? e.message : String(e);
@@ -404,6 +407,15 @@ const formatCurrency = (cents: number, curr: string): string =>
           </ul>
         </div>
 
+        <div v-if="summary.fallbackExpenses.length > 0">
+          <h3>Split Fallbacks (even substitute)</h3>
+          <ul>
+            <li v-for="fe in summary.fallbackExpenses" :key="fe.expenseId">
+              {{ fe.expenseName }} — no participant had income; split evenly
+            </li>
+          </ul>
+        </div>
+
         <section v-for="member in summary.members" :key="member.memberId">
           <h3>{{ member.name }}</h3>
           <ul>
@@ -455,6 +467,13 @@ const formatCurrency = (cents: number, curr: string): string =>
               {{ member.name }}
             </label>
           </fieldset>
+          <label>
+            Split:
+            <select v-model="newExpenseSplitRule">
+              <option value="even">Even</option>
+              <option value="proportional">Proportional to Income</option>
+            </select>
+          </label>
           <input v-model="newExpenseEffectiveFrom" placeholder="From (YYYY-MM)" />
           <button type="submit">Add Expense</button>
         </form>
