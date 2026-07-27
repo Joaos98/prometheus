@@ -1,59 +1,60 @@
 <script setup lang="ts">
 import type { Member } from "@prometheus/engine";
+import { ref } from "vue";
 
-defineProps<{
+const props = defineProps<{
   members: Member[];
-  showForm: boolean;
-  newMemberName: string;
-  newMemberJoinedFrom: string;
-  editingMemberId: string | null;
-  editingMemberName: string;
-  departingMemberEffFrom: Record<string, string>;
-  departingMember: string | null;
+  displayMonth: string;
+  currentMonth: string;
+  api: {
+    submitMember(name: string, joinedFrom?: string): Promise<Member>;
+    departMember(id: string, eff: string): Promise<void>;
+    renameMember(id: string, name: string): Promise<void>;
+  };
 }>();
-const emit = defineEmits<{
-  (e: 'toggleForm'): void;
-  (e: 'submitMember'): void;
-  (e: 'departMember', id: string): void;
-  (e: 'startRename', m: Member): void;
-  (e: 'commitRename', id: string): void;
-  (e: 'cancelRename'): void;
-  (e: 'update:newMemberName', v: string): void;
-  (e: 'update:newMemberJoinedFrom', v: string): void;
-  (e: 'update:editingMemberName', v: string): void;
-  (e: 'update:departingMemberEffFrom', id: string, v: string): void;
-  (e: 'startDepart', id: string): void;
-  (e: 'cancelDepart'): void;
-}>();
+
+const showForm = ref(false);
+const newMemberName = ref(""); const newMemberJoinedFrom = ref("");
+const editingMemberId = ref<string | null>(null); const editingMemberName = ref("");
+const departingMemberId = ref<string | null>(null); const departingEff = ref("");
+
+async function submitMember() {
+  const n = newMemberName.value.trim(); if (!n) return;
+  await props.api.submitMember(n, newMemberJoinedFrom.value || undefined);
+  newMemberName.value = ""; newMemberJoinedFrom.value = ""; showForm.value = false;
+}
+async function doDepart(id: string) { await props.api.departMember(id, departingEff.value); departingMemberId.value = null; }
+async function startRename(m: Member) { editingMemberId.value = m.id; editingMemberName.value = m.name; }
+async function commitRename(id: string) { const n = editingMemberName.value.trim(); if (!n) return; await props.api.renameMember(id, n); editingMemberId.value = null; }
 </script>
 
 <template>
-  <div class="page-header"><h2>Members</h2><button @click="emit('toggleForm')" class="btn-accent">{{ showForm ? 'Cancel' : '+ Add' }}</button></div>
-  <form v-if="showForm" @submit.prevent="emit('submitMember')" class="add-form">
-    <input :value="newMemberName" @input="emit('update:newMemberName', ($event.target as HTMLInputElement).value)" placeholder="Member name" class="input" />
-    <input :value="newMemberJoinedFrom" @input="emit('update:newMemberJoinedFrom', ($event.target as HTMLInputElement).value)" placeholder="From YYYY-MM" size="7" class="input input-sm" />
+  <div class="page-header"><h2>Members</h2><button @click="showForm = !showForm" class="btn-accent">{{ showForm ? 'Cancel' : '+ Add' }}</button></div>
+  <form v-if="showForm" @submit.prevent="submitMember" class="add-form">
+    <input v-model="newMemberName" placeholder="Member name" class="input" />
+    <input v-model="newMemberJoinedFrom" placeholder="From YYYY-MM" size="7" class="input input-sm" />
     <button type="submit" class="btn-accent">Save</button>
   </form>
   <div class="card">
     <ul class="ov-list">
       <li v-for="m in members" :key="m.id" class="ov-row">
         <template v-if="editingMemberId === m.id">
-          <input :value="editingMemberName" @input="emit('update:editingMemberName', ($event.target as HTMLInputElement).value)" class="input input-sm" />
-          <button @click="emit('commitRename', m.id)" class="btn-ghost">Save</button>
-          <button @click="emit('cancelRename')" class="btn-ghost">Cancel</button>
+          <input v-model="editingMemberName" class="input input-sm" />
+          <button @click="commitRename(m.id)" class="btn-ghost">Save</button>
+          <button @click="editingMemberId = null" class="btn-ghost">Cancel</button>
         </template>
         <template v-else>
           <span>{{ m.name }}</span>
           <span v-if="m.joinedFrom" class="muted">since {{ m.joinedFrom }}</span>
           <span v-if="m.departedFrom" class="tag ended">departed {{ m.departedFrom }}</span>
-          <button @click="emit('startRename', m)" class="btn-ghost">Rename</button>
+          <button @click="startRename(m)" class="btn-ghost">Rename</button>
           <template v-if="m.departedFrom === undefined">
-            <template v-if="departingMember === m.id">
-              <input :value="departingMemberEffFrom[m.id] ?? ''" @input="emit('update:departingMemberEffFrom', m.id, ($event.target as HTMLInputElement).value)" placeholder="Depart YYYY-MM" size="7" class="input input-xs" />
-              <button @click="emit('departMember', m.id); emit('cancelDepart')" class="btn-ghost danger">Confirm Depart</button>
-              <button @click="emit('cancelDepart')" class="btn-ghost">Cancel</button>
+            <template v-if="departingMemberId === m.id">
+              <input v-model="departingEff" placeholder="Depart YYYY-MM" size="7" class="input input-xs" />
+              <button @click="doDepart(m.id)" class="btn-ghost danger">Confirm Depart</button>
+              <button @click="departingMemberId = null" class="btn-ghost">Cancel</button>
             </template>
-            <button v-else @click="emit('startDepart', m.id)" class="btn-ghost danger">Depart</button>
+            <button v-else @click="departingMemberId = m.id" class="btn-ghost danger">Depart</button>
           </template>
         </template>
       </li>

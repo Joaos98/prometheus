@@ -1,121 +1,107 @@
 <script setup lang="ts">
 import type { Expense, Member } from "@prometheus/engine";
+import { ref } from "vue";
 
 const props = defineProps<{
   members: Member[];
   expenses: Expense[];
   currency: string;
   displayMonth: string;
-  showForm: boolean;
-  newExpenseName: string;
-  newExpenseParticipants: string[];
-  newExpenseSplitRule: string;
-  newExpenseCustomMode: string;
-  newExpenseCustomValues: Record<string, number>;
-  newExpenseOneOff: boolean;
-  newExpenseEffectiveFrom: string;
-  expenseAmountValues: Record<string, string>;
-  endingExpenseEffectiveFrom: Record<string, string>;
-  showChangeSplit: string | null;
-  changeSplitRule: string;
-  changeSplitEff: string;
-  showChangeParticipants: string | null;
-  changeParticipantsList: string[];
-  changeParticipantsEff: string;
-  expandedExpense: string | null;
-  endingExpense: string | null;
-  activeExpenses: () => Expense[];
-  expenseHasAmount: (id: string) => boolean;
-  expenseAmountCents: (id: string) => number | undefined;
-  expenseShares: (id: string) => { memberId: string; name: string; amountCents: number }[];
-  memberName: (id: string) => string;
+  currentMonth: string;
+  api: {
+    submitExpense(name: string, participants: string[], splitRule: Record<string, unknown>, effectiveFrom: string, oneOff: boolean): Promise<Expense>;
+    submitExpenseAmount(eid: string, amountCents: number): Promise<void>;
+    endExpense(id: string, eff: string): Promise<void>;
+    changeExpenseSplit(eid: string, rule: Record<string, unknown>, eff: string): Promise<void>;
+    changeExpenseParticipants(eid: string, participants: string[], eff: string): Promise<void>;
+  };
   backdateWarning: (eff: string) => string | null;
   formatCurrency: (cents: number, currency: string) => string;
 }>();
 
-const emit = defineEmits<{
-  (e: 'toggleForm'): void;
-  (e: 'submitExpense'): void;
-  (e: 'submitExpenseAmount', id: string): void;
-  (e: 'endExpense', id: string): void;
-  (e: 'submitChangeSplit', id: string): void;
-  (e: 'submitChangeParticipants', id: string): void;
-  (e: 'toggleParticipant', id: string): void;
-  (e: 'update:newExpenseName', v: string): void;
-  (e: 'update:newExpenseSplitRule', v: string): void;
-  (e: 'update:newExpenseCustomMode', v: string): void;
-  (e: 'update:newExpenseCustomValues', id: string, v: number): void;
-  (e: 'update:newExpenseOneOff', v: boolean): void;
-  (e: 'update:newExpenseEffectiveFrom', v: string): void;
-  (e: 'update:expenseAmountValues', id: string, v: string): void;
-  (e: 'update:endingExpenseEffectiveFrom', id: string, v: string): void;
-  (e: 'update:changeSplitRule', v: string): void;
-  (e: 'update:changeSplitEff', v: string): void;
-  (e: 'update:changeParticipantsEff', v: string): void;
-  (e: 'toggleChangeParticipants', id: string, checked: boolean): void;
-  (e: 'openChangeSplit', id: string, rule: string): void;
-  (e: 'openChangeParticipants', id: string, list: string[]): void;
-  (e: 'closeChangeSplit'): void;
-  (e: 'closeChangeParticipants'): void;
-  (e: 'toggleDetails', id: string): void;
-  (e: 'startEndExpense', id: string): void;
-  (e: 'cancelEndExpense'): void;
-}>();
+const showForm = ref(false);
+const newExpenseName = ref(""); const newExpenseParticipants = ref<string[]>([]); const newExpenseSplitRule = ref("even");
+const newExpenseCustomMode = ref("percent"); const newExpenseCustomValues = ref<Record<string, number>>({});
+const newExpenseOneOff = ref(false); const newExpenseEffectiveFrom = ref("");
+const amountValue = ref(""); const expandedExpense = ref<string | null>(null);
+const endingExpenseId = ref<string | null>(null); const endingEff = ref("");
+
+const showChangeSplit = ref<string | null>(null); const changeSplitRule = ref("even"); const changeSplitEff = ref("");
+const showChangeParticipants = ref<string | null>(null); const changeParticipantsList = ref<string[]>([]); const changeParticipantsEff = ref("");
+
+function memberName(id: string) { return props.members.find(m => m.id === id)?.name ?? id; }
+function activeExpenses() { return props.expenses.filter(e => e.effectiveFrom <= props.displayMonth && (e.endedFrom === undefined || e.endedFrom > props.displayMonth)); }
+function toggleParticipant(id: string) { const i = newExpenseParticipants.value.indexOf(id); if (i >= 0) newExpenseParticipants.value.splice(i, 1); else newExpenseParticipants.value.push(id); }
+
+async function submit() {
+  const n = newExpenseName.value.trim(); const p = [...newExpenseParticipants.value]; const eff = newExpenseEffectiveFrom.value;
+  if (!n || p.length === 0 || !eff) return;
+  let r: Record<string, unknown>;
+  if (newExpenseSplitRule.value === "custom") r = { method: "custom", mode: newExpenseCustomMode.value, values: { ...newExpenseCustomValues.value } };
+  else r = { method: newExpenseSplitRule.value };
+  await props.api.submitExpense(n, p, r, eff, newExpenseOneOff.value);
+  newExpenseName.value = ""; newExpenseParticipants.value = []; newExpenseCustomValues.value = {}; newExpenseOneOff.value = false; newExpenseEffectiveFrom.value = ""; showForm.value = false;
+}
+async function submitAmount(eid: string) { const a = parseFloat(amountValue.value); if (isNaN(a)) return; await props.api.submitExpenseAmount(eid, Math.round(a * 100)); amountValue.value = ""; }
+async function doEndExpense(id: string) { await props.api.endExpense(id, endingEff.value); endingExpenseId.value = null; }
+async function doChangeSplit(eid: string) { await props.api.changeExpenseSplit(eid, { method: changeSplitRule.value }, changeSplitEff.value); showChangeSplit.value = null; }
+async function doChangeParticipants(eid: string) { await props.api.changeExpenseParticipants(eid, [...changeParticipantsList.value], changeParticipantsEff.value); showChangeParticipants.value = null; }
+function openChangeSplit(e: Expense) { showChangeSplit.value = e.id; changeSplitRule.value = e.splitRule.method; changeSplitEff.value = ""; }
+function openChangeParticipants(e: Expense) { showChangeParticipants.value = e.id; changeParticipantsList.value = [...e.participants]; changeParticipantsEff.value = ""; }
+function toggleCP(id: string) { const i = changeParticipantsList.value.indexOf(id); if (i >= 0) changeParticipantsList.value.splice(i, 1); else changeParticipantsList.value.push(id); }
 </script>
 
 <template>
-  <div class="page-header"><h2>Expenses</h2><button @click="emit('toggleForm')" class="btn-accent">{{ showForm ? 'Cancel' : '+ Add' }}</button></div>
-  <form v-if="showForm" @submit.prevent="emit('submitExpense')" class="add-form">
-    <input :value="newExpenseName" @input="emit('update:newExpenseName', ($event.target as HTMLInputElement).value)" placeholder="Expense name" class="input" />
-    <fieldset class="check-group"><legend>Participants</legend><label v-for="m in members" :key="m.id" class="check"><input type="checkbox" :value="m.id" @change="emit('toggleParticipant', m.id)" /> {{ m.name }}</label></fieldset>
-    <select :value="newExpenseSplitRule" @change="emit('update:newExpenseSplitRule', ($event.target as HTMLSelectElement).value)" class="input"><option value="even">Even</option><option value="proportional">Proportional to Income</option><option value="custom">Custom</option></select>
+  <div class="page-header"><h2>Expenses</h2><button @click="showForm = !showForm" class="btn-accent">{{ showForm ? 'Cancel' : '+ Add' }}</button></div>
+  <form v-if="showForm" @submit.prevent="submit" class="add-form">
+    <input v-model="newExpenseName" placeholder="Expense name" class="input" />
+    <fieldset class="check-group"><legend>Participants</legend><label v-for="m in members" :key="m.id" class="check"><input type="checkbox" :value="m.id" @change="toggleParticipant(m.id)" /> {{ m.name }}</label></fieldset>
+    <select v-model="newExpenseSplitRule" class="input"><option value="even">Even</option><option value="proportional">Proportional to Income</option><option value="custom">Custom</option></select>
     <template v-if="newExpenseSplitRule === 'custom'">
-      <select :value="newExpenseCustomMode" @change="emit('update:newExpenseCustomMode', ($event.target as HTMLSelectElement).value)" class="input input-sm"><option value="percent">Percent</option><option value="amount">Amount</option></select>
-      <div v-for="m in members" :key="m.id" class="cv-row"><label>{{ m.name }}</label><input type="number" :placeholder="newExpenseCustomMode === 'percent' ? '%' : '$'" min="0" :value="newExpenseCustomValues[m.id] ?? ''" class="input input-sm" @input="emit('update:newExpenseCustomValues', m.id, parseFloat(($event.target as HTMLInputElement).value) || 0)" /></div>
+      <select v-model="newExpenseCustomMode" class="input input-sm"><option value="percent">Percent</option><option value="amount">Amount</option></select>
+      <div v-for="m in members" :key="m.id" class="cv-row"><label>{{ m.name }}</label><input type="number" :placeholder="newExpenseCustomMode === 'percent' ? '%' : '$'" min="0" :value="newExpenseCustomValues[m.id] ?? ''" class="input input-sm" @input="newExpenseCustomValues[m.id] = parseFloat(($event.target as HTMLInputElement).value) || 0" /></div>
     </template>
-    <label class="check"><input type="checkbox" :checked="newExpenseOneOff" @change="emit('update:newExpenseOneOff', ($event.target as HTMLInputElement).checked)" /> One-off</label>
-    <input :value="newExpenseEffectiveFrom" @input="emit('update:newExpenseEffectiveFrom', ($event.target as HTMLInputElement).value)" placeholder="From YYYY-MM" class="input input-sm" />
+    <label class="check"><input type="checkbox" v-model="newExpenseOneOff" /> One-off</label>
+    <input v-model="newExpenseEffectiveFrom" placeholder="From YYYY-MM" class="input input-sm" />
     <button type="submit" class="btn-accent">Save</button>
   </form>
   <div class="card" v-if="activeExpenses().length > 0">
     <h3 class="card-label">Active this Month</h3>
     <ul class="ov-list">
-      <li v-for="e in activeExpenses()" :key="e.id" class="ov-row exp-row" :class="{ pending: !expenseHasAmount(e.id) }">
+      <li v-for="e in activeExpenses()" :key="e.id" class="ov-row exp-row">
         <div class="exp-main">
           <span :class="{ ended: e.endedFrom }">{{ e.name }}</span>
-          <span v-if="expenseHasAmount(e.id)" class="exp-amt">{{ formatCurrency(expenseAmountCents(e.id)!, currency) }}</span>
-          <span v-else class="pending-badge">pending</span>
+          <span class="exp-amt">{{ formatCurrency(0, currency) }}</span>
           <span class="muted">{{ e.splitRule.method === 'proportional' ? 'proportional' : e.splitRule.method }}</span>
           <span class="muted">&bull;</span>
           <span class="muted">{{ e.participants.map(memberName).join(', ') }}</span>
-          <button @click="emit('toggleDetails', e.id)" class="btn-ghost">{{ expandedExpense === e.id ? 'Hide' : 'Details' }}</button>
+          <button @click="expandedExpense = expandedExpense === e.id ? null : e.id" class="btn-ghost">{{ expandedExpense === e.id ? 'Hide' : 'Details' }}</button>
         </div>
         <div v-if="expandedExpense === e.id" class="exp-det">
-          <div v-if="expenseShares(e.id).length > 0"><div v-for="s in expenseShares(e.id)" :key="s.memberId" class="share-row"><span>{{ s.name }}</span><span>{{ formatCurrency(s.amountCents, currency) }}</span></div><div class="share-row share-total"><span>Total</span><span>{{ formatCurrency(expenseShares(e.id).reduce((sum, s) => sum + s.amountCents, 0), currency) }}</span></div></div>
-          <template v-if="!expenseHasAmount(e.id)"><input :value="expenseAmountValues[e.id] ?? ''" @input="emit('update:expenseAmountValues', e.id, ($event.target as HTMLInputElement).value)" placeholder="$" type="number" step="0.01" min="0" class="input input-xs" /><button @click="emit('submitExpenseAmount', e.id)" class="btn-accent">Save</button></template>
-          <div v-if="e.endedFrom === undefined" class="exp-actions">
-            <button @click="emit('openChangeSplit', e.id, e.splitRule.method === 'even' ? 'even' : e.splitRule.method === 'proportional' ? 'proportional' : 'custom')" class="btn-ghost">Change Split</button>
-            <button @click="emit('openChangeParticipants', e.id, e.participants)" class="btn-ghost">Change Participants</button>
-            <template v-if="endingExpense === e.id">
-              <input :value="endingExpenseEffectiveFrom[e.id] ?? ''" @input="emit('update:endingExpenseEffectiveFrom', e.id, ($event.target as HTMLInputElement).value)" placeholder="End YYYY-MM" size="7" class="input input-xs" />
-              <button @click="emit('endExpense', e.id); emit('cancelEndExpense')" class="btn-ghost danger">Confirm End</button>
-              <button @click="emit('cancelEndExpense')" class="btn-ghost">Cancel</button>
-            </template>
-            <button v-else @click="emit('startEndExpense', e.id)" class="btn-ghost danger">End</button>
-          </div>
+          <template v-if="e.endedFrom === undefined">
+            <input v-model="amountValue" placeholder="$" type="number" step="0.01" min="0" class="input input-xs" />
+            <button @click="submitAmount(e.id)" class="btn-accent">Save Amount</button>
+            <div class="exp-actions">
+              <button @click="openChangeSplit(e)" class="btn-ghost">Change Split</button>
+              <button @click="openChangeParticipants(e)" class="btn-ghost">Change Participants</button>
+              <template v-if="endingExpenseId === e.id">
+                <input v-model="endingEff" placeholder="End YYYY-MM" size="7" class="input input-xs" />
+                <button @click="doEndExpense(e.id)" class="btn-ghost danger">Confirm End</button>
+                <button @click="endingExpenseId = null" class="btn-ghost">Cancel</button>
+              </template>
+              <button v-else @click="endingExpenseId = e.id" class="btn-ghost danger">End</button>
+            </div>
+          </template>
           <div v-if="showChangeSplit === e.id" class="ch-form">
-            <select :value="changeSplitRule" @change="emit('update:changeSplitRule', ($event.target as HTMLSelectElement).value)" class="input input-sm"><option value="even">Even</option><option value="proportional">Proportional</option></select>
-            From <input :value="changeSplitEff" @input="emit('update:changeSplitEff', ($event.target as HTMLInputElement).value)" placeholder="YYYY-MM" size="7" class="input input-xs" />
+            <select v-model="changeSplitRule" class="input input-sm"><option value="even">Even</option><option value="proportional">Proportional</option></select> From <input v-model="changeSplitEff" placeholder="YYYY-MM" size="7" class="input input-xs" />
             <span v-if="backdateWarning(changeSplitEff)" class="pending-badge">{{ backdateWarning(changeSplitEff) }}</span>
-            <button @click="emit('submitChangeSplit', e.id)" class="btn-accent">Confirm</button>
-            <button @click="emit('closeChangeSplit')" class="btn-ghost">Cancel</button>
+            <button @click="doChangeSplit(e.id)" class="btn-accent">Confirm</button><button @click="showChangeSplit = null" class="btn-ghost">Cancel</button>
           </div>
           <div v-if="showChangeParticipants === e.id" class="ch-form">
-            <label v-for="m in members" :key="m.id" class="check"><input type="checkbox" :checked="changeParticipantsList.includes(m.id)" @change="emit('toggleChangeParticipants', m.id, ($event.target as HTMLInputElement).checked)" /> {{ m.name }}</label>
-            From <input :value="changeParticipantsEff" @input="emit('update:changeParticipantsEff', ($event.target as HTMLInputElement).value)" placeholder="YYYY-MM" size="7" class="input input-xs" />
+            <label v-for="m in members" :key="m.id" class="check"><input type="checkbox" :checked="changeParticipantsList.includes(m.id)" @change="toggleCP(m.id)" /> {{ m.name }}</label>
+            From <input v-model="changeParticipantsEff" placeholder="YYYY-MM" size="7" class="input input-xs" />
             <span v-if="backdateWarning(changeParticipantsEff)" class="pending-badge">{{ backdateWarning(changeParticipantsEff) }}</span>
-            <button @click="emit('submitChangeParticipants', e.id)" class="btn-accent">Confirm</button>
-            <button @click="emit('closeChangeParticipants')" class="btn-ghost">Cancel</button>
+            <button @click="doChangeParticipants(e.id)" class="btn-accent">Confirm</button><button @click="showChangeParticipants = null" class="btn-ghost">Cancel</button>
           </div>
         </div>
       </li>
