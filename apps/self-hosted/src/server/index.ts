@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { SqliteStore } from "@prometheus/data";
-import { computeMonthlySummary } from "@prometheus/engine";
+import { computeMonthlySummary, validateCustomSplitRule, validateExpenseAmount } from "@prometheus/engine";
 import express from "express";
 
 const currentMonth = (): string => new Date().toISOString().slice(0, 7);
@@ -139,14 +139,21 @@ app.post("/api/expenses", (req, res) => {
     splitRule && typeof splitRule === "object"
       ? (splitRule as { method: string })
       : { method: "even" };
-  if (rule.method !== "even" && rule.method !== "proportional") {
+  const validMethods = ["even", "proportional", "custom"];
+  if (!validMethods.includes(rule.method)) {
     res.status(400).json({ error: "invalid splitRule.method" });
+    return;
+  }
+  const typedRule = rule as unknown as { method: string; mode?: string; values?: Record<string, number> };
+  const validationError = validateCustomSplitRule(typedRule as never);
+  if (validationError) {
+    res.status(400).json({ error: validationError });
     return;
   }
   const expense = store.addExpense(
     name,
     participants as string[],
-    rule as { method: "even" } | { method: "proportional" },
+    typedRule as { method: "even" } | { method: "proportional" } | { method: "custom"; mode: "percent" | "amount"; values: Record<string, number> },
     effectiveFrom,
   );
   res.status(201).json(expense);
@@ -170,6 +177,17 @@ app.post("/api/expenses/:id/amount", (req, res) => {
   }
   if (typeof amountCents !== "number" || !Number.isInteger(amountCents)) {
     res.status(400).json({ error: "amountCents must be an integer" });
+    return;
+  }
+  const expenses = store.getExpenses();
+  const expense = expenses.find((e) => e.id === req.params.id);
+  if (!expense) {
+    res.status(404).json({ error: "expense not found" });
+    return;
+  }
+  const validationError = validateExpenseAmount(expense, amountCents);
+  if (validationError) {
+    res.status(400).json({ error: validationError });
     return;
   }
   store.setExpenseAmount(req.params.id, month, amountCents);

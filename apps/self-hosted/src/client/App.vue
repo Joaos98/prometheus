@@ -34,6 +34,8 @@ const editingSourceEffectiveFrom = ref("");
 const newExpenseName = ref("");
 const newExpenseParticipants = ref<string[]>([]);
 const newExpenseSplitRule = ref("even");
+const newExpenseCustomMode = ref("percent");
+const newExpenseCustomValues = ref<Record<string, number>>({});
 const newExpenseEffectiveFrom = ref("");
 const expenseAmountValues = ref<Record<string, string>>({});
 const endingExpenseEffectiveFrom = ref<Record<string, string>>({});
@@ -200,16 +202,27 @@ async function submitExpense(): Promise<void> {
   const effectiveFrom = newExpenseEffectiveFrom.value;
   if (!name || participants.length === 0 || !effectiveFrom) return;
   try {
+    let splitRule: Record<string, unknown>;
+    if (newExpenseSplitRule.value === "custom") {
+      splitRule = {
+        method: "custom",
+        mode: newExpenseCustomMode.value,
+        values: { ...newExpenseCustomValues.value },
+      };
+    } else {
+      splitRule = { method: newExpenseSplitRule.value };
+    }
     const expense = (await request.post("/api/expenses", {
       name,
       participants,
-      splitRule: { method: newExpenseSplitRule.value },
+      splitRule,
       effectiveFrom,
     })) as Expense;
     expenses.value = [...expenses.value, expense];
     newExpenseName.value = "";
     newExpenseParticipants.value = [];
     newExpenseSplitRule.value = "even";
+    newExpenseCustomValues.value = {};
     newExpenseEffectiveFrom.value = "";
   } catch (e) {
     appError.value = e instanceof Error ? e.message : String(e);
@@ -472,8 +485,30 @@ const formatCurrency = (cents: number, curr: string): string =>
             <select v-model="newExpenseSplitRule">
               <option value="even">Even</option>
               <option value="proportional">Proportional to Income</option>
+              <option value="custom">Custom</option>
             </select>
           </label>
+          <template v-if="newExpenseSplitRule === 'custom'">
+            <label>
+              Mode
+              <select v-model="newExpenseCustomMode">
+                <option value="percent">Percent</option>
+                <option value="amount">Amount</option>
+              </select>
+            </label>
+            <div v-for="member in members" :key="member.id">
+              <label>
+                {{ member.name }}
+                <input
+                  type="number"
+                  :placeholder="newExpenseCustomMode === 'percent' ? '%' : '$'"
+                  min="0"
+                  :value="newExpenseCustomValues[member.id] ?? ''"
+                  @input="newExpenseCustomValues[member.id] = parseFloat(($event.target as HTMLInputElement).value) || 0"
+                />
+              </label>
+            </div>
+          </template>
           <input v-model="newExpenseEffectiveFrom" placeholder="From (YYYY-MM)" />
           <button type="submit">Add Expense</button>
         </form>

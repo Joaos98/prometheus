@@ -6,7 +6,11 @@ export interface Member {
   name: string;
 }
 
-export type SplitRule = { method: "even" } | { method: "proportional" };
+export type SplitRule =
+  | { method: "even" }
+  | { method: "proportional" }
+  | { method: "custom"; mode: "percent"; values: Record<string, number> }
+  | { method: "custom"; mode: "amount"; values: Record<string, number> };
 
 export interface Expense {
   id: string;

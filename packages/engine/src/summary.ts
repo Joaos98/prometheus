@@ -60,6 +60,13 @@ export function computeMonthlySummary(
         memberOrder,
         fallback,
       );
+    } else if (expense.splitRule.method === "custom") {
+      shares = computeCustomShares(
+        amount.amountCents,
+        expense.participants,
+        expense.splitRule,
+        memberOrder,
+      );
     } else {
       shares = splitEvenly(amount.amountCents, orderedParticipants);
     }
@@ -146,6 +153,50 @@ function computeProportionalShares(
   const exact = expense.participants.map((p) => ({
     memberId: p,
     exact: (amountCents * (incomes.get(p) ?? 0)) / totalIncome,
+  }));
+
+  const floored = exact.map((e) => ({
+    memberId: e.memberId,
+    amount: Math.floor(e.exact),
+    remainder: e.exact - Math.floor(e.exact),
+  }));
+
+  let distributed = 0;
+  for (const f of floored) distributed += f.amount;
+  let remaining = amountCents - distributed;
+
+  const sorted = [...floored].sort((a, b) => {
+    if (b.remainder !== a.remainder) return b.remainder - a.remainder;
+    const orderA = memberOrder.get(a.memberId) ?? Number.MAX_SAFE_INTEGER;
+    const orderB = memberOrder.get(b.memberId) ?? Number.MAX_SAFE_INTEGER;
+    return orderA - orderB;
+  });
+
+  for (let i = 0; i < remaining; i++) {
+    sorted[i]!.amount++;
+  }
+
+  return sorted.map((s) => [s.memberId, s.amount]);
+}
+
+function computeCustomShares(
+  amountCents: number,
+  participants: string[],
+  splitRule: { mode: "percent" | "amount"; values: Record<string, number> },
+  memberOrder: Map<string, number>,
+): Array<[string, number]> {
+  const { mode, values } = splitRule;
+
+  if (mode === "amount") {
+    return participants.map(
+      (memberId) => [memberId, values[memberId] ?? 0] as [string, number],
+    );
+  }
+
+  // Percent mode — distribute with largest-remainder
+  const exact = participants.map((memberId) => ({
+    memberId,
+    exact: (amountCents * (values[memberId] ?? 0)) / 100,
   }));
 
   const floored = exact.map((e) => ({

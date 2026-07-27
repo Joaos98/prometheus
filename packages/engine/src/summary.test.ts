@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import { computeMonthlySummary } from "./index.js";
-import type { Household } from "./index.js";
+import { computeMonthlySummary, validateCustomSplitRule, validateExpenseAmount } from "./index.js";
+import type { Household, SplitRule } from "./index.js";
 
 const household: Household = {
   currency: "USD",
@@ -454,4 +454,155 @@ test("when no participant has income, a proportional split falls back to even wi
   expect(summary.fallbackExpenses).toEqual([
     { expenseId: "e1", expenseName: "Rent" },
   ]);
+});
+
+test("validateCustomSplitRule: percent mode rejects when sum != 100", () => {
+  const rule: SplitRule = {
+    method: "custom",
+    mode: "percent",
+    values: { m1: 60, m2: 30 },
+  };
+  const error = validateCustomSplitRule(rule);
+  expect(error).toBe("Percentages sum to 90 — must total exactly 100");
+});
+
+test("validateCustomSplitRule: percent mode accepts exact 100", () => {
+  const rule: SplitRule = {
+    method: "custom",
+    mode: "percent",
+    values: { m1: 60, m2: 40 },
+  };
+  expect(validateCustomSplitRule(rule)).toBeNull();
+});
+
+test("validateCustomSplitRule: non-custom rules pass validation", () => {
+  expect(validateCustomSplitRule({ method: "even" })).toBeNull();
+  expect(validateCustomSplitRule({ method: "proportional" })).toBeNull();
+});
+
+test("validateExpenseAmount: amount mode rejects when amount != sum of values", () => {
+  const expense = {
+    id: "e1",
+    name: "Rent",
+    participants: ["m1", "m2"],
+    effectiveFrom: "2026-01",
+    splitRule: {
+      method: "custom" as const,
+      mode: "amount" as const,
+      values: { m1: 90000, m2: 60000 },
+    },
+  };
+  const error = validateExpenseAmount(expense, 200000);
+  expect(error).toBe(
+    "Amount (200000) must equal the sum of fixed shares (150000)",
+  );
+});
+
+test("validateExpenseAmount: amount mode accepts when amount equals sum", () => {
+  const expense = {
+    id: "e1",
+    name: "Rent",
+    participants: ["m1", "m2"],
+    effectiveFrom: "2026-01",
+    splitRule: {
+      method: "custom" as const,
+      mode: "amount" as const,
+      values: { m1: 90000, m2: 60000 },
+    },
+  };
+  expect(validateExpenseAmount(expense, 150000)).toBeNull();
+});
+
+test("validateExpenseAmount: non-custom expenses pass validation", () => {
+  const expense = {
+    id: "e1",
+    name: "Rent",
+    participants: ["m1"],
+    effectiveFrom: "2026-01",
+    splitRule: { method: "even" as const },
+  };
+  expect(validateExpenseAmount(expense, 100000)).toBeNull();
+});
+
+test("custom percent split distributes shares by percentage, summing exactly to the total", () => {
+  const h: Household = {
+    ...household,
+    incomeSources: [],
+    expenses: [
+      {
+        id: "e1",
+        name: "Rent",
+        participants: ["m1", "m2"],
+        splitRule: {
+          method: "custom",
+          mode: "percent",
+          values: { m1: 60, m2: 40 },
+        },
+        effectiveFrom: "2026-01",
+      },
+    ],
+    expenseAmounts: [{ expenseId: "e1", month: "2026-07", amountCents: 100000 }],
+  };
+
+  const summary = computeMonthlySummary(h, "2026-07");
+
+  const ana = summary.members.find((m) => m.memberId === "m1")!;
+  const bruno = summary.members.find((m) => m.memberId === "m2")!;
+  expect(ana.totalCents).toBe(60000);
+  expect(bruno.totalCents).toBe(40000);
+  expect(ana.totalCents + bruno.totalCents).toBe(100000);
+});
+
+test("custom percent split with leftover cents distributes them exactly", () => {
+  const h: Household = {
+    ...household,
+    incomeSources: [],
+    expenses: [
+      {
+        id: "e1",
+        name: "Rent",
+        participants: ["m1", "m2"],
+        splitRule: {
+          method: "custom",
+          mode: "percent",
+          values: { m1: 50, m2: 50 },
+        },
+        effectiveFrom: "2026-01",
+      },
+    ],
+    expenseAmounts: [{ expenseId: "e1", month: "2026-07", amountCents: 10001 }],
+  };
+
+  const summary = computeMonthlySummary(h, "2026-07");
+  const total = summary.members.reduce((s, m) => s + m.totalCents, 0);
+  expect(total).toBe(10001);
+});
+
+test("custom amount split gives each participant their fixed amount", () => {
+  const h: Household = {
+    ...household,
+    incomeSources: [],
+    expenses: [
+      {
+        id: "e1",
+        name: "Rent",
+        participants: ["m1", "m2"],
+        splitRule: {
+          method: "custom",
+          mode: "amount",
+          values: { m1: 90000, m2: 60000 },
+        },
+        effectiveFrom: "2026-01",
+      },
+    ],
+    expenseAmounts: [{ expenseId: "e1", month: "2026-07", amountCents: 150000 }],
+  };
+
+  const summary = computeMonthlySummary(h, "2026-07");
+
+  const ana = summary.members.find((m) => m.memberId === "m1")!;
+  const bruno = summary.members.find((m) => m.memberId === "m2")!;
+  expect(ana.totalCents).toBe(90000);
+  expect(bruno.totalCents).toBe(60000);
+  expect(ana.totalCents + bruno.totalCents).toBe(150000);
 });
