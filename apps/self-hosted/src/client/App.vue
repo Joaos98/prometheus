@@ -14,6 +14,7 @@ import "./style.css";
 
 const page = ref<"overview" | "income" | "expenses" | "goals" | "members">("overview");
 const loading = ref(true);
+const refreshing = ref(false);
 const currency = ref<string | null>(null);
 const members = ref<Member[]>([]);
 const incomeSources = ref<IncomeSource[]>([]);
@@ -29,21 +30,19 @@ const month = useMonth();
 const api = useApi({ currency, members, incomeSources, expenses, expenseAmounts, goals, summary, appError, displayMonth: month.displayMonth });
 
 const formatCurrency = (cents: number, curr: string) => new Intl.NumberFormat(undefined, { style: "currency", currency: curr }).format(cents / 100);
-function activeExpenses() { return expenses.value.filter(e => e.effectiveFrom <= month.displayMonth.value && (e.endedFrom === undefined || e.endedFrom > month.displayMonth.value)); }
-function expenseHasAmount(eid: string) { return expenseAmounts.value.some(a => a.expenseId === eid && a.month === month.displayMonth.value); }
-function expenseAmountCents(eid: string) { return expenseAmounts.value.find(a => a.expenseId === eid && a.month === month.displayMonth.value)?.amountCents; }
 function goalProgressPercent(gp: { accumulatedCents: number; targetAmountCents?: number }) { if (!gp.targetAmountCents || gp.targetAmountCents === 0) return 0; return Math.min(100, Math.round((gp.accumulatedCents / gp.targetAmountCents) * 100)); }
 function memberName(id: string) { return members.value.find(m => m.id === id)?.name ?? id; }
 
-onMounted(async () => { try { await api.loadHousehold(); if (currency.value) await api.refreshSummary(); } catch (e) { appError.value = e instanceof Error ? e.message : String(e); } finally { loading.value = false; } });
-watch(month.displayMonth, () => api.refreshSummary());
+const refreshSummary = async () => { refreshing.value = true; try { await api.refreshSummary(); } finally { refreshing.value = false; } };
+onMounted(async () => { try { await api.loadHousehold(); if (currency.value) await refreshSummary(); } catch (e) { appError.value = e instanceof Error ? e.message : String(e); } finally { loading.value = false; } });
+watch(month.displayMonth, () => refreshSummary());
 </script>
 
 <template>
   <div class="shell" v-if="currency !== null">
     <Sidebar :page="page" @navigate="(p) => page = p as any" />
     <main class="content">
-      <p v-if="appError" class="error-banner">{{ appError }}</p>
+      <p v-if="appError" class="error-banner" @click="appError = null">{{ appError }} <span class="error-dismiss">✕</span></p>
       <p v-else-if="loading" class="loading">Loading…</p>
       <template v-else-if="summary">
         <MonthBar
@@ -52,9 +51,11 @@ watch(month.displayMonth, () => api.refreshSummary());
           @prev="month.prev" @next="month.next" @today="month.today" @jump="month.jump"
           @update:jumpMonth="(v) => month.jumpMonth.value = v" />
 
+        <div v-if="refreshing" class="refreshing-bar">Updating…</div>
+
         <OverviewPage v-if="page === 'overview'"
           :summary="summary" :members="members" :expenses="expenses" :goals="goals"
-          :activeExpenses="activeExpenses" :expenseHasAmount="expenseHasAmount" :expenseAmountCents="expenseAmountCents"
+          :expenseAmounts="expenseAmounts" :displayMonth="month.displayMonth.value"
           :goalProgressPercent="goalProgressPercent" :memberName="memberName" :formatCurrency="formatCurrency"
           :householdLeftover="householdLeftover" />
 
@@ -65,6 +66,7 @@ watch(month.displayMonth, () => api.refreshSummary());
         <ExpensesPage v-if="page === 'expenses'"
           :members="members" :expenses="expenses" :currency="summary.currency"
           :displayMonth="month.displayMonth.value" :currentMonth="month.currentMonth()"
+          :expenseAmounts="expenseAmounts" :summaryMembers="summary.members"
           :backdateWarning="month.backdateWarning" :formatCurrency="formatCurrency" :api="api" />
 
         <GoalsPage v-if="page === 'goals'"

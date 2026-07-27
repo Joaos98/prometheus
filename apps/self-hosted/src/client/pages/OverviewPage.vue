@@ -1,18 +1,22 @@
 <script setup lang="ts">
-import type { Expense, GoalProgress, MemberSummary, SavingsGoal } from "@prometheus/engine";
-defineProps<{
+import type { Expense, ExpenseAmount, GoalProgress, MemberSummary, SavingsGoal } from "@prometheus/engine";
+
+const props = defineProps<{
   summary: { currency: string; members: MemberSummary[]; goalProgress: GoalProgress[] };
   members: { id: string; name: string }[];
   expenses: Expense[];
   goals: SavingsGoal[];
-  activeExpenses: () => Expense[];
-  expenseHasAmount: (id: string) => boolean;
-  expenseAmountCents: (id: string) => number | undefined;
+  expenseAmounts: ExpenseAmount[];
+  displayMonth: string;
   goalProgressPercent: (gp: GoalProgress) => number;
   memberName: (id: string) => string;
   formatCurrency: (cents: number, currency: string) => string;
   householdLeftover: number;
 }>();
+
+function activeExpenses() { return props.expenses.filter(e => e.effectiveFrom <= props.displayMonth && (e.endedFrom === undefined || e.endedFrom > props.displayMonth)); }
+function expenseHasAmount(eid: string) { return props.expenseAmounts.some(a => a.expenseId === eid && a.month === props.displayMonth); }
+function expenseAmountCents(eid: string) { return props.expenseAmounts.find(a => a.expenseId === eid && a.month === props.displayMonth)?.amountCents; }
 </script>
 
 <template>

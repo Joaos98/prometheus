@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import type { Expense, Member } from "@prometheus/engine";
+import type { Expense, ExpenseAmount, MemberSummary } from "@prometheus/engine";
 import { ref } from "vue";
 
 const props = defineProps<{
-  members: Member[];
+  members: { id: string; name: string }[];
   expenses: Expense[];
   currency: string;
   displayMonth: string;
   currentMonth: string;
+  expenseAmounts: ExpenseAmount[];
+  summaryMembers: MemberSummary[];
   api: {
     submitExpense(name: string, participants: string[], splitRule: Record<string, unknown>, effectiveFrom: string, oneOff: boolean): Promise<Expense>;
     submitExpenseAmount(eid: string, amountCents: number): Promise<void>;
@@ -31,6 +33,9 @@ const showChangeParticipants = ref<string | null>(null); const changeParticipant
 
 function memberName(id: string) { return props.members.find(m => m.id === id)?.name ?? id; }
 function activeExpenses() { return props.expenses.filter(e => e.effectiveFrom <= props.displayMonth && (e.endedFrom === undefined || e.endedFrom > props.displayMonth)); }
+function hasAmount(eid: string) { return props.expenseAmounts.some(a => a.expenseId === eid && a.month === props.displayMonth); }
+function amountCents(eid: string) { return props.expenseAmounts.find(a => a.expenseId === eid && a.month === props.displayMonth)?.amountCents; }
+function shares(eid: string) { return props.summaryMembers.flatMap(m => m.shares.filter(s => s.expenseId === eid).map(s => ({ memberId: m.memberId, name: m.name, amountCents: s.amountCents }))); }
 function toggleParticipant(id: string) { const i = newExpenseParticipants.value.indexOf(id); if (i >= 0) newExpenseParticipants.value.splice(i, 1); else newExpenseParticipants.value.push(id); }
 
 async function submit() {
@@ -68,30 +73,35 @@ function toggleCP(id: string) { const i = changeParticipantsList.value.indexOf(i
   <div class="card" v-if="activeExpenses().length > 0">
     <h3 class="card-label">Active this Month</h3>
     <ul class="ov-list">
-      <li v-for="e in activeExpenses()" :key="e.id" class="ov-row exp-row">
+      <li v-for="e in activeExpenses()" :key="e.id" class="ov-row exp-row" :class="{ pending: !hasAmount(e.id) }">
         <div class="exp-main">
           <span :class="{ ended: e.endedFrom }">{{ e.name }}</span>
-          <span class="exp-amt">{{ formatCurrency(0, currency) }}</span>
+          <span v-if="hasAmount(e.id)" class="exp-amt">{{ formatCurrency(amountCents(e.id)!, currency) }}</span>
+          <span v-else class="pending-badge">pending</span>
           <span class="muted">{{ e.splitRule.method === 'proportional' ? 'proportional' : e.splitRule.method }}</span>
           <span class="muted">&bull;</span>
           <span class="muted">{{ e.participants.map(memberName).join(', ') }}</span>
           <button @click="expandedExpense = expandedExpense === e.id ? null : e.id" class="btn-ghost">{{ expandedExpense === e.id ? 'Hide' : 'Details' }}</button>
         </div>
         <div v-if="expandedExpense === e.id" class="exp-det">
-          <template v-if="e.endedFrom === undefined">
+          <div v-if="shares(e.id).length > 0">
+            <div v-for="s in shares(e.id)" :key="s.memberId" class="share-row"><span>{{ s.name }}</span><span>{{ formatCurrency(s.amountCents, currency) }}</span></div>
+            <div class="share-row share-total"><span>Total</span><span>{{ formatCurrency(shares(e.id).reduce((sum, s) => sum + s.amountCents, 0), currency) }}</span></div>
+          </div>
+          <template v-if="!hasAmount(e.id)">
             <input v-model="amountValue" placeholder="$" type="number" step="0.01" min="0" class="input input-xs" />
             <button @click="submitAmount(e.id)" class="btn-accent">Save Amount</button>
-            <div class="exp-actions">
-              <button @click="openChangeSplit(e)" class="btn-ghost">Change Split</button>
-              <button @click="openChangeParticipants(e)" class="btn-ghost">Change Participants</button>
-              <template v-if="endingExpenseId === e.id">
-                <input v-model="endingEff" placeholder="End YYYY-MM" size="7" class="input input-xs" />
-                <button @click="doEndExpense(e.id)" class="btn-ghost danger">Confirm End</button>
-                <button @click="endingExpenseId = null" class="btn-ghost">Cancel</button>
-              </template>
-              <button v-else @click="endingExpenseId = e.id" class="btn-ghost danger">End</button>
-            </div>
           </template>
+          <div v-if="e.endedFrom === undefined" class="exp-actions">
+            <button @click="openChangeSplit(e)" class="btn-ghost">Change Split</button>
+            <button @click="openChangeParticipants(e)" class="btn-ghost">Change Participants</button>
+            <template v-if="endingExpenseId === e.id">
+              <input v-model="endingEff" placeholder="End YYYY-MM" size="7" class="input input-xs" />
+              <button @click="doEndExpense(e.id)" class="btn-ghost danger">Confirm End</button>
+              <button @click="endingExpenseId = null" class="btn-ghost">Cancel</button>
+            </template>
+            <button v-else @click="endingExpenseId = e.id" class="btn-ghost danger">End</button>
+          </div>
           <div v-if="showChangeSplit === e.id" class="ch-form">
             <select v-model="changeSplitRule" class="input input-sm"><option value="even">Even</option><option value="proportional">Proportional</option></select> From <input v-model="changeSplitEff" placeholder="YYYY-MM" size="7" class="input input-xs" />
             <span v-if="backdateWarning(changeSplitEff)" class="pending-badge">{{ backdateWarning(changeSplitEff) }}</span>
