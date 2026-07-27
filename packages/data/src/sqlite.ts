@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import Database from "better-sqlite3";
 import type {
   Expense,
@@ -38,6 +39,51 @@ export class SqliteStore implements DataStore {
         PRIMARY KEY (expense_id, month)
       );
     `);
+  }
+
+  getCurrency(): string | null {
+    const row = this.db
+      .prepare("SELECT currency FROM household WHERE id = 1")
+      .get() as { currency: string } | undefined;
+    return row?.currency ?? null;
+  }
+
+  setCurrency(currency: string): void {
+    if (this.getCurrency() !== null) {
+      throw new Error("Currency is already set");
+    }
+    this.db
+      .prepare("INSERT INTO household (id, currency) VALUES (1, ?)")
+      .run(currency);
+  }
+
+  addMember(name: string): Member {
+    const id = randomUUID();
+    const maxPos = (
+      this.db
+        .prepare("SELECT COALESCE(MAX(position), -1) AS maxPos FROM members")
+        .get() as { maxPos: number }
+    ).maxPos;
+    this.db
+      .prepare("INSERT INTO members (id, name, position) VALUES (?, ?, ?)")
+      .run(id, name, maxPos + 1);
+    return { id, name };
+  }
+
+  getMembers(): Member[] {
+    const rows = this.db
+      .prepare("SELECT id, name FROM members ORDER BY position")
+      .all() as Array<{ id: string; name: string }>;
+    return rows.map((row) => ({ id: row.id, name: row.name }));
+  }
+
+  renameMember(id: string, name: string): void {
+    const result = this.db
+      .prepare("UPDATE members SET name = ? WHERE id = ?")
+      .run(name, id);
+    if (result.changes === 0) {
+      throw new Error("Member not found");
+    }
   }
 
   getHousehold(): Household {

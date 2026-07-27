@@ -1,38 +1,62 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { SqliteStore } from "@prometheus/data";
-import { computeMonthlySummary, type Household } from "@prometheus/engine";
+import { computeMonthlySummary } from "@prometheus/engine";
 import express from "express";
 
 const currentMonth = (): string => new Date().toISOString().slice(0, 7);
 
-const seedHousehold = (): Household => ({
-  currency: "USD",
-  members: [
-    { id: "m1", name: "Ana" },
-    { id: "m2", name: "Bruno" },
-  ],
-  expenses: [
-    {
-      id: "e1",
-      name: "Rent",
-      participants: ["m1", "m2"],
-      splitRule: { method: "even" },
-      effectiveFrom: "2020-01",
-    },
-  ],
-  expenseAmounts: [
-    { expenseId: "e1", month: currentMonth(), amountCents: 150000 },
-  ],
-});
-
 const dbPath = process.env.PROMETHEUS_DB ?? "prometheus.db";
 const store = new SqliteStore(dbPath);
-if (store.getHousehold().members.length === 0) {
-  store.replaceHousehold(seedHousehold());
-}
 
 const app = express();
+app.use(express.json());
+
+app.get("/api/household", (_req, res) => {
+  res.json({ currency: store.getCurrency(), members: store.getMembers() });
+});
+
+app.post("/api/household/currency", (req, res) => {
+  const { currency } = req.body as Record<string, unknown>;
+  if (!currency || typeof currency !== "string") {
+    res.status(400).json({ error: "currency is required" });
+    return;
+  }
+  try {
+    store.setCurrency(currency);
+    res.json({ currency });
+  } catch (e) {
+    if (e instanceof Error && e.message === "Currency is already set") {
+      res.status(409).json({ error: "currency is already set" });
+      return;
+    }
+    throw e;
+  }
+});
+
+app.post("/api/members", (req, res) => {
+  const { name } = req.body as Record<string, unknown>;
+  if (!name || typeof name !== "string") {
+    res.status(400).json({ error: "name is required" });
+    return;
+  }
+  const member = store.addMember(name);
+  res.status(201).json(member);
+});
+
+app.patch("/api/members/:id", (req, res) => {
+  const { name } = req.body as Record<string, unknown>;
+  if (!name || typeof name !== "string") {
+    res.status(400).json({ error: "name is required" });
+    return;
+  }
+  try {
+    store.renameMember(req.params.id, name);
+    res.json({ id: req.params.id, name });
+  } catch {
+    res.status(404).json({ error: "member not found" });
+  }
+});
 
 app.get("/api/summary", (req, res) => {
   const month =

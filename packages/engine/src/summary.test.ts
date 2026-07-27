@@ -78,3 +78,19 @@ test("an expense effective from a later month does not appear in earlier months"
     expect(member.totalCents).toBe(0);
   }
 });
+
+test("the summary contains exactly one row per household member", () => {
+  const three: Household = {
+    ...household,
+    members: [
+      { id: "m1", name: "Ana" },
+      { id: "m2", name: "Bruno" },
+      { id: "m3", name: "Carlos" },
+    ],
+  };
+  const summary = computeMonthlySummary(three, "2026-07");
+  expect(summary.members).toHaveLength(3);
+  expect(summary.members[0]?.memberId).toBe("m1");
+  expect(summary.members[1]?.memberId).toBe("m2");
+  expect(summary.members[2]?.memberId).toBe("m3");
+});

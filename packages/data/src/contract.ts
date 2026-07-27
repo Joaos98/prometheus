@@ -78,4 +78,79 @@ export function runDataStoreContract(
       store.close();
     });
   });
+
+  describe("currency", () => {
+    test("getCurrency returns null when currency has not been set", () => {
+      const store = makeStore(freshPath());
+      expect(store.getCurrency()).toBeNull();
+      store.close();
+    });
+
+    test("setCurrency stores the currency and persists it", () => {
+      const path = freshPath();
+      const first = makeStore(path);
+      first.setCurrency("EUR");
+      expect(first.getCurrency()).toBe("EUR");
+      first.close();
+
+      const second = makeStore(path);
+      expect(second.getCurrency()).toBe("EUR");
+      second.close();
+    });
+
+    test("setCurrency throws when currency is already set", () => {
+      const store = makeStore(freshPath());
+      store.setCurrency("EUR");
+      expect(() => store.setCurrency("USD")).toThrow();
+      expect(store.getCurrency()).toBe("EUR");
+      store.close();
+    });
+  });
+
+  describe("members", () => {
+    test("addMember adds a member with a generated id", () => {
+      const store = makeStore(freshPath());
+      const member = store.addMember("Ana");
+      expect(member.id).toBeTypeOf("string");
+      expect(member.name).toBe("Ana");
+      store.close();
+    });
+
+    test("getMembers returns members in insertion order", () => {
+      const store = makeStore(freshPath());
+      store.addMember("Ana");
+      store.addMember("Bruno");
+      const members = store.getMembers();
+      expect(members).toHaveLength(2);
+      expect(members[0]!.name).toBe("Ana");
+      expect(members[1]!.name).toBe("Bruno");
+      store.close();
+    });
+
+    test("renameMember changes the member's name", () => {
+      const store = makeStore(freshPath());
+      const member = store.addMember("Ana");
+      store.renameMember(member.id, "Anna");
+      expect(store.getMembers()[0]!.name).toBe("Anna");
+      store.close();
+    });
+
+    test("renameMember persists the new name across reopen", () => {
+      const path = freshPath();
+      const first = makeStore(path);
+      const member = first.addMember("Ana");
+      first.renameMember(member.id, "Anna");
+      first.close();
+
+      const second = makeStore(path);
+      expect(second.getMembers()[0]!.name).toBe("Anna");
+      second.close();
+    });
+
+    test("renameMember throws when the member does not exist", () => {
+      const store = makeStore(freshPath());
+      expect(() => store.renameMember("nonexistent", "X")).toThrow();
+      store.close();
+    });
+  });
 }
