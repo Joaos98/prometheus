@@ -53,6 +53,7 @@ export interface SavingsGoal {
   effectiveFrom: Month;
   endedFrom?: Month;
   targetAmountCents?: number;
+  startAmountCents?: number;
 }
 
 export interface GoalContribution {

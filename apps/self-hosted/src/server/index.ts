@@ -279,7 +279,7 @@ app.post("/api/expenses/:id/change-participants", (req, res) => {
 });
 
 app.post("/api/goals", (req, res) => {
-  const { name, participants, splitRule, targetAmountCents, effectiveFrom } =
+  const { name, participants, splitRule, targetAmountCents, startAmountCents, effectiveFrom } =
     req.body as Record<string, unknown>;
   if (!name || typeof name !== "string") {
     res.status(400).json({ error: "name is required" });
@@ -307,6 +307,7 @@ app.post("/api/goals", (req, res) => {
     participants as string[],
     rule as { method: "even" } | { method: "proportional" },
     typeof targetAmountCents === "number" ? (targetAmountCents as number) : undefined,
+    typeof startAmountCents === "number" ? (startAmountCents as number) : undefined,
     effectiveFrom,
   );
   res.status(201).json(goal);

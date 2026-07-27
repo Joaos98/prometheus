@@ -143,9 +143,10 @@ export function computeMonthlySummary(
   }
 
   const goalProgress: GoalProgress[] = household.goals.map((g) => {
-    const accumulated = household.goalContributions
+    const contributionSum = household.goalContributions
       .filter((c) => c.goalId === g.id)
       .reduce((sum, c) => sum + c.amountCents, 0);
+    const accumulated = (g.startAmountCents ?? 0) + contributionSum;
     const progress: GoalProgress = {
       goalId: g.id,
       goalName: g.name,

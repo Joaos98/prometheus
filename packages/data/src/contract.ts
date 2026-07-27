@@ -307,4 +307,15 @@ export function runDataStoreContract(
       store.close();
     });
   });
+
+  describe("goals", () => {
+    test("addGoal with startAmountCents stores and retrieves it", () => {
+      const store = makeStore(freshPath());
+      const goal = store.addGoal("Car", ["m1"], { method: "even" }, 500000, 100000, "2026-01");
+      expect(goal.startAmountCents).toBe(100000);
+      const goals = store.getGoals();
+      expect(goals[0]!.startAmountCents).toBe(100000);
+      store.close();
+    });
+  });
 }

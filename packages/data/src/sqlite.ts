@@ -59,6 +59,7 @@ export class SqliteStore implements DataStore {
         effective_from TEXT NOT NULL,
         ended_from TEXT,
         target_amount_cents INTEGER,
+        start_amount_cents INTEGER,
         split_rule TEXT NOT NULL,
         participants TEXT NOT NULL,
         position INTEGER NOT NULL
@@ -88,6 +89,7 @@ export class SqliteStore implements DataStore {
     );
     this.addColumnIfMissing("members", "joined_from", "TEXT");
     this.addColumnIfMissing("members", "departed_from", "TEXT");
+    this.addColumnIfMissing("goals", "start_amount_cents", "INTEGER");
   }
 
   private addColumnIfMissing(
@@ -400,6 +402,7 @@ export class SqliteStore implements DataStore {
     participants: string[],
     splitRule: SplitRule,
     targetAmountCents: number | undefined,
+    startAmountCents: number | undefined,
     effectiveFrom: Month,
   ): SavingsGoal {
     const id = randomUUID();
@@ -410,13 +413,14 @@ export class SqliteStore implements DataStore {
     ).maxPos;
     this.db
       .prepare(
-        "INSERT INTO goals (id, name, effective_from, target_amount_cents, split_rule, participants, position) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO goals (id, name, effective_from, target_amount_cents, start_amount_cents, split_rule, participants, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       )
       .run(
         id,
         name,
         effectiveFrom,
         targetAmountCents ?? null,
+        startAmountCents ?? null,
         JSON.stringify(splitRule),
         JSON.stringify(participants),
         maxPos + 1,
@@ -428,13 +432,14 @@ export class SqliteStore implements DataStore {
       splitRule,
       effectiveFrom,
       ...(targetAmountCents !== undefined ? { targetAmountCents } : {}),
+      ...(startAmountCents !== undefined ? { startAmountCents } : {}),
     };
   }
 
   getGoals(): SavingsGoal[] {
     const rows = this.db
       .prepare(
-        "SELECT id, name, effective_from, ended_from, target_amount_cents, split_rule, participants FROM goals ORDER BY position",
+        "SELECT id, name, effective_from, ended_from, target_amount_cents, start_amount_cents, split_rule, participants FROM goals ORDER BY position",
       )
       .all() as Array<{
       id: string;
@@ -442,6 +447,7 @@ export class SqliteStore implements DataStore {
       effective_from: string;
       ended_from: string | null;
       target_amount_cents: number | null;
+      start_amount_cents: number | null;
       split_rule: string;
       participants: string;
     }>;
@@ -452,6 +458,9 @@ export class SqliteStore implements DataStore {
       ...(row.ended_from ? { endedFrom: row.ended_from } : {}),
       ...(row.target_amount_cents !== null
         ? { targetAmountCents: row.target_amount_cents }
+        : {}),
+      ...(row.start_amount_cents !== null
+        ? { startAmountCents: row.start_amount_cents }
         : {}),
       splitRule: JSON.parse(row.split_rule) as SplitRule,
       participants: JSON.parse(row.participants) as string[],
@@ -616,7 +625,7 @@ export class SqliteStore implements DataStore {
       }
 
       const insertGoal = this.db.prepare(
-        "INSERT INTO goals (id, name, effective_from, ended_from, target_amount_cents, split_rule, participants, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO goals (id, name, effective_from, ended_from, target_amount_cents, start_amount_cents, split_rule, participants, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
       );
       h.goals.forEach((goal, index) => {
         insertGoal.run(
@@ -625,6 +634,7 @@ export class SqliteStore implements DataStore {
           goal.effectiveFrom,
           goal.endedFrom ?? null,
           goal.targetAmountCents ?? null,
+          goal.startAmountCents ?? null,
           JSON.stringify(goal.splitRule),
           JSON.stringify(goal.participants),
           index,

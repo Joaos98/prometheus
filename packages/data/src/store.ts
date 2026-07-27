@@ -64,6 +64,7 @@ export interface DataStore {
     participants: string[],
     splitRule: SplitRule,
     targetAmountCents: number | undefined,
+    startAmountCents: number | undefined,
     effectiveFrom: Month,
   ): SavingsGoal;
   getGoals(): SavingsGoal[];

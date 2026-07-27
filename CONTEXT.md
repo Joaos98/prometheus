@@ -52,7 +52,7 @@ A named cost divided among its Participants by its Split Rule; an Expense with e
 _Avoid_: bill
 
 **Savings Goal**:
-A named target that money is set aside for, with contributions divided among its Participants by its Split Rule; a goal with exactly one Participant is individual. Its definition is Effective From a Month and stays active until ended; contributions are entered per Month and follow the same rules as Expense amounts (unentered ≠ $0). The target amount is optional; the app never records withdrawals — a completed goal is simply ended.
+A named target that money is set aside for, with contributions divided among its Participants by its Split Rule; a goal with exactly one Participant is individual. Its definition is Effective From a Month and stays active until ended; contributions are entered per Month and follow the same rules as Expense amounts (unentered ≠ $0). The target amount is optional; an optional start amount sets the initial accumulated total without backfilling months; the app never records withdrawals — a completed goal is simply ended.
 _Avoid_: fund, pot
 
 **Leftover Balance**:

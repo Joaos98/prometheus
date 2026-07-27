@@ -811,3 +811,32 @@ test("Leftover Balance defaults to Spendable Income minus expense Shares", () =>
   const ana = summary.members[0]!;
   expect(ana.leftoverCents).toBe(200000); // (500000 - 50000 restricted) - 300000
 });
+
+test("goal progress includes startAmountCents in its accumulated total", () => {
+  const h: Household = {
+    currency: "USD",
+    members: [{ id: "m1", name: "Ana" }],
+    incomeSources: [],
+    expenses: [],
+    expenseAmounts: [],
+    goals: [
+      {
+        id: "g1",
+        name: "Car Fund",
+        participants: ["m1"],
+        splitRule: { method: "even" },
+        effectiveFrom: "2026-01",
+        startAmountCents: 100000,
+        targetAmountCents: 500000,
+      },
+    ],
+    goalContributions: [
+      { goalId: "g1", month: "2026-03", amountCents: 25000 },
+      { goalId: "g1", month: "2026-04", amountCents: 25000 },
+    ],
+  };
+
+  const summary = computeMonthlySummary(h, "2026-07");
+  expect(summary.goalProgress).toHaveLength(1);
+  expect(summary.goalProgress[0]!.accumulatedCents).toBe(150000); // 100000 + 25000 + 25000
+});

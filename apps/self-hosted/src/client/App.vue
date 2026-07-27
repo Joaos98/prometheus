@@ -64,6 +64,7 @@ const newGoalName = ref("");
 const newGoalParticipants = ref<string[]>([]);
 const newGoalSplitRule = ref("even");
 const newGoalTarget = ref("");
+const newGoalStartAmount = ref("");
 const newGoalEffectiveFrom = ref("");
 const goalContributionValues = ref<Record<string, string>>({});
 const endingGoalEffectiveFrom = ref<Record<string, string>>({});
@@ -272,8 +273,8 @@ async function submitGoal(): Promise<void> {
   const name = newGoalName.value.trim(); const participants = [...newGoalParticipants.value]; const effectiveFrom = newGoalEffectiveFrom.value;
   if (!name || participants.length === 0 || !effectiveFrom) return;
   try {
-    await request.post("/api/goals", { name, participants, splitRule: { method: newGoalSplitRule.value }, targetAmountCents: newGoalTarget.value ? Math.round(parseFloat(newGoalTarget.value) * 100) : undefined, effectiveFrom });
-    await loadHouseholdData(); newGoalName.value = ""; newGoalParticipants.value = []; newGoalTarget.value = ""; newGoalEffectiveFrom.value = ""; showGoalForm.value = false;
+    await request.post("/api/goals", { name, participants, splitRule: { method: newGoalSplitRule.value }, targetAmountCents: newGoalTarget.value ? Math.round(parseFloat(newGoalTarget.value) * 100) : undefined, startAmountCents: newGoalStartAmount.value ? Math.round(parseFloat(newGoalStartAmount.value) * 100) : undefined, effectiveFrom });
+    await loadHouseholdData(); newGoalName.value = ""; newGoalParticipants.value = []; newGoalTarget.value = ""; newGoalStartAmount.value = ""; newGoalEffectiveFrom.value = ""; showGoalForm.value = false;
   } catch (e) { appError.value = e instanceof Error ? e.message : String(e); }
 }
 async function submitGoalContribution(goalId: string): Promise<void> {
@@ -535,6 +536,7 @@ async function endGoal(id: string): Promise<void> {
               </fieldset>
               <select v-model="newGoalSplitRule" class="input"><option value="even">Even</option><option value="proportional">Proportional</option></select>
               <input v-model="newGoalTarget" placeholder="Target amount (optional)" type="number" step="0.01" min="0" class="input" />
+              <input v-model="newGoalStartAmount" placeholder="Start amount (optional)" type="number" step="0.01" min="0" class="input" />
               <input v-model="newGoalEffectiveFrom" placeholder="From (YYYY-MM)" class="input input-sm" />
               <button type="submit" class="btn btn-primary btn-small">Save</button>
             </form>
