@@ -7,7 +7,9 @@ import type {
   MonthlySummary,
   PendingExpense,
 } from "@prometheus/engine";
-import { onMounted, ref } from "vue";
+import { onMounted, ref, watch } from "vue";
+
+const currentMonth = (): string => new Date().toISOString().slice(0, 7);
 
 const currency = ref<string | null>(null);
 const members = ref<Member[]>([]);
@@ -17,6 +19,33 @@ const expenseAmounts = ref<ExpenseAmount[]>([]);
 const summary = ref<MonthlySummary | null>(null);
 const loading = ref(true);
 const appError = ref<string | null>(null);
+
+const displayMonth = ref(currentMonth());
+const jumpMonth = ref("");
+
+function shiftMonth(month: string, delta: number): string {
+  const [y, m] = month.split("-").map(Number) as [number, number];
+  const total = y * 12 + (m - 1) + delta;
+  const ny = Math.floor(total / 12);
+  const nm = (total % 12) + 1;
+  return `${String(ny).padStart(4, "0")}-${String(nm).padStart(2, "0")}`;
+}
+
+function goPrev(): void {
+  displayMonth.value = shiftMonth(displayMonth.value, -1);
+}
+
+function goNext(): void {
+  displayMonth.value = shiftMonth(displayMonth.value, 1);
+}
+
+function goToMonth(): void {
+  const m = jumpMonth.value.trim();
+  if (/^\d{4}-\d{2}$/.test(m)) {
+    displayMonth.value = m;
+    jumpMonth.value = "";
+  }
+}
 
 const currencyValue = ref("USD");
 const newMemberName = ref("");
@@ -39,8 +68,6 @@ const newExpenseCustomValues = ref<Record<string, number>>({});
 const newExpenseEffectiveFrom = ref("");
 const expenseAmountValues = ref<Record<string, string>>({});
 const endingExpenseEffectiveFrom = ref<Record<string, string>>({});
-
-const currentMonth = () => new Date().toISOString().slice(0, 7);
 
 async function unwrapError(r: Response): Promise<never> {
   const body = (await r.json().catch(() => ({}))) as { error?: string };
@@ -90,7 +117,7 @@ onMounted(async () => {
 
     if (currency.value) {
       summary.value = (await request.get(
-        `/api/summary?month=${currentMonth()}`,
+        `/api/summary?month=${displayMonth.value}`,
       )) as MonthlySummary;
     }
   } catch (e) {
@@ -98,6 +125,10 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+});
+
+watch(displayMonth, async () => {
+  await refreshSummary();
 });
 
 async function reloadExpenseData(): Promise<void> {
@@ -111,12 +142,12 @@ async function reloadExpenseData(): Promise<void> {
 
 async function refreshSummary(): Promise<void> {
   summary.value = (await request.get(
-    `/api/summary?month=${currentMonth()}`,
+    `/api/summary?month=${displayMonth.value}`,
   )) as MonthlySummary;
 }
 
 function activeExpenses(): Expense[] {
-  const month = currentMonth();
+  const month = displayMonth.value;
   return expenses.value.filter(
     (e) =>
       e.effectiveFrom <= month &&
@@ -126,7 +157,7 @@ function activeExpenses(): Expense[] {
 
 function expenseHasAmount(expenseId: string): boolean {
   return expenseAmounts.value.some(
-    (a) => a.expenseId === expenseId && a.month === currentMonth(),
+    (a) => a.expenseId === expenseId && a.month === displayMonth.value,
   );
 }
 
@@ -235,7 +266,7 @@ async function submitExpenseAmount(expenseId: string): Promise<void> {
   if (isNaN(amountDollars)) return;
   try {
     await request.post(`/api/expenses/${expenseId}/amount`, {
-      month: currentMonth(),
+      month: displayMonth.value,
       amountCents: Math.round(amountDollars * 100),
     });
     delete expenseAmountValues.value[expenseId];
@@ -345,6 +376,18 @@ const formatCurrency = (cents: number, curr: string): string =>
     </template>
 
     <template v-else-if="summary">
+      <nav>
+        <button @click="goPrev">Prev</button>
+        <button @click="goNext">Next</button>
+        <form @submit.prevent="goToMonth" style="display:inline">
+          <input v-model="jumpMonth" placeholder="YYYY-MM" size="7" />
+          <button type="submit">Go</button>
+        </form>
+        <span v-if="summary.pendingExpenses.length > 0" style="color:orange">
+          &mdash; {{ summary.pendingExpenses.length }} pending
+        </span>
+      </nav>
+
       <h2>{{ summary.month }}</h2>
 
       <section>
@@ -449,11 +492,11 @@ const formatCurrency = (cents: number, curr: string): string =>
               </strong>
               (participants: {{ expense.participants.join(", ") }})
               <template v-if="expenseHasAmount(expense.id)">
-                <br />Amount entered for {{ currentMonth() }}
+                <br />Amount entered for {{ displayMonth }}
               </template>
               <template v-else>
                 <br />
-                Amount {{ currentMonth() }}
+                Amount {{ displayMonth }}
                 <input v-model="expenseAmountValues[expense.id]" placeholder="$" type="number" step="0.01" min="0" />
                 <button @click="submitExpenseAmount(expense.id)">Save</button>
               </template>

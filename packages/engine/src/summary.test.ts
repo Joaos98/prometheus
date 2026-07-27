@@ -606,3 +606,55 @@ test("custom amount split gives each participant their fixed amount", () => {
   expect(bruno.totalCents).toBe(60000);
   expect(ana.totalCents + bruno.totalCents).toBe(150000);
 });
+
+test("state changes effective from M never leak into months earlier than M", () => {
+  const h: Household = {
+    ...household,
+    incomeSources: [
+      {
+        id: "is1",
+        memberId: "m1",
+        name: "Salary",
+        timeline: [
+          { amountCents: 400000, effectiveFrom: "2026-01" },
+          { amountCents: 600000, effectiveFrom: "2026-06" },
+        ],
+      },
+    ],
+    expenses: [
+      {
+        id: "e1",
+        name: "Rent",
+        participants: ["m1", "m2"],
+        splitRule: { method: "proportional" },
+        effectiveFrom: "2026-01",
+      },
+    ],
+    expenseAmounts: [
+      { expenseId: "e1", month: "2026-05", amountCents: 100000 },
+      { expenseId: "e1", month: "2026-07", amountCents: 100000 },
+    ],
+  };
+
+  // May: income is still 400k (600k starts June); Ana gets 100% of 100000
+  const may = computeMonthlySummary(h, "2026-05");
+  expect(
+    may.members.find((m) => m.memberId === "m1")!.incomeCents,
+  ).toBe(400000);
+  expect(
+    may.members.find((m) => m.memberId === "m1")!.totalCents,
+  ).toBe(100000);
+
+  // July: income is 600k; Ana still gets 100% (Bruno has 0 income)
+  const jul = computeMonthlySummary(h, "2026-07");
+  expect(
+    jul.members.find((m) => m.memberId === "m1")!.incomeCents,
+  ).toBe(600000);
+  expect(
+    jul.members.find((m) => m.memberId === "m1")!.totalCents,
+  ).toBe(100000);
+
+  // Verify May is untouched after computing July
+  const mayAgain = computeMonthlySummary(h, "2026-05");
+  expect(mayAgain).toEqual(may);
+});
