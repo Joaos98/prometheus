@@ -56,6 +56,7 @@ const newSourceMemberId = ref("");
 const newSourceName = ref("");
 const newSourceAmount = ref("");
 const newSourceEffectiveFrom = ref("");
+const newSourceOneOff = ref(false);
 const editingSourceId = ref<string | null>(null);
 const editingSourceAmount = ref("");
 const editingSourceEffectiveFrom = ref("");
@@ -63,6 +64,7 @@ const editingSourceEffectiveFrom = ref("");
 const newExpenseName = ref("");
 const newExpenseParticipants = ref<string[]>([]);
 const newExpenseSplitRule = ref("even");
+const newExpenseOneOff = ref(false);
 const newExpenseCustomMode = ref("percent");
 const newExpenseCustomValues = ref<Record<string, number>>({});
 const newExpenseEffectiveFrom = ref("");
@@ -224,11 +226,13 @@ async function submitIncomeSource(): Promise<void> {
       name,
       amountCents: Math.round(amountDollars * 100),
       effectiveFrom,
+      oneOff: newSourceOneOff.value,
     })) as IncomeSource;
     incomeSources.value = [...incomeSources.value, source];
     newSourceName.value = "";
     newSourceAmount.value = "";
     newSourceEffectiveFrom.value = "";
+    newSourceOneOff.value = false;
   } catch (e) {
     appError.value = e instanceof Error ? e.message : String(e);
   }
@@ -255,12 +259,14 @@ async function submitExpense(): Promise<void> {
       participants,
       splitRule,
       effectiveFrom,
+      oneOff: newExpenseOneOff.value,
     })) as Expense;
     expenses.value = [...expenses.value, expense];
     newExpenseName.value = "";
     newExpenseParticipants.value = [];
     newExpenseSplitRule.value = "even";
     newExpenseCustomValues.value = {};
+    newExpenseOneOff.value = false;
     newExpenseEffectiveFrom.value = "";
   } catch (e) {
     appError.value = e instanceof Error ? e.message : String(e);
@@ -504,6 +510,7 @@ const formatCurrency = (cents: number, curr: string): string =>
           <input v-model="newSourceName" placeholder="Source name" />
           <input v-model="newSourceAmount" placeholder="Amount" type="number" step="0.01" min="0" />
           <input v-model="newSourceEffectiveFrom" placeholder="From (YYYY-MM)" />
+          <label><input type="checkbox" v-model="newSourceOneOff" /> One-off</label>
           <button type="submit">Add Income</button>
         </form>
       </section>
@@ -632,6 +639,7 @@ const formatCurrency = (cents: number, curr: string): string =>
             </div>
           </template>
           <input v-model="newExpenseEffectiveFrom" placeholder="From (YYYY-MM)" />
+          <label><input type="checkbox" v-model="newExpenseOneOff" /> One-off</label>
           <button type="submit">Add Expense</button>
         </form>
       </section>

@@ -658,3 +658,57 @@ test("state changes effective from M never leak into months earlier than M", () 
   const mayAgain = computeMonthlySummary(h, "2026-05");
   expect(mayAgain).toEqual(may);
 });
+
+test("a one-off income source affects exactly its own Month and carries nothing forward", () => {
+  const h: Household = {
+    currency: "USD",
+    members: [
+      { id: "m1", name: "Ana" },
+      { id: "m2", name: "Bruno" },
+    ],
+    incomeSources: [
+      {
+        id: "bonus",
+        memberId: "m1",
+        name: "Bonus",
+        timeline: [{ amountCents: 50000, effectiveFrom: "2026-03" }],
+        endedFrom: "2026-04",
+      },
+    ],
+    expenses: [],
+    expenseAmounts: [],
+  };
+
+  expect(
+    computeMonthlySummary(h, "2026-02").members[0]!.incomeCents,
+  ).toBe(0);
+  expect(
+    computeMonthlySummary(h, "2026-03").members[0]!.incomeCents,
+  ).toBe(50000);
+  expect(
+    computeMonthlySummary(h, "2026-04").members[0]!.incomeCents,
+  ).toBe(0);
+});
+
+test("a one-off expense affects exactly its own Month and nothing before or after", () => {
+  const h: Household = {
+    currency: "USD",
+    members: [{ id: "m1", name: "Ana" }],
+    incomeSources: [],
+    expenses: [
+      {
+        id: "repair",
+        name: "Repair",
+        participants: ["m1"],
+        splitRule: { method: "even" },
+        effectiveFrom: "2026-05",
+        endedFrom: "2026-06",
+      },
+    ],
+    expenseAmounts: [{ expenseId: "repair", month: "2026-05", amountCents: 20000 }],
+  };
+
+  expect(computeMonthlySummary(h, "2026-04").members[0]!.totalCents).toBe(0);
+  expect(computeMonthlySummary(h, "2026-05").members[0]!.totalCents).toBe(20000);
+  expect(computeMonthlySummary(h, "2026-06").members[0]!.totalCents).toBe(0);
+});

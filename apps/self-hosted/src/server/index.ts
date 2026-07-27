@@ -6,6 +6,14 @@ import express from "express";
 
 const currentMonth = (): string => new Date().toISOString().slice(0, 7);
 
+const nextMonth = (month: string): string => {
+  const [y, m] = month.split("-").map(Number) as [number, number];
+  const total = y * 12 + (m - 1) + 1;
+  const ny = Math.floor(total / 12);
+  const nm = (total % 12) + 1;
+  return `${String(ny).padStart(4, "0")}-${String(nm).padStart(2, "0")}`;
+};
+
 const dbPath = process.env.PROMETHEUS_DB ?? "prometheus.db";
 const store = new SqliteStore(dbPath);
 
@@ -91,6 +99,9 @@ app.post("/api/income-sources", (req, res) => {
     amountCents,
     effectiveFrom,
   );
+  if (req.body.oneOff) {
+    store.endIncomeSource(source.id, nextMonth(effectiveFrom));
+  }
   res.status(201).json(source);
 });
 
@@ -156,6 +167,9 @@ app.post("/api/expenses", (req, res) => {
     typedRule as { method: "even" } | { method: "proportional" } | { method: "custom"; mode: "percent" | "amount"; values: Record<string, number> },
     effectiveFrom,
   );
+  if (req.body.oneOff) {
+    store.endExpense(expense.id, nextMonth(effectiveFrom));
+  }
   res.status(201).json(expense);
 });
 

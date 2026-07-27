@@ -112,14 +112,15 @@ function computeIncomeByMember(
   for (const source of sources) {
     if (source.endedFrom !== undefined && source.endedFrom <= month) continue;
 
-    let latestEntry = source.timeline[0];
-    if (!latestEntry) continue;
-
+    let latestEntry = undefined as
+      | { amountCents: number; effectiveFrom: string }
+      | undefined;
     for (const entry of source.timeline) {
       if (entry.effectiveFrom <= month) {
         latestEntry = entry;
       }
     }
+    if (!latestEntry) continue;
 
     const existing = totals.get(source.memberId) ?? 0;
     totals.set(source.memberId, existing + latestEntry.amountCents);
