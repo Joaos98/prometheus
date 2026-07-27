@@ -4,7 +4,10 @@ import type {
   Expense,
   ExpenseAmount,
   Household,
+  IncomeSource,
+  IncomeSourceEntry,
   Member,
+  Month,
   SplitRule,
 } from "@prometheus/engine";
 import type { DataStore } from "./store.js";
@@ -23,6 +26,18 @@ export class SqliteStore implements DataStore {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         position INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS income_sources (
+        id TEXT PRIMARY KEY,
+        member_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        ended_from TEXT
+      );
+      CREATE TABLE IF NOT EXISTS income_source_entries (
+        source_id TEXT NOT NULL,
+        amount_cents INTEGER NOT NULL,
+        effective_from TEXT NOT NULL,
+        PRIMARY KEY (source_id, effective_from)
       );
       CREATE TABLE IF NOT EXISTS expenses (
         id TEXT PRIMARY KEY,
@@ -86,18 +101,102 @@ export class SqliteStore implements DataStore {
     }
   }
 
+  addIncomeSource(
+    memberId: string,
+    name: string,
+    amountCents: number,
+    effectiveFrom: Month,
+  ): IncomeSource {
+    const id = randomUUID();
+    const insert = this.db.transaction(
+      (): void => {
+        this.db
+          .prepare(
+            "INSERT INTO income_sources (id, member_id, name) VALUES (?, ?, ?)",
+          )
+          .run(id, memberId, name);
+        this.db
+          .prepare(
+            "INSERT INTO income_source_entries (source_id, amount_cents, effective_from) VALUES (?, ?, ?)",
+          )
+          .run(id, amountCents, effectiveFrom);
+      },
+    );
+    insert();
+    return {
+      id,
+      memberId,
+      name,
+      timeline: [{ amountCents, effectiveFrom }],
+    };
+  }
+
+  getIncomeSources(): IncomeSource[] {
+    const sourceRows = this.db
+      .prepare(
+        "SELECT id, member_id, name, ended_from FROM income_sources ORDER BY id",
+      )
+      .all() as Array<{
+      id: string;
+      member_id: string;
+      name: string;
+      ended_from: string | null;
+    }>;
+    const entryRows = this.db
+      .prepare(
+        "SELECT source_id, amount_cents, effective_from FROM income_source_entries ORDER BY source_id, effective_from",
+      )
+      .all() as Array<{
+      source_id: string;
+      amount_cents: number;
+      effective_from: string;
+    }>;
+
+    const entriesBySource = new Map<string, IncomeSourceEntry[]>();
+    for (const row of entryRows) {
+      const list = entriesBySource.get(row.source_id) ?? [];
+      list.push({
+        amountCents: row.amount_cents,
+        effectiveFrom: row.effective_from,
+      });
+      entriesBySource.set(row.source_id, list);
+    }
+
+    return sourceRows.map((row) => ({
+      id: row.id,
+      memberId: row.member_id,
+      name: row.name,
+      timeline: entriesBySource.get(row.id) ?? [],
+      ...(row.ended_from ? { endedFrom: row.ended_from } : {}),
+    }));
+  }
+
+  updateIncomeSourceAmount(
+    id: string,
+    amountCents: number,
+    effectiveFrom: Month,
+  ): void {
+    this.db
+      .prepare(
+        "INSERT INTO income_source_entries (source_id, amount_cents, effective_from) VALUES (?, ?, ?)",
+      )
+      .run(id, amountCents, effectiveFrom);
+  }
+
+  endIncomeSource(id: string, effectiveFrom: Month): void {
+    this.db
+      .prepare("UPDATE income_sources SET ended_from = ? WHERE id = ?")
+      .run(effectiveFrom, id);
+  }
+
   getHousehold(): Household {
     const householdRow = this.db
       .prepare("SELECT currency FROM household WHERE id = 1")
       .get() as { currency: string } | undefined;
 
-    const memberRows = this.db
-      .prepare("SELECT id, name FROM members ORDER BY position")
-      .all() as Array<{ id: string; name: string }>;
-    const members: Member[] = memberRows.map((row) => ({
-      id: row.id,
-      name: row.name,
-    }));
+    const members = this.getMembers();
+
+    const incomeSources = this.getIncomeSources();
 
     const expenseRows = this.db
       .prepare(
@@ -136,6 +235,7 @@ export class SqliteStore implements DataStore {
     return {
       currency: householdRow?.currency ?? "USD",
       members,
+      incomeSources,
       expenses,
       expenseAmounts,
     };
@@ -144,7 +244,7 @@ export class SqliteStore implements DataStore {
   replaceHousehold(household: Household): void {
     const replace = this.db.transaction((h: Household): void => {
       this.db.exec(
-        "DELETE FROM expense_amounts; DELETE FROM expenses; DELETE FROM members; DELETE FROM household;",
+        "DELETE FROM expense_amounts; DELETE FROM expenses; DELETE FROM income_source_entries; DELETE FROM income_sources; DELETE FROM members; DELETE FROM household;",
       );
 
       this.db
@@ -157,6 +257,24 @@ export class SqliteStore implements DataStore {
       h.members.forEach((member, index) => {
         insertMember.run(member.id, member.name, index);
       });
+
+      const insertSource = this.db.prepare(
+        "INSERT INTO income_sources (id, member_id, name, ended_from) VALUES (?, ?, ?, ?)",
+      );
+      const insertEntry = this.db.prepare(
+        "INSERT INTO income_source_entries (source_id, amount_cents, effective_from) VALUES (?, ?, ?)",
+      );
+      for (const source of h.incomeSources) {
+        insertSource.run(
+          source.id,
+          source.memberId,
+          source.name,
+          source.endedFrom ?? null,
+        );
+        for (const entry of source.timeline) {
+          insertEntry.run(source.id, entry.amountCents, entry.effectiveFrom);
+        }
+      }
 
       const insertExpense = this.db.prepare(
         "INSERT INTO expenses (id, name, effective_from, split_rule, participants, position) VALUES (?, ?, ?, ?, ?, ?)",

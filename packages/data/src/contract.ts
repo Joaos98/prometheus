@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
-import type { Household } from "@prometheus/engine";
+import type { Household, IncomeSource, Month } from "@prometheus/engine";
 import type { DataStore } from "./store.js";
 
 const household: Household = {
@@ -11,6 +11,7 @@ const household: Household = {
     { id: "m1", name: "Ana" },
     { id: "m2", name: "Bruno" },
   ],
+  incomeSources: [],
   expenses: [
     {
       id: "e1",
@@ -151,6 +152,68 @@ export function runDataStoreContract(
       const store = makeStore(freshPath());
       expect(() => store.renameMember("nonexistent", "X")).toThrow();
       store.close();
+    });
+  });
+
+  describe("income sources", () => {
+    const month: Month = "2026-01";
+
+    test("addIncomeSource returns a source with the correct shape", () => {
+      const store = makeStore(freshPath());
+      const source = store.addIncomeSource("m1", "Salary", 500000, month);
+      expect(source.id).toBeTypeOf("string");
+      expect(source.memberId).toBe("m1");
+      expect(source.name).toBe("Salary");
+      expect(source.timeline).toEqual([
+        { amountCents: 500000, effectiveFrom: month },
+      ]);
+      store.close();
+    });
+
+    test("getIncomeSources returns all stored sources", () => {
+      const store = makeStore(freshPath());
+      store.addIncomeSource("m1", "Salary", 500000, month);
+      store.addIncomeSource("m2", "Gig", 80000, month);
+      const sources = store.getIncomeSources();
+      expect(sources).toHaveLength(2);
+      store.close();
+    });
+
+    test("updateIncomeSourceAmount appends a new timeline entry", () => {
+      const store = makeStore(freshPath());
+      const source = store.addIncomeSource("m1", "Salary", 400000, "2026-01");
+      store.updateIncomeSourceAmount(source.id, 500000, "2026-04");
+      const reloaded = store.getIncomeSources()[0]!;
+      expect(reloaded.timeline).toHaveLength(2);
+      expect(reloaded.timeline[1]).toEqual({
+        amountCents: 500000,
+        effectiveFrom: "2026-04",
+      });
+      store.close();
+    });
+
+    test("endIncomeSource sets the endedFrom Month", () => {
+      const store = makeStore(freshPath());
+      const source = store.addIncomeSource("m1", "Salary", 500000, "2026-01");
+      store.endIncomeSource(source.id, "2026-06");
+      expect(store.getIncomeSources()[0]!.endedFrom).toBe("2026-06");
+      store.close();
+    });
+
+    test("income source data persists across close and reopen", () => {
+      const path = freshPath();
+      const first = makeStore(path);
+      const source = first.addIncomeSource("m1", "Salary", 500000, "2026-01");
+      first.updateIncomeSourceAmount(source.id, 600000, "2026-04");
+      first.endIncomeSource(source.id, "2026-09");
+      first.close();
+
+      const second = makeStore(path);
+      const sources = second.getIncomeSources();
+      expect(sources).toHaveLength(1);
+      expect(sources[0]!.timeline).toHaveLength(2);
+      expect(sources[0]!.endedFrom).toBe("2026-09");
+      second.close();
     });
   });
 }

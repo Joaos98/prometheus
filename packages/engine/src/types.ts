@@ -28,8 +28,23 @@ export interface Household {
   /** ISO 4217 currency code, set once at setup and immutable. */
   currency: string;
   members: Member[];
+  incomeSources: IncomeSource[];
   expenses: Expense[];
   expenseAmounts: ExpenseAmount[];
+}
+
+export interface IncomeSourceEntry {
+  amountCents: number;
+  effectiveFrom: Month;
+}
+
+export interface IncomeSource {
+  id: string;
+  memberId: string;
+  name: string;
+  timeline: IncomeSourceEntry[];
+  /** If set, the source is not effective in or after this Month. */
+  endedFrom?: Month;
 }
 
 /** One Participant's Share of a single Expense for the Month. */
@@ -42,6 +57,7 @@ export interface Share {
 export interface MemberSummary {
   memberId: string;
   name: string;
+  incomeCents: number;
   shares: Share[];
   totalCents: number;
 }

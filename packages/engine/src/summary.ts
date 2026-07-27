@@ -1,6 +1,6 @@
 import type {
-  Expense,
   Household,
+  IncomeSource,
   MemberSummary,
   Month,
   MonthlySummary,
@@ -17,6 +17,11 @@ export function computeMonthlySummary(
 
   const memberOrder = new Map<string, number>(
     household.members.map((member, index) => [member.id, index]),
+  );
+
+  const incomeByMember = computeIncomeByMember(
+    household.incomeSources,
+    month,
   );
 
   const sharesByMember = new Map<string, Share[]>();
@@ -50,12 +55,38 @@ export function computeMonthlySummary(
     return {
       memberId: member.id,
       name: member.name,
+      incomeCents: incomeByMember.get(member.id) ?? 0,
       shares,
       totalCents: shares.reduce((sum, s) => sum + s.amountCents, 0),
     };
   });
 
   return { month, currency: household.currency, members };
+}
+
+function computeIncomeByMember(
+  sources: IncomeSource[],
+  month: Month,
+): Map<string, number> {
+  const totals = new Map<string, number>();
+
+  for (const source of sources) {
+    if (source.endedFrom !== undefined && source.endedFrom <= month) continue;
+
+    let latestEntry = source.timeline[0];
+    if (!latestEntry) continue;
+
+    for (const entry of source.timeline) {
+      if (entry.effectiveFrom <= month) {
+        latestEntry = entry;
+      }
+    }
+
+    const existing = totals.get(source.memberId) ?? 0;
+    totals.set(source.memberId, existing + latestEntry.amountCents);
+  }
+
+  return totals;
 }
 
 /**

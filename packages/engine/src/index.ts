@@ -2,6 +2,8 @@ export type {
   Expense,
   ExpenseAmount,
   Household,
+  IncomeSource,
+  IncomeSourceEntry,
   Member,
   MemberSummary,
   Month,

@@ -13,7 +13,11 @@ const app = express();
 app.use(express.json());
 
 app.get("/api/household", (_req, res) => {
-  res.json({ currency: store.getCurrency(), members: store.getMembers() });
+  res.json({
+    currency: store.getCurrency(),
+    members: store.getMembers(),
+    incomeSources: store.getIncomeSources(),
+  });
 });
 
 app.post("/api/household/currency", (req, res) => {
@@ -56,6 +60,60 @@ app.patch("/api/members/:id", (req, res) => {
   } catch {
     res.status(404).json({ error: "member not found" });
   }
+});
+
+app.post("/api/income-sources", (req, res) => {
+  const { memberId, name, amountCents, effectiveFrom } = req.body as Record<
+    string,
+    unknown
+  >;
+  if (!memberId || typeof memberId !== "string") {
+    res.status(400).json({ error: "memberId is required" });
+    return;
+  }
+  if (!name || typeof name !== "string") {
+    res.status(400).json({ error: "name is required" });
+    return;
+  }
+  if (typeof amountCents !== "number" || !Number.isInteger(amountCents)) {
+    res.status(400).json({ error: "amountCents must be an integer" });
+    return;
+  }
+  if (!effectiveFrom || typeof effectiveFrom !== "string") {
+    res.status(400).json({ error: "effectiveFrom is required" });
+    return;
+  }
+  const source = store.addIncomeSource(
+    memberId,
+    name,
+    amountCents,
+    effectiveFrom,
+  );
+  res.status(201).json(source);
+});
+
+app.post("/api/income-sources/:id/amount", (req, res) => {
+  const { amountCents, effectiveFrom } = req.body as Record<string, unknown>;
+  if (typeof amountCents !== "number" || !Number.isInteger(amountCents)) {
+    res.status(400).json({ error: "amountCents must be an integer" });
+    return;
+  }
+  if (!effectiveFrom || typeof effectiveFrom !== "string") {
+    res.status(400).json({ error: "effectiveFrom is required" });
+    return;
+  }
+  store.updateIncomeSourceAmount(req.params.id, amountCents, effectiveFrom);
+  res.json({ id: req.params.id, amountCents, effectiveFrom });
+});
+
+app.post("/api/income-sources/:id/end", (req, res) => {
+  const { effectiveFrom } = req.body as Record<string, unknown>;
+  if (!effectiveFrom || typeof effectiveFrom !== "string") {
+    res.status(400).json({ error: "effectiveFrom is required" });
+    return;
+  }
+  store.endIncomeSource(req.params.id, effectiveFrom);
+  res.json({ id: req.params.id, endedFrom: effectiveFrom });
 });
 
 app.get("/api/summary", (req, res) => {

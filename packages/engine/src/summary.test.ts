@@ -8,6 +8,7 @@ const household: Household = {
     { id: "m1", name: "Ana" },
     { id: "m2", name: "Bruno" },
   ],
+  incomeSources: [],
   expenses: [
     {
       id: "e1",
@@ -93,4 +94,113 @@ test("the summary contains exactly one row per household member", () => {
   expect(summary.members[0]?.memberId).toBe("m1");
   expect(summary.members[1]?.memberId).toBe("m2");
   expect(summary.members[2]?.memberId).toBe("m3");
+});
+
+test("income carries forward: a source set once appears in every later Month", () => {
+  const h: Household = {
+    ...household,
+    incomeSources: [
+      {
+        id: "is1",
+        memberId: "m1",
+        name: "Salary",
+        timeline: [{ amountCents: 500000, effectiveFrom: "2026-01" }],
+      },
+    ],
+  };
+
+  const jan = computeMonthlySummary(h, "2026-01");
+  const jul = computeMonthlySummary(h, "2026-07");
+
+  expect(jan.members.find((m) => m.memberId === "m1")!.incomeCents).toBe(
+    500000,
+  );
+  expect(jul.members.find((m) => m.memberId === "m1")!.incomeCents).toBe(
+    500000,
+  );
+});
+
+test("updating a source amount from M changes M onward, not earlier Months", () => {
+  const h: Household = {
+    ...household,
+    incomeSources: [
+      {
+        id: "is1",
+        memberId: "m1",
+        name: "Salary",
+        timeline: [
+          { amountCents: 400000, effectiveFrom: "2026-01" },
+          { amountCents: 500000, effectiveFrom: "2026-04" },
+        ],
+      },
+    ],
+  };
+
+  expect(
+    computeMonthlySummary(h, "2026-03").members.find(
+      (m) => m.memberId === "m1",
+    )!.incomeCents,
+  ).toBe(400000);
+  expect(
+    computeMonthlySummary(h, "2026-04").members.find(
+      (m) => m.memberId === "m1",
+    )!.incomeCents,
+  ).toBe(500000);
+  expect(
+    computeMonthlySummary(h, "2026-07").members.find(
+      (m) => m.memberId === "m1",
+    )!.incomeCents,
+  ).toBe(500000);
+});
+
+test("ending a source from M removes it from M onward", () => {
+  const h: Household = {
+    ...household,
+    incomeSources: [
+      {
+        id: "is1",
+        memberId: "m1",
+        name: "Salary",
+        timeline: [{ amountCents: 500000, effectiveFrom: "2026-01" }],
+        endedFrom: "2026-06",
+      },
+    ],
+  };
+
+  expect(
+    computeMonthlySummary(h, "2026-05").members.find(
+      (m) => m.memberId === "m1",
+    )!.incomeCents,
+  ).toBe(500000);
+  expect(
+    computeMonthlySummary(h, "2026-06").members.find(
+      (m) => m.memberId === "m1",
+    )!.incomeCents,
+  ).toBe(0);
+});
+
+test("multiple sources per member sum to the member's Income", () => {
+  const h: Household = {
+    ...household,
+    incomeSources: [
+      {
+        id: "is1",
+        memberId: "m1",
+        name: "Salary",
+        timeline: [{ amountCents: 400000, effectiveFrom: "2026-01" }],
+      },
+      {
+        id: "is2",
+        memberId: "m1",
+        name: "Freelance",
+        timeline: [{ amountCents: 80000, effectiveFrom: "2026-01" }],
+      },
+    ],
+  };
+
+  expect(
+    computeMonthlySummary(h, "2026-07").members.find(
+      (m) => m.memberId === "m1",
+    )!.incomeCents,
+  ).toBe(480000);
 });
