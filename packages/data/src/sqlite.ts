@@ -43,6 +43,7 @@ export class SqliteStore implements DataStore {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         effective_from TEXT NOT NULL,
+        ended_from TEXT,
         split_rule TEXT NOT NULL,
         participants TEXT NOT NULL,
         position INTEGER NOT NULL
@@ -189,6 +190,96 @@ export class SqliteStore implements DataStore {
       .run(effectiveFrom, id);
   }
 
+  addExpense(
+    name: string,
+    participants: string[],
+    effectiveFrom: Month,
+  ): Expense {
+    const id = randomUUID();
+    const maxPos = (
+      this.db
+        .prepare("SELECT COALESCE(MAX(position), -1) AS maxPos FROM expenses")
+        .get() as { maxPos: number }
+    ).maxPos;
+    this.db
+      .prepare(
+        "INSERT INTO expenses (id, name, effective_from, split_rule, participants, position) VALUES (?, ?, ?, ?, ?, ?)",
+      )
+      .run(
+        id,
+        name,
+        effectiveFrom,
+        JSON.stringify({ method: "even" }),
+        JSON.stringify(participants),
+        maxPos + 1,
+      );
+    return {
+      id,
+      name,
+      participants,
+      splitRule: { method: "even" },
+      effectiveFrom,
+    };
+  }
+
+  getExpenses(): Expense[] {
+    const rows = this.db
+      .prepare(
+        "SELECT id, name, effective_from, ended_from, split_rule, participants FROM expenses ORDER BY position",
+      )
+      .all() as Array<{
+      id: string;
+      name: string;
+      effective_from: string;
+      ended_from: string | null;
+      split_rule: string;
+      participants: string;
+    }>;
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      effectiveFrom: row.effective_from,
+      ...(row.ended_from ? { endedFrom: row.ended_from } : {}),
+      splitRule: JSON.parse(row.split_rule) as SplitRule,
+      participants: JSON.parse(row.participants) as string[],
+    }));
+  }
+
+  endExpense(id: string, effectiveFrom: Month): void {
+    this.db
+      .prepare("UPDATE expenses SET ended_from = ? WHERE id = ?")
+      .run(effectiveFrom, id);
+  }
+
+  setExpenseAmount(
+    expenseId: string,
+    month: Month,
+    amountCents: number,
+  ): void {
+    this.db
+      .prepare(
+        "INSERT OR REPLACE INTO expense_amounts (expense_id, month, amount_cents) VALUES (?, ?, ?)",
+      )
+      .run(expenseId, month, amountCents);
+  }
+
+  getExpenseAmounts(): ExpenseAmount[] {
+    const rows = this.db
+      .prepare(
+        "SELECT expense_id, month, amount_cents FROM expense_amounts ORDER BY expense_id, month",
+      )
+      .all() as Array<{
+      expense_id: string;
+      month: string;
+      amount_cents: number;
+    }>;
+    return rows.map((row) => ({
+      expenseId: row.expense_id,
+      month: row.month,
+      amountCents: row.amount_cents,
+    }));
+  }
+
   getHousehold(): Household {
     const householdRow = this.db
       .prepare("SELECT currency FROM household WHERE id = 1")
@@ -200,12 +291,13 @@ export class SqliteStore implements DataStore {
 
     const expenseRows = this.db
       .prepare(
-        "SELECT id, name, effective_from, split_rule, participants FROM expenses ORDER BY position",
+        "SELECT id, name, effective_from, ended_from, split_rule, participants FROM expenses ORDER BY position",
       )
       .all() as Array<{
       id: string;
       name: string;
       effective_from: string;
+      ended_from: string | null;
       split_rule: string;
       participants: string;
     }>;
@@ -213,6 +305,7 @@ export class SqliteStore implements DataStore {
       id: row.id,
       name: row.name,
       effectiveFrom: row.effective_from,
+      ...(row.ended_from ? { endedFrom: row.ended_from } : {}),
       splitRule: JSON.parse(row.split_rule) as SplitRule,
       participants: JSON.parse(row.participants) as string[],
     }));
@@ -277,13 +370,14 @@ export class SqliteStore implements DataStore {
       }
 
       const insertExpense = this.db.prepare(
-        "INSERT INTO expenses (id, name, effective_from, split_rule, participants, position) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO expenses (id, name, effective_from, ended_from, split_rule, participants, position) VALUES (?, ?, ?, ?, ?, ?, ?)",
       );
       h.expenses.forEach((expense, index) => {
         insertExpense.run(
           expense.id,
           expense.name,
           expense.effectiveFrom,
+          expense.endedFrom ?? null,
           JSON.stringify(expense.splitRule),
           JSON.stringify(expense.participants),
           index,

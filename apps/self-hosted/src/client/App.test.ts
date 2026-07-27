@@ -1,4 +1,10 @@
-import type { IncomeSource, Member, MonthlySummary } from "@prometheus/engine";
+import type {
+  Expense,
+  ExpenseAmount,
+  IncomeSource,
+  Member,
+  MonthlySummary,
+} from "@prometheus/engine";
 import { flushPromises, mount } from "@vue/test-utils";
 import { expect, test, vi } from "vitest";
 import App from "./App.vue";
@@ -13,6 +19,7 @@ const summary: MonthlySummary = {
       incomeCents: 500000,
       shares: [{ expenseId: "e1", expenseName: "Rent", amountCents: 75000 }],
       totalCents: 75000,
+      leftoverCents: 425000,
     },
     {
       memberId: "m2",
@@ -20,8 +27,10 @@ const summary: MonthlySummary = {
       incomeCents: 400000,
       shares: [{ expenseId: "e1", expenseName: "Rent", amountCents: 75000 }],
       totalCents: 75000,
+      leftoverCents: 325000,
     },
   ],
+  pendingExpenses: [],
 };
 
 const memberList: Member[] = [
@@ -29,12 +38,20 @@ const memberList: Member[] = [
   { id: "m2", name: "Bruno" },
 ];
 
+const householdData = {
+  currency: null as string | null,
+  members: [] as Member[],
+  incomeSources: [] as IncomeSource[],
+  expenses: [] as Expense[],
+  expenseAmounts: [] as ExpenseAmount[],
+};
+
 test("when no currency is set the setup screen appears", async () => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
       if (url === "/api/household") {
-        return { ok: true, json: async () => ({ currency: null, members: [] as Member[], incomeSources: [] as IncomeSource[] }) };
+        return { ok: true, json: async () => ({ ...householdData }) };
       }
       throw new Error(`unexpected fetch: ${url}`);
     }),
@@ -47,7 +64,7 @@ test("when no currency is set the setup screen appears", async () => {
   expect(wrapper.text()).toContain("Currency");
 });
 
-test("when currency is set the dashboard renders members, income and shares", async () => {
+test("when currency is set the dashboard renders members, income, expenses and leftover", async () => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
@@ -55,9 +72,9 @@ test("when currency is set the dashboard renders members, income and shares", as
         return {
           ok: true,
           json: async () => ({
+            ...householdData,
             currency: "USD",
             members: memberList,
-            incomeSources: [] as IncomeSource[],
           }),
         };
       }
@@ -75,5 +92,7 @@ test("when currency is set the dashboard renders members, income and shares", as
   expect(wrapper.text()).toContain("Ana");
   expect(wrapper.text()).toContain("Bruno");
   expect(wrapper.text()).toContain("Income");
+  expect(wrapper.text()).toContain("Expenses");
+  expect(wrapper.text()).toContain("Leftover");
   expect(wrapper.text()).toMatch(/Rent/);
 });

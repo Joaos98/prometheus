@@ -8,6 +8,7 @@ export type {
   MemberSummary,
   Month,
   MonthlySummary,
+  PendingExpense,
   Share,
   SplitRule,
 } from "./types.js";

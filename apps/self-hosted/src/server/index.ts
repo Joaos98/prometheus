@@ -17,6 +17,8 @@ app.get("/api/household", (_req, res) => {
     currency: store.getCurrency(),
     members: store.getMembers(),
     incomeSources: store.getIncomeSources(),
+    expenses: store.getExpenses(),
+    expenseAmounts: store.getExpenseAmounts(),
   });
 });
 
@@ -114,6 +116,55 @@ app.post("/api/income-sources/:id/end", (req, res) => {
   }
   store.endIncomeSource(req.params.id, effectiveFrom);
   res.json({ id: req.params.id, endedFrom: effectiveFrom });
+});
+
+app.post("/api/expenses", (req, res) => {
+  const { name, participants, effectiveFrom } = req.body as Record<
+    string,
+    unknown
+  >;
+  if (!name || typeof name !== "string") {
+    res.status(400).json({ error: "name is required" });
+    return;
+  }
+  if (!Array.isArray(participants)) {
+    res.status(400).json({ error: "participants must be an array" });
+    return;
+  }
+  if (!effectiveFrom || typeof effectiveFrom !== "string") {
+    res.status(400).json({ error: "effectiveFrom is required" });
+    return;
+  }
+  const expense = store.addExpense(
+    name,
+    participants as string[],
+    effectiveFrom,
+  );
+  res.status(201).json(expense);
+});
+
+app.post("/api/expenses/:id/end", (req, res) => {
+  const { effectiveFrom } = req.body as Record<string, unknown>;
+  if (!effectiveFrom || typeof effectiveFrom !== "string") {
+    res.status(400).json({ error: "effectiveFrom is required" });
+    return;
+  }
+  store.endExpense(req.params.id, effectiveFrom);
+  res.json({ id: req.params.id, endedFrom: effectiveFrom });
+});
+
+app.post("/api/expenses/:id/amount", (req, res) => {
+  const { month, amountCents } = req.body as Record<string, unknown>;
+  if (!month || typeof month !== "string") {
+    res.status(400).json({ error: "month is required" });
+    return;
+  }
+  if (typeof amountCents !== "number" || !Number.isInteger(amountCents)) {
+    res.status(400).json({ error: "amountCents must be an integer" });
+    return;
+  }
+  store.setExpenseAmount(req.params.id, month, amountCents);
+  res.json({ expenseId: req.params.id, month, amountCents });
 });
 
 app.get("/api/summary", (req, res) => {

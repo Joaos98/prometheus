@@ -4,6 +4,7 @@ import type {
   MemberSummary,
   Month,
   MonthlySummary,
+  PendingExpense,
   Share,
 } from "./types.js";
 
@@ -12,7 +13,9 @@ export function computeMonthlySummary(
   month: Month,
 ): MonthlySummary {
   const activeExpenses = household.expenses.filter(
-    (e) => e.effectiveFrom <= month,
+    (e) =>
+      e.effectiveFrom <= month &&
+      (e.endedFrom === undefined || e.endedFrom > month),
   );
 
   const memberOrder = new Map<string, number>(
@@ -29,11 +32,16 @@ export function computeMonthlySummary(
     sharesByMember.set(member.id, []);
   }
 
+  const pending: PendingExpense[] = [];
+
   for (const expense of activeExpenses) {
     const amount = household.expenseAmounts.find(
       (a) => a.expenseId === expense.id && a.month === month,
     );
-    if (!amount) continue;
+    if (!amount) {
+      pending.push({ expenseId: expense.id, expenseName: expense.name });
+      continue;
+    }
 
     const orderedParticipants = [...expense.participants].sort(
       (a, b) =>
@@ -52,16 +60,19 @@ export function computeMonthlySummary(
 
   const members: MemberSummary[] = household.members.map((member) => {
     const shares = sharesByMember.get(member.id) ?? [];
+    const totalCents = shares.reduce((sum, s) => sum + s.amountCents, 0);
+    const memberIncome = incomeByMember.get(member.id) ?? 0;
     return {
       memberId: member.id,
       name: member.name,
-      incomeCents: incomeByMember.get(member.id) ?? 0,
+      incomeCents: memberIncome,
       shares,
-      totalCents: shares.reduce((sum, s) => sum + s.amountCents, 0),
+      totalCents,
+      leftoverCents: memberIncome - totalCents,
     };
   });
 
-  return { month, currency: household.currency, members };
+  return { month, currency: household.currency, members, pendingExpenses: pending };
 }
 
 function computeIncomeByMember(

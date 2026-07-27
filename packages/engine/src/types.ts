@@ -15,6 +15,8 @@ export interface Expense {
   participants: string[];
   splitRule: SplitRule;
   effectiveFrom: Month;
+  /** If set, the expense is not effective in or after this Month. */
+  endedFrom?: Month;
 }
 
 /** The actual amount entered for an Expense in a given Month, in integer cents. */
@@ -60,10 +62,17 @@ export interface MemberSummary {
   incomeCents: number;
   shares: Share[];
   totalCents: number;
+  leftoverCents: number;
+}
+
+export interface PendingExpense {
+  expenseId: string;
+  expenseName: string;
 }
 
 export interface MonthlySummary {
   month: Month;
   currency: string;
   members: MemberSummary[];
+  pendingExpenses: PendingExpense[];
 }

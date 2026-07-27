@@ -6,9 +6,13 @@
 
 **Status:** ready-for-agent
 
-- [ ] Create an expense with one or more Participants; with exactly one Participant it is an individual expense and no split choice is offered
-- [ ] Even split: Shares are equal within rounding and always sum exactly to the entered amount (engine seam: largest-remainder, identical results on repeated computation)
-- [ ] Amounts are entered per Month; the same expense can hold different amounts in different Months
-- [ ] Ending an expense Effective From M removes it from M onward; earlier Months keep it
-- [ ] An active expense with no amount for the displayed Month renders as pending and contributes nothing to totals; an explicit $0 is not flagged
-- [ ] Dashboard shows per-member Leftover Balance = Income − Σ expense Shares, displaying negative values plainly
+- [x] Create an expense with one or more Participants; with exactly one Participant it is an individual expense and no split choice is offered
+- [x] Even split: Shares are equal within rounding and always sum exactly to the entered amount (engine seam: largest-remainder, identical results on repeated computation)
+- [x] Amounts are entered per Month; the same expense can hold different amounts in different Months
+- [x] Ending an expense Effective From M removes it from M onward; earlier Months keep it
+- [x] An active expense with no amount for the displayed Month renders as pending and contributes nothing to totals; an explicit $0 is not flagged
+- [x] Dashboard shows per-member Leftover Balance = Income − Σ expense Shares, displaying negative values plainly
+
+## Comments
+
+Implemented. Engine: added endedFrom and pendingExpenses to the domain model; endedFrom filtering mirrors the income endedFrom pattern; pending detection distinguishes absent amount from explicit $0; leftoverCents = incomeCents - totalCents per member. 5 new behavior tests cover endedFrom, pending, explicit $0, individual expense, and leftover formula. Data layer: 6 new contract tests for add/get/end expenses and set/get amounts (UPSERT). Server: POST /api/expenses, POST .../end, POST .../amount; household endpoint now includes expenses and expenseAmounts. Client: expense section with participant checkbox selection, per-Month amount entry, end control, pending expense list, and per-member leftover breakdown (Income - Shares = Leftover).

@@ -1,10 +1,19 @@
 <script setup lang="ts">
-import type { IncomeSource, Member, MonthlySummary } from "@prometheus/engine";
+import type {
+  Expense,
+  ExpenseAmount,
+  IncomeSource,
+  Member,
+  MonthlySummary,
+  PendingExpense,
+} from "@prometheus/engine";
 import { onMounted, ref } from "vue";
 
 const currency = ref<string | null>(null);
 const members = ref<Member[]>([]);
 const incomeSources = ref<IncomeSource[]>([]);
+const expenses = ref<Expense[]>([]);
+const expenseAmounts = ref<ExpenseAmount[]>([]);
 const summary = ref<MonthlySummary | null>(null);
 const loading = ref(true);
 const appError = ref<string | null>(null);
@@ -21,6 +30,12 @@ const newSourceEffectiveFrom = ref("");
 const editingSourceId = ref<string | null>(null);
 const editingSourceAmount = ref("");
 const editingSourceEffectiveFrom = ref("");
+
+const newExpenseName = ref("");
+const newExpenseParticipants = ref<string[]>([]);
+const newExpenseEffectiveFrom = ref("");
+const expenseAmountValues = ref<Record<string, string>>({});
+const endingExpenseEffectiveFrom = ref<Record<string, string>>({});
 
 const currentMonth = () => new Date().toISOString().slice(0, 7);
 
@@ -61,15 +76,18 @@ onMounted(async () => {
       currency: string | null;
       members: Member[];
       incomeSources: IncomeSource[];
+      expenses: Expense[];
+      expenseAmounts: ExpenseAmount[];
     };
     currency.value = data.currency;
     members.value = data.members;
     incomeSources.value = data.incomeSources;
+    expenses.value = data.expenses;
+    expenseAmounts.value = data.expenseAmounts;
 
     if (currency.value) {
-      const month = currentMonth();
       summary.value = (await request.get(
-        `/api/summary?month=${month}`,
+        `/api/summary?month=${currentMonth()}`,
       )) as MonthlySummary;
     }
   } catch (e) {
@@ -78,6 +96,36 @@ onMounted(async () => {
     loading.value = false;
   }
 });
+
+async function reloadExpenseData(): Promise<void> {
+  const data = (await request.get("/api/household")) as {
+    expenses: Expense[];
+    expenseAmounts: ExpenseAmount[];
+  };
+  expenses.value = data.expenses;
+  expenseAmounts.value = data.expenseAmounts;
+}
+
+async function refreshSummary(): Promise<void> {
+  summary.value = (await request.get(
+    `/api/summary?month=${currentMonth()}`,
+  )) as MonthlySummary;
+}
+
+function activeExpenses(): Expense[] {
+  const month = currentMonth();
+  return expenses.value.filter(
+    (e) =>
+      e.effectiveFrom <= month &&
+      (e.endedFrom === undefined || e.endedFrom > month),
+  );
+}
+
+function expenseHasAmount(expenseId: string): boolean {
+  return expenseAmounts.value.some(
+    (a) => a.expenseId === expenseId && a.month === currentMonth(),
+  );
+}
 
 function sourcesForMember(memberId: string): IncomeSource[] {
   return incomeSources.value.filter((s) => s.memberId === memberId);
@@ -90,16 +138,22 @@ const latestAmount = (source: IncomeSource): number => {
   return sorted[0]?.amountCents ?? 0;
 };
 
+function toggleParticipant(memberId: string): void {
+  const idx = newExpenseParticipants.value.indexOf(memberId);
+  if (idx >= 0) {
+    newExpenseParticipants.value.splice(idx, 1);
+  } else {
+    newExpenseParticipants.value.push(memberId);
+  }
+}
+
 async function submitCurrency(): Promise<void> {
   try {
     await request.post("/api/household/currency", {
       currency: currencyValue.value,
     });
     currency.value = currencyValue.value;
-    const month = currentMonth();
-    summary.value = (await request.get(
-      `/api/summary?month=${month}`,
-    )) as MonthlySummary;
+    await refreshSummary();
   } catch (e) {
     appError.value = e instanceof Error ? e.message : String(e);
   }
@@ -139,6 +193,56 @@ async function submitIncomeSource(): Promise<void> {
   }
 }
 
+async function submitExpense(): Promise<void> {
+  const name = newExpenseName.value.trim();
+  const participants = [...newExpenseParticipants.value];
+  const effectiveFrom = newExpenseEffectiveFrom.value;
+  if (!name || participants.length === 0 || !effectiveFrom) return;
+  try {
+    const expense = (await request.post("/api/expenses", {
+      name,
+      participants,
+      effectiveFrom,
+    })) as Expense;
+    expenses.value = [...expenses.value, expense];
+    newExpenseName.value = "";
+    newExpenseParticipants.value = [];
+    newExpenseEffectiveFrom.value = "";
+  } catch (e) {
+    appError.value = e instanceof Error ? e.message : String(e);
+  }
+}
+
+async function submitExpenseAmount(expenseId: string): Promise<void> {
+  const raw = expenseAmountValues.value[expenseId] ?? "";
+  const amountDollars = parseFloat(raw);
+  if (isNaN(amountDollars)) return;
+  try {
+    await request.post(`/api/expenses/${expenseId}/amount`, {
+      month: currentMonth(),
+      amountCents: Math.round(amountDollars * 100),
+    });
+    delete expenseAmountValues.value[expenseId];
+    await reloadExpenseData();
+    await refreshSummary();
+  } catch (e) {
+    appError.value = e instanceof Error ? e.message : String(e);
+  }
+}
+
+async function endExpense(id: string): Promise<void> {
+  const eff = endingExpenseEffectiveFrom.value[id] ?? currentMonth();
+  try {
+    await request.post(`/api/expenses/${id}/end`, {
+      effectiveFrom: eff,
+    });
+    delete endingExpenseEffectiveFrom.value[id];
+    await reloadExpenseData();
+  } catch (e) {
+    appError.value = e instanceof Error ? e.message : String(e);
+  }
+}
+
 function startEditSource(source: IncomeSource): void {
   editingSourceId.value = source.id;
   editingSourceAmount.value = String(latestAmount(source) / 100);
@@ -155,7 +259,6 @@ async function commitEditSource(): Promise<void> {
       amountCents: Math.round(amountDollars * 100),
       effectiveFrom,
     });
-    // Reload to get updated timeline
     const data = (await request.get("/api/household")) as {
       incomeSources: IncomeSource[];
     };
@@ -219,10 +322,7 @@ const formatCurrency = (cents: number, curr: string): string =>
       <section>
         <h2>Household Setup</h2>
         <form @submit.prevent="submitCurrency">
-          <label>
-            Currency
-            <input v-model="currencyValue" />
-          </label>
+          <label>Currency <input v-model="currencyValue" /></label>
           <button type="submit">Set Currency</button>
         </form>
       </section>
@@ -254,47 +354,36 @@ const formatCurrency = (cents: number, curr: string): string =>
 
       <section>
         <h2>Income</h2>
-
         <section v-for="member in summary.members" :key="member.memberId">
           <h3>{{ member.name }} — {{ formatCurrency(member.incomeCents, summary.currency) }}</h3>
           <ul>
-            <li
-              v-for="source in sourcesForMember(member.memberId)"
-              :key="source.id"
-            >
+            <li v-for="source in sourcesForMember(member.memberId)" :key="source.id">
               <template v-if="editingSourceId === source.id">
                 Amount <input v-model="editingSourceAmount" />
                 From <input v-model="editingSourceEffectiveFrom" placeholder="YYYY-MM" />
                 <button @click="commitEditSource()">Save</button>
               </template>
               <template v-else>
-                <span
-                  v-if="source.endedFrom !== undefined"
-                  style="text-decoration: line-through"
-                >{{ source.name }}: {{ formatCurrency(latestAmount(source), summary.currency) }}
-                  (ended {{ source.endedFrom }})</span>
-                <span v-else>{{ source.name }}:
-                  {{ formatCurrency(latestAmount(source), summary.currency) }}
-                  (from {{ source.timeline[source.timeline.length - 1]?.effectiveFrom }})</span>
+                <span v-if="source.endedFrom !== undefined" style="text-decoration: line-through">
+                  {{ source.name }}: {{ formatCurrency(latestAmount(source), summary.currency) }}
+                  (ended {{ source.endedFrom }})
+                </span>
+                <span v-else>
+                  {{ source.name }}: {{ formatCurrency(latestAmount(source), summary.currency) }}
+                  (from {{ source.timeline[source.timeline.length - 1]?.effectiveFrom }})
+                </span>
                 <button @click="startEditSource(source)">Update</button>
-                <button
-                  v-if="source.endedFrom === undefined"
-                  @click="endSource(source.id)"
-                >End</button>
+                <button v-if="source.endedFrom === undefined" @click="endSource(source.id)">End</button>
               </template>
             </li>
           </ul>
-          <p v-if="sourcesForMember(member.memberId).length === 0">
-            No income recorded.
-          </p>
+          <p v-if="sourcesForMember(member.memberId).length === 0">No income recorded.</p>
         </section>
 
         <form @submit.prevent="submitIncomeSource">
           <select v-model="newSourceMemberId">
             <option value="" disabled>Member</option>
-            <option v-for="member in members" :key="member.id" :value="member.id">
-              {{ member.name }}
-            </option>
+            <option v-for="member in members" :key="member.id" :value="member.id">{{ member.name }}</option>
           </select>
           <input v-model="newSourceName" placeholder="Source name" />
           <input v-model="newSourceAmount" placeholder="Amount" type="number" step="0.01" min="0" />
@@ -304,16 +393,82 @@ const formatCurrency = (cents: number, curr: string): string =>
       </section>
 
       <section>
-        <h2>Shares</h2>
+        <h2>Expenses</h2>
+
+        <div v-if="summary.pendingExpenses.length > 0">
+          <h3>Pending (unentered this Month)</h3>
+          <ul>
+            <li v-for="pe in summary.pendingExpenses" :key="pe.expenseId">
+              {{ pe.expenseName }}
+            </li>
+          </ul>
+        </div>
+
         <section v-for="member in summary.members" :key="member.memberId">
           <h3>{{ member.name }}</h3>
           <ul>
             <li v-for="share in member.shares" :key="share.expenseId">
-              {{ share.expenseName }}:
-              {{ formatCurrency(share.amountCents, summary.currency) }}
+              {{ share.expenseName }}: {{ formatCurrency(share.amountCents, summary.currency) }}
             </li>
           </ul>
           <p v-if="member.shares.length === 0">No shared expenses this Month.</p>
+        </section>
+
+        <section>
+          <h3>All Expenses</h3>
+          <ul>
+            <li v-for="expense in activeExpenses()" :key="expense.id">
+              <strong>
+                <span v-if="expense.endedFrom !== undefined" style="text-decoration: line-through">{{ expense.name }}</span>
+                <span v-else>{{ expense.name }}</span>
+              </strong>
+              (participants: {{ expense.participants.join(", ") }})
+              <template v-if="expenseHasAmount(expense.id)">
+                <br />Amount entered for {{ currentMonth() }}
+              </template>
+              <template v-else>
+                <br />
+                Amount {{ currentMonth() }}
+                <input v-model="expenseAmountValues[expense.id]" placeholder="$" type="number" step="0.01" min="0" />
+                <button @click="submitExpenseAmount(expense.id)">Save</button>
+              </template>
+              <template v-if="expense.endedFrom === undefined">
+                <br />End from
+                <input v-model="endingExpenseEffectiveFrom[expense.id]" placeholder="YYYY-MM" />
+                <button @click="endExpense(expense.id)">End</button>
+              </template>
+            </li>
+          </ul>
+          <p v-if="activeExpenses().length === 0">No expenses defined.</p>
+        </section>
+
+        <form @submit.prevent="submitExpense">
+          <input v-model="newExpenseName" placeholder="Expense name" />
+          <fieldset>
+            <legend>Participants</legend>
+            <label v-for="member in members" :key="member.id">
+              <input
+                type="checkbox"
+                :value="member.id"
+                @change="toggleParticipant(member.id)"
+              />
+              {{ member.name }}
+            </label>
+          </fieldset>
+          <input v-model="newExpenseEffectiveFrom" placeholder="From (YYYY-MM)" />
+          <button type="submit">Add Expense</button>
+        </form>
+      </section>
+
+      <section>
+        <h2>Leftover</h2>
+        <section v-for="member in summary.members" :key="member.memberId">
+          <h3>{{ member.name }}</h3>
+          <p>
+            Income: {{ formatCurrency(member.incomeCents, summary.currency) }}
+            − Shares: {{ formatCurrency(member.totalCents, summary.currency) }}
+            = {{ formatCurrency(member.leftoverCents, summary.currency) }}
+          </p>
         </section>
       </section>
     </template>

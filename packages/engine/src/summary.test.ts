@@ -204,3 +204,122 @@ test("multiple sources per member sum to the member's Income", () => {
     )!.incomeCents,
   ).toBe(480000);
 });
+
+test("an ended expense does not produce shares in or after the end Month", () => {
+  const h: Household = {
+    ...household,
+    incomeSources: [],
+    expenses: [
+      {
+        ...household.expenses[0]!,
+        endedFrom: "2026-06",
+      },
+    ],
+    expenseAmounts: [{ expenseId: "e1", month: "2026-05", amountCents: 150000 }],
+  };
+
+  const may = computeMonthlySummary(h, "2026-05");
+  expect(may.members[0]!.shares).toHaveLength(1);
+  expect(may.members[0]!.totalCents).toBe(75000);
+
+  const jun = computeMonthlySummary(h, "2026-06");
+  expect(jun.members[0]!.shares).toEqual([]);
+  expect(jun.members[0]!.totalCents).toBe(0);
+  expect(jun.pendingExpenses).toHaveLength(0);
+});
+
+test("an active expense with no amount for the Month is flagged as pending and contributes nothing", () => {
+  const h: Household = {
+    ...household,
+    incomeSources: [],
+    expenses: [
+      {
+        id: "e1",
+        name: "Rent",
+        participants: ["m1", "m2"],
+        splitRule: { method: "even" },
+        effectiveFrom: "2026-01",
+      },
+    ],
+    expenseAmounts: [],
+  };
+
+  const summary = computeMonthlySummary(h, "2026-07");
+
+  expect(summary.pendingExpenses).toEqual([
+    { expenseId: "e1", expenseName: "Rent" },
+  ]);
+  for (const member of summary.members) {
+    expect(member.shares).toEqual([]);
+    expect(member.totalCents).toBe(0);
+  }
+});
+
+test("an explicit $0 amount is not flagged as pending (distinct from unentered)", () => {
+  const h: Household = {
+    ...household,
+    incomeSources: [],
+    expenses: [
+      {
+        id: "e1",
+        name: "Rent",
+        participants: ["m1", "m2"],
+        splitRule: { method: "even" },
+        effectiveFrom: "2026-01",
+      },
+    ],
+    expenseAmounts: [{ expenseId: "e1", month: "2026-07", amountCents: 0 }],
+  };
+
+  const summary = computeMonthlySummary(h, "2026-07");
+
+  expect(summary.pendingExpenses).toEqual([]);
+  for (const member of summary.members) {
+    expect(member.totalCents).toBe(0);
+  }
+});
+
+test("an expense with exactly one Participant divides the full amount to that person", () => {
+  const h: Household = {
+    ...household,
+    incomeSources: [],
+    expenses: [
+      {
+        id: "e1",
+        name: "Gym",
+        participants: ["m1"],
+        splitRule: { method: "even" },
+        effectiveFrom: "2026-01",
+      },
+    ],
+    expenseAmounts: [{ expenseId: "e1", month: "2026-07", amountCents: 4000 }],
+  };
+
+  const summary = computeMonthlySummary(h, "2026-07");
+
+  const ana = summary.members.find((m) => m.memberId === "m1")!;
+  const bruno = summary.members.find((m) => m.memberId === "m2")!;
+  expect(ana.totalCents).toBe(4000);
+  expect(bruno.totalCents).toBe(0);
+});
+
+test("Leftover Balance = Spendable Income − Σ expense Shares, negative when expenses exceed income", () => {
+  const h: Household = {
+    ...household,
+    incomeSources: [
+      {
+        id: "is1",
+        memberId: "m1",
+        name: "Salary",
+        timeline: [{ amountCents: 500000, effectiveFrom: "2026-01" }],
+      },
+    ],
+  };
+
+  const summary = computeMonthlySummary(h, "2026-07");
+
+  const ana = summary.members.find((m) => m.memberId === "m1")!;
+  const bruno = summary.members.find((m) => m.memberId === "m2")!;
+  expect(ana.leftoverCents).toBe(425000); // 500000 income - 75000 expense share
+  expect(bruno.leftoverCents).toBe(-75000); // 0 income - 75000 expense share
+});

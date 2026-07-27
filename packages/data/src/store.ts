@@ -1,4 +1,4 @@
-import type { Household, IncomeSource, Member, Month } from "@prometheus/engine";
+import type { Expense, ExpenseAmount, Household, IncomeSource, Member, Month } from "@prometheus/engine";
 
 /**
  * The single internal data-access interface. All persistence flows through
@@ -29,6 +29,21 @@ export interface DataStore {
     effectiveFrom: Month,
   ): void;
   endIncomeSource(id: string, effectiveFrom: Month): void;
+
+  // Expenses
+  addExpense(
+    name: string,
+    participants: string[],
+    effectiveFrom: Month,
+  ): Expense;
+  getExpenses(): Expense[];
+  endExpense(id: string, effectiveFrom: Month): void;
+  setExpenseAmount(
+    expenseId: string,
+    month: Month,
+    amountCents: number,
+  ): void;
+  getExpenseAmounts(): ExpenseAmount[];
 
   // Whole-household (seed / contract)
   getHousehold(): Household;
