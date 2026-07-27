@@ -85,7 +85,9 @@ test("when currency is set the dashboard renders members, income, expenses and l
             ...householdData,
             currency: "USD",
             members: memberList,
-        goals: [] as SavingsGoal[],
+            expenses: [{ id: "e1", name: "Rent", participants: ["m1", "m2"], splitRule: { method: "even" } as const, effectiveFrom: "2026-01" }] as Expense[],
+            expenseAmounts: [{ expenseId: "e1", month: "2026-07", amountCents: 150000 }] as ExpenseAmount[],
+            goals: [] as SavingsGoal[],
           }),
         };
       }
