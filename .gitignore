@@ -8,3 +8,5 @@ dist/
 docs/agents/
 prometheus-system-plan.md
 prometheus-redesign-brief.md
+AGENTS.md
+CONTEXT.md
