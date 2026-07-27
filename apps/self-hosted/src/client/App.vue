@@ -47,7 +47,9 @@ watch(month.displayMonth, () => refreshSummary());
       <template v-else-if="summary">
         <MonthBar
           :displayMonth="month.displayMonth.value" :monthLabel="month.monthLabel.value"
-          :jumpMonth="month.jumpMonth.value" :pendingCount="summary.pendingExpenses.length + summary.pendingContributions.length"
+          :jumpMonth="month.jumpMonth.value"
+          :pendingExpenses="summary.pendingExpenses.length"
+          :pendingContributions="summary.pendingContributions.length"
           @prev="month.prev" @next="month.next" @today="month.today" @jump="month.jump"
           @update:jumpMonth="(v) => month.jumpMonth.value = v" />
 
@@ -72,7 +74,7 @@ watch(month.displayMonth, () => refreshSummary());
         <GoalsPage v-if="page === 'goals'"
           :members="members" :goals="goals" :currency="summary.currency"
           :displayMonth="month.displayMonth.value" :currentMonth="month.currentMonth()"
-          :goalProgress="summary.goalProgress" :api="api" />
+          :goalProgress="summary.goalProgress" :pendingContributions="summary.pendingContributions" :api="api" />
 
         <MembersPage v-if="page === 'members'"
           :members="members" :displayMonth="month.displayMonth.value" :currentMonth="month.currentMonth()" :api="api" />

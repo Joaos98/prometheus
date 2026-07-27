@@ -2,7 +2,7 @@
 import type { Expense, ExpenseAmount, GoalProgress, MemberSummary, SavingsGoal } from "@prometheus/engine";
 
 const props = defineProps<{
-  summary: { currency: string; members: MemberSummary[]; goalProgress: GoalProgress[] };
+  summary: { currency: string; members: MemberSummary[]; goalProgress: GoalProgress[]; pendingContributions: { itemId: string; itemName: string }[] };
   members: { id: string; name: string }[];
   expenses: Expense[];
   goals: SavingsGoal[];
@@ -17,6 +17,7 @@ const props = defineProps<{
 function activeExpenses() { return props.expenses.filter(e => e.effectiveFrom <= props.displayMonth && (e.endedFrom === undefined || e.endedFrom > props.displayMonth)); }
 function expenseHasAmount(eid: string) { return props.expenseAmounts.some(a => a.expenseId === eid && a.month === props.displayMonth); }
 function expenseAmountCents(eid: string) { return props.expenseAmounts.find(a => a.expenseId === eid && a.month === props.displayMonth)?.amountCents; }
+function isGoalPending(gid: string) { return props.summary.pendingContributions.some(p => p.itemId === gid); }
 </script>
 
 <template>
@@ -36,9 +37,10 @@ function expenseAmountCents(eid: string) { return props.expenseAmounts.find(a =>
       <h3 class="card-label">Active expenses</h3>
       <ul class="ov-list">
         <li v-for="e in activeExpenses()" :key="e.id" class="ov-row">
-          <span :class="{ pending: !expenseHasAmount(e.id) }">{{ e.name }}</span>
+          <span>{{ e.name }}<span v-if="!expenseHasAmount(e.id)" class="pending-label">pending</span></span>
           <span v-if="expenseHasAmount(e.id)">{{ formatCurrency(expenseAmountCents(e.id)!, summary.currency) }}</span>
-          <span v-else class="pending-badge">pending</span>
+          <span class="muted" style="font-size:11px">{{ e.splitRule.method }}</span>
+          <span class="muted" style="font-size:11px">|</span>
           <span class="muted" style="font-size:11px">{{ e.participants.map(memberName).join(', ') }}</span>
         </li>
         <li v-if="activeExpenses().length === 0" class="ov-empty">No active expenses</li>
@@ -49,7 +51,7 @@ function expenseAmountCents(eid: string) { return props.expenseAmounts.find(a =>
       <ul class="ov-list">
         <li v-for="gp in summary.goalProgress" :key="gp.goalId" class="ov-row">
           <svg class="orbit-ring" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="none" stroke="#262A38" stroke-width="3" /><circle cx="16" cy="16" r="13" fill="none" stroke="#7DC9E8" stroke-width="3" stroke-dasharray="81.7" :stroke-dashoffset="81.7 * (1 - goalProgressPercent(gp) / 100)" stroke-linecap="round" transform="rotate(-90 16 16)" /></svg>
-          <span>{{ gp.goalName }}</span>
+          <span>{{ gp.goalName }}<span v-if="isGoalPending(gp.goalId)" class="pending-label">pending</span></span>
           <span class="muted" style="font-size:11px">{{ (goals.find(g => g.id === gp.goalId)?.participants ?? []).map(memberName).join(', ') }}</span>
           <span class="gp-pct">{{ goalProgressPercent(gp) }}%</span>
         </li>
@@ -58,18 +60,17 @@ function expenseAmountCents(eid: string) { return props.expenseAmounts.find(a =>
     </div>
   </section>
 
-  <section class="card">
-    <h3 class="card-label">Leftover</h3>
-    <div class="leftover-row">
-      <div class="leftover-col" v-for="m in summary.members" :key="m.memberId">
-        <span class="lcol-name">{{ m.name }}</span>
-        <div class="lcol-line"><span>Income</span><span>{{ formatCurrency(m.incomeCents - m.restrictedCents, summary.currency) }}</span></div>
-        <div class="lcol-line" v-if="m.restrictedCents > 0"><span>Restricted</span><span class="muted">{{ formatCurrency(m.restrictedCents, summary.currency) }}</span></div>
-        <div class="lcol-line"><span>− Shares</span><span>{{ formatCurrency(m.totalCents, summary.currency) }}</span></div>
-        <div class="lcol-line" v-if="m.contributionCents > 0"><span>− Goals</span><span>{{ formatCurrency(m.contributionCents, summary.currency) }}</span></div>
-        <div class="lcol-divider"></div>
-        <div class="lcol-line lcol-result"><span>= Leftover</span><span>{{ formatCurrency(m.leftoverCents, summary.currency) }}</span></div>
-      </div>
+  <h3 class="section-heading">Leftover</h3>
+  <div class="leftover-row">
+    <div class="card leftover-col" v-for="m in summary.members" :key="m.memberId">
+      <div class="lcol-name">{{ m.name }}</div>
+        <div class="lcol-lines">
+          <div class="lcol-line"><span>Income</span><span>{{ formatCurrency(m.incomeCents - m.restrictedCents, summary.currency) }}</span></div>
+          <div class="lcol-line" v-if="m.restrictedCents > 0"><span>Restricted</span><span class="muted">{{ formatCurrency(m.restrictedCents, summary.currency) }}</span></div>
+          <div class="lcol-line"><span>− Shares</span><span>{{ formatCurrency(m.totalCents, summary.currency) }}</span></div>
+          <div class="lcol-line" v-if="m.contributionCents > 0"><span>− Goals</span><span>{{ formatCurrency(m.contributionCents, summary.currency) }}</span></div>
+        </div>
+        <div class="lcol-result-line"><span>= Leftover</span><span>{{ formatCurrency(m.leftoverCents, summary.currency) }}</span></div>
     </div>
-  </section>
+  </div>
 </template>

@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import MonthPicker from "./MonthPicker.vue";
+
 defineProps<{
   displayMonth: string;
   monthLabel: string;
   jumpMonth: string;
-  pendingCount: number;
+  pendingExpenses: number;
+  pendingContributions: number;
 }>();
 defineEmits<{
   prev: [];
@@ -24,10 +27,11 @@ defineEmits<{
     <button @click="$emit('today')" class="today-btn">Today</button>
     <span class="bar-divider"></span>
     <div class="jump-wrap">
-      <span class="jump-icon">&#x1F50D;</span>
-      <input :value="jumpMonth" @input="$emit('update:jumpMonth', ($event.target as HTMLInputElement).value)" @keydown.enter="$emit('jump')" placeholder="Jump to YYYY-MM" class="jump-input" />
+      <MonthPicker :modelValue="jumpMonth" @update:modelValue="$emit('update:jumpMonth', $event); $emit('jump')" placeholder="Jump to" />
     </div>
     <span class="bar-spacer"></span>
-    <span v-if="pendingCount > 0" class="pending-badge">&#x1F6A9; {{ pendingCount }} pending</span>
+    <span v-if="pendingExpenses + pendingContributions > 0" class="pending-badge">
+      &#x1F6A9; {{ pendingExpenses ? pendingExpenses + ' expense' + (pendingExpenses > 1 ? 's' : '') : '' }}{{ pendingExpenses && pendingContributions ? ', ' : '' }}{{ pendingContributions ? pendingContributions + ' goal' + (pendingContributions > 1 ? 's' : '') : '' }} pending
+    </span>
   </header>
 </template>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Member } from "@prometheus/engine";
 import { ref } from "vue";
+import MonthPicker from "../components/MonthPicker.vue";
 
 const props = defineProps<{
   members: Member[];
@@ -32,7 +33,7 @@ async function commitRename(id: string) { const n = editingMemberName.value.trim
   <div class="page-header"><h2>Members</h2><button @click="showForm = !showForm" class="btn-accent">{{ showForm ? 'Cancel' : '+ Add' }}</button></div>
   <form v-if="showForm" @submit.prevent="submitMember" class="add-form">
     <input v-model="newMemberName" placeholder="Member name" class="input" />
-    <input v-model="newMemberJoinedFrom" placeholder="From YYYY-MM" size="7" class="input input-sm" />
+    <MonthPicker v-model="newMemberJoinedFrom" placeholder="Joined in" />
     <button type="submit" class="btn-accent">Save</button>
   </form>
   <div class="card">
@@ -50,7 +51,7 @@ async function commitRename(id: string) { const n = editingMemberName.value.trim
           <button @click="startRename(m)" class="btn-ghost">Rename</button>
           <template v-if="m.departedFrom === undefined">
             <template v-if="departingMemberId === m.id">
-              <input v-model="departingEff" placeholder="Depart YYYY-MM" size="7" class="input input-xs" />
+              <MonthPicker v-model="departingEff" placeholder="Departed in" />
               <button @click="doDepart(m.id)" class="btn-ghost danger">Confirm Depart</button>
               <button @click="departingMemberId = null" class="btn-ghost">Cancel</button>
             </template>

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { GoalProgress, Member, SavingsGoal } from "@prometheus/engine";
 import { ref } from "vue";
+import MonthPicker from "../components/MonthPicker.vue";
+import ParticipantPicker from "../components/ParticipantPicker.vue";
 
 const props = defineProps<{
   members: Member[];
@@ -9,6 +11,7 @@ const props = defineProps<{
   displayMonth: string;
   currentMonth: string;
   goalProgress: GoalProgress[];
+  pendingContributions: { itemId: string; itemName: string }[];
   api: {
     submitGoal(name: string, participants: string[], splitRule: Record<string, unknown>, targetAmountCents: number | undefined, startAmountCents: number | undefined, effectiveFrom: string): Promise<void>;
     submitGoalContribution(gid: string, amountCents: number): Promise<void>;
@@ -23,8 +26,8 @@ const contributionValue = ref(""); const endingGoalId = ref<string | null>(null)
 
 const formatCurrency = (cents: number) => new Intl.NumberFormat(undefined, { style: "currency", currency: props.currency }).format(cents / 100);
 function goalPct(gp: GoalProgress) { if (!gp.targetAmountCents || gp.targetAmountCents === 0) return 0; return Math.min(100, Math.round((gp.accumulatedCents / gp.targetAmountCents) * 100)); }
+function isGoalPending(gid: string) { return props.pendingContributions.some(p => p.itemId === gid); }
 function memberName(id: string) { return props.members.find(m => m.id === id)?.name ?? id; }
-function toggleGP(id: string) { const i = newGoalParticipants.value.indexOf(id); if (i >= 0) newGoalParticipants.value.splice(i, 1); else newGoalParticipants.value.push(id); }
 
 async function submit() {
   const n = newGoalName.value.trim(); const p = [...newGoalParticipants.value]; const eff = newGoalEffectiveFrom.value;
@@ -41,12 +44,15 @@ async function doEndGoal(id: string) { await props.api.endGoal(id, endingEffecti
 <template>
   <div class="page-header"><h2>Goals</h2><button @click="showForm = !showForm" class="btn-accent">{{ showForm ? 'Cancel' : '+ Add' }}</button></div>
   <form v-if="showForm" @submit.prevent="submit" class="add-form">
-    <input v-model="newGoalName" placeholder="Goal name" class="input" />
-    <fieldset class="check-group"><legend>Participants</legend><label v-for="m in members" :key="m.id" class="check"><input type="checkbox" :value="m.id" @change="toggleGP(m.id)" /> {{ m.name }}</label></fieldset>
-    <select v-model="newGoalSplitRule" class="input"><option value="even">Even</option><option value="proportional">Proportional</option></select>
-    <input v-model="newGoalTarget" placeholder="Target amount (optional)" type="number" step="0.01" min="0" class="input" />
-    <input v-model="newGoalStartAmount" placeholder="Start amount (optional)" type="number" step="0.01" min="0" class="input" />
-    <input v-model="newGoalEffectiveFrom" placeholder="From YYYY-MM" class="input input-sm" />
+    <div class="field"><span class="field-label">Name</span><input v-model="newGoalName" placeholder="e.g. Car Fund" class="input" /></div>
+    <div class="field">
+      <span class="field-label">Participants</span>
+      <ParticipantPicker :members="members" v-model="newGoalParticipants" />
+    </div>
+    <div class="field" v-if="newGoalParticipants.length > 1"><span class="field-label">Split method</span><select v-model="newGoalSplitRule" class="input"><option value="even">Even</option><option value="proportional">Proportional</option></select></div>
+    <div class="field"><span class="field-label">Target (optional)</span><input v-model="newGoalTarget" placeholder="0.00" type="number" step="0.01" min="0" class="input" /></div>
+    <div class="field"><span class="field-label">Start amount (optional)</span><input v-model="newGoalStartAmount" placeholder="0.00" type="number" step="0.01" min="0" class="input" /></div>
+    <div class="field"><span class="field-label">From</span><MonthPicker v-model="newGoalEffectiveFrom" placeholder="From" /></div>
     <button type="submit" class="btn-accent">Save</button>
   </form>
   <div class="card" v-if="goalProgress.length > 0">
@@ -54,7 +60,7 @@ async function doEndGoal(id: string) { await props.api.endGoal(id, endingEffecti
     <ul class="ov-list">
       <li v-for="gp in goalProgress" :key="gp.goalId" class="ov-row">
         <svg class="orbit-ring" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="none" stroke="#262A38" stroke-width="3" /><circle cx="16" cy="16" r="13" fill="none" stroke="#7DC9E8" stroke-width="3" stroke-dasharray="81.7" :stroke-dashoffset="81.7 * (1 - goalPct(gp) / 100)" stroke-linecap="round" transform="rotate(-90 16 16)" /></svg>
-        <span>{{ gp.goalName }}</span>
+         <span>{{ gp.goalName }}<span v-if="isGoalPending(gp.goalId)" class="pending-label">pending</span></span>
         <span class="muted" style="font-size:11px">{{ (goals.find(g => g.id === gp.goalId)?.participants ?? []).map(memberName).join(', ') }}</span>
         <span>{{ formatCurrency(gp.accumulatedCents) }}<template v-if="gp.targetAmountCents !== undefined"> / {{ formatCurrency(gp.targetAmountCents) }}</template></span>
         <span class="gp-pct">{{ goalPct(gp) }}%</span>
@@ -64,13 +70,13 @@ async function doEndGoal(id: string) { await props.api.endGoal(id, endingEffecti
   <div class="card" v-if="goals.length > 0">
     <h3 class="card-label">Manage</h3>
     <ul class="ov-list">
-      <li v-for="g in goals" :key="g.id" class="ov-row">
+       <li v-for="g in goals" :key="g.id" class="ov-row">
         <span :class="{ ended: g.endedFrom !== undefined }">{{ g.name }}</span>
         <template v-if="g.endedFrom === undefined">
-          <input v-model="contributionValue" placeholder="$" type="number" step="0.01" min="0" class="input input-xs" />
+          <input v-model="contributionValue" placeholder="0.00" type="number" step="0.01" min="0" class="input input-xs" />
           <button @click="submitContribution(g.id)" class="btn-accent">Save</button>
           <template v-if="endingGoalId === g.id">
-            <input v-model="endingEffectiveFrom" placeholder="End YYYY-MM" size="7" class="input input-xs" />
+            <MonthPicker v-model="endingEffectiveFrom" placeholder="Ended in" />
             <button @click="doEndGoal(g.id)" class="btn-ghost danger">Confirm End</button>
             <button @click="endingGoalId = null" class="btn-ghost">Cancel</button>
           </template>

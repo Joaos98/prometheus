@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { IncomeSource, Member } from "@prometheus/engine";
 import { ref } from "vue";
+import MonthPicker from "../components/MonthPicker.vue";
+import InfoTip from "../components/InfoTip.vue";
 
 const props = defineProps<{
   members: Member[];
@@ -55,9 +57,9 @@ async function endSource(id: string) { await props.api.endIncome(id, endingSourc
     <select v-model="newSourceMemberId" class="input"><option value="" disabled>Member</option><option v-for="m in members" :key="m.id" :value="m.id">{{ m.name }}</option></select>
     <input v-model="newSourceName" placeholder="Source name" class="input" />
     <input v-model="newSourceAmount" placeholder="Amount" type="number" step="0.01" min="0" class="input" />
-    <input v-model="newSourceEffectiveFrom" placeholder="From YYYY-MM" class="input input-sm" />
-    <label class="check"><input type="checkbox" v-model="newSourceRestricted" /> Restricted</label>
-    <label class="check"><input type="checkbox" v-model="newSourceOneOff" /> One-off</label>
+    <MonthPicker v-model="newSourceEffectiveFrom" placeholder="From" />
+    <label class="check"><input type="checkbox" v-model="newSourceRestricted" /> Restricted <InfoTip tip="Excluded from spendable income and proportional split calculations; shown separately on the dashboard." /></label>
+    <label class="check"><input type="checkbox" v-model="newSourceOneOff" /> One-off <InfoTip tip="Applies to a single month only; does not carry forward." /></label>
     <button type="submit" class="btn-accent">Save</button>
   </form>
   <div v-for="m in members" :key="m.id" class="card">
@@ -66,7 +68,7 @@ async function endSource(id: string) { await props.api.endIncome(id, endingSourc
       <li v-for="s in sourcesForMember(m.id)" :key="s.id" class="ov-row">
         <template v-if="editingSourceId === s.id">
           <input v-model="editingSourceAmount" placeholder="Amount" class="input input-sm" />
-          <input v-model="editingSourceEffectiveFrom" placeholder="From YYYY-MM" class="input input-sm" />
+          <MonthPicker v-model="editingSourceEffectiveFrom" placeholder="From" />
           <button @click="commitEdit()" class="btn-ghost">Save</button>
           <button @click="editingSourceId = null" class="btn-ghost">Cancel</button>
         </template>
@@ -77,7 +79,7 @@ async function endSource(id: string) { await props.api.endIncome(id, endingSourc
           <button @click="startEdit(s)" class="btn-ghost">Update</button>
           <template v-if="s.endedFrom === undefined">
             <template v-if="endingSourceId === s.id">
-              <input v-model="endingSourceEff" placeholder="End YYYY-MM" size="7" class="input input-xs" />
+              <MonthPicker v-model="endingSourceEff" placeholder="Ended in" />
               <button @click="endSource(s.id)" class="btn-ghost danger">Confirm End</button>
               <button @click="endingSourceId = null" class="btn-ghost">Cancel</button>
             </template>
