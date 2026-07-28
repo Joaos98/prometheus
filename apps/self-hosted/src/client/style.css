@@ -1,1 +1,44 @@
-/* Prometheus design system — snapshot rebuild */
+:root {
+  --bg: #12141C; --card: #1A1D28; --border: #262A38; --text: #F0F1F5;
+  --text2: #8B92A5; --muted: #6B7280; --accent: #E8935C;
+  --danger: #F87171; --radius: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px; color: var(--text); background: var(--bg);
+}
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; }
+
+.shell { display: flex; min-height: 100vh; }
+.sidebar { width: 180px; flex-shrink: 0; background: var(--card); border-right: 0.5px solid var(--border); padding: 20px 16px; }
+.brand { font-size: 16px; font-weight: 500; margin-bottom: 24px; }
+.sidebar nav { display: flex; flex-direction: column; gap: 2px; }
+.sidebar button { all: unset; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text2); }
+.sidebar button:hover { background: rgba(255,255,255,.04); color: var(--text); }
+.sidebar button.active { background: rgba(232,147,92,.10); color: var(--accent); }
+
+.content { flex: 1; padding: 24px 32px; overflow-y: auto; }
+
+.month-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
+.month-pill { display: flex; align-items: center; background: var(--card); border: 0.5px solid var(--border); border-radius: 10px; overflow: hidden; }
+.month-pill button { all: unset; cursor: pointer; padding: 6px 10px; font-size: 18px; color: var(--text2); }
+.month-pill span { cursor: pointer; padding: 6px 12px; font-size: 13px; font-weight: 500; }
+.today-btn { all: unset; cursor: pointer; font-size: 12px; color: var(--text2); padding: 6px 12px; border: 0.5px solid var(--border); border-radius: 8px; }
+.bar-spacer { flex: 1; }
+.jump-input { background: transparent; border: none; border-bottom: 0.5px solid var(--border); color: var(--text); font-size: 12px; padding: 4px 0; width: 110px; outline: none; }
+
+.balance-row { display: flex; gap: 12px; margin-bottom: 20px; }
+.balance-card { flex: 1; background: var(--card); border-radius: var(--radius); padding: 16px 20px; border: 0.5px solid var(--border); }
+.balance-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.balance-value { font-size: 24px; font-weight: 500; }
+.balance-value.negative { color: var(--danger); }
+
+.card { background: var(--card); border-radius: var(--radius); padding: 20px; border: 0.5px solid var(--border); margin-bottom: 16px; }
+.card-label { font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 12px; }
+
+.list { list-style: none; margin: 0; padding: 0; }
+.list-row { padding: 8px 0; border-bottom: 0.5px solid var(--border); }
+.list-row:last-child { border-bottom: none; }
+.share-list { margin: 4px 0 4px 16px; padding: 0; list-style: none; font-size: 12px; color: var(--text2); }
+.leftover { color: var(--accent); }
+
+.loading { color: var(--muted); padding: 40px; text-align: center; }
