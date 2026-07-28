@@ -42,3 +42,6 @@ body { margin: 0; }
 .leftover { color: var(--accent); }
 
 .loading { color: var(--muted); padding: 40px; text-align: center; }
+.setup-outer { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+.setup-card { max-width: 400px; }
+.setup-card h2 { margin: 0 0 4px; font-weight: 500; }
