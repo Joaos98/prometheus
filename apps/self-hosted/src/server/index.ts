@@ -134,6 +134,8 @@ app.post("/api/goal-contributions", (req, res) => {
   store.addGoalContribution(goalId as string, memberId as string, month as string, amountCents as number);
   res.status(201).json({ goalId, memberId, month, amountCents });
 });
+
+app.post("/api/income/snapshot", (req, res) => {
   const month = typeof req.query.month === "string" && /^\d{4}-\d{2}$/.test(req.query.month)
     ? req.query.month
     : currentMonth();
