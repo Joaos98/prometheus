@@ -22,7 +22,7 @@ const props = defineProps<{
     changeExpenseParticipants(eid: string, participants: string[], eff: string): Promise<void>;
     addSubItem(expenseId: string, name: string): Promise<void>;
     submitSubItemAmount(siid: string, amountCents: number): Promise<void>;
-    removeSubItem(siid: string): Promise<void>;
+    endSubItem(siid: string, effectiveFrom: string): Promise<void>;
   };
   backdateWarning: (eff: string) => string | null;
   formatCurrency: (cents: number, currency: string) => string;
@@ -62,7 +62,7 @@ async function submit() {
 async function submitAmount(eid: string) { const a = parseFloat(amountValue.value); if (isNaN(a)) return; await props.api.submitExpenseAmount(eid, Math.round(a * 100)); amountValue.value = ""; }
 async function submitSubItemAmount(siid: string) { const a = parseFloat(subItemAmountValues.value[siid] ?? ""); if (isNaN(a)) return; await props.api.submitSubItemAmount(siid, Math.round(a * 100)); delete subItemAmountValues.value[siid]; }
 async function addSubItem(eid: string) { const n = newSubItemName.value.trim(); if (!n) return; await props.api.addSubItem(eid, n); newSubItemName.value = ""; }
-async function deleteSubItem(siid: string) { await props.api.removeSubItem(siid); }
+async function deleteSubItem(siid: string) { await props.api.endSubItem(siid, props.displayMonth); }
 function startEditSubItem(siid: string) { editingSubItemId.value = siid; editingSubItemAmount.value = String(subItemAmount(siid) / 100); }
 async function saveSubItemEdit(siid: string) { const a = parseFloat(editingSubItemAmount.value); if (isNaN(a)) return; await props.api.submitSubItemAmount(siid, Math.round(a * 100)); editingSubItemId.value = null; }
 async function doEndExpense(id: string) { await props.api.endExpense(id, endingEff.value); endingExpenseId.value = null; }
@@ -113,17 +113,20 @@ function openChangeParticipants(e: Expense) { showChangeParticipants.value = e.i
           <div class="sub-items" v-if="e.subItems && e.subItems.length > 0">
             <h4 class="sub-label">Sub-Items</h4>
             <div v-for="si in e.subItems" :key="si.id" class="share-row">
-              <span>{{ si.name }}</span>
-              <template v-if="editingSubItemId === si.id">
-                <input v-model="editingSubItemAmount" type="number" step="0.01" min="0" class="input input-xs" />
-                <button @click="saveSubItemEdit(si.id)" class="btn-ghost">Save</button>
-                <button @click="editingSubItemId = null" class="btn-ghost">Cancel</button>
+              <span :class="{ ended: si.endedFrom !== undefined }">{{ si.name }}</span>
+              <template v-if="si.endedFrom === undefined">
+                <template v-if="editingSubItemId === si.id">
+                  <input v-model="editingSubItemAmount" type="number" step="0.01" min="0" class="input input-xs" />
+                  <button @click="saveSubItemEdit(si.id)" class="btn-ghost">Save</button>
+                  <button @click="editingSubItemId = null" class="btn-ghost">Cancel</button>
+                </template>
+                <template v-else>
+                  <span>{{ formatCurrency(subItemAmount(si.id), currency) }}</span>
+                  <button @click="startEditSubItem(si.id)" class="btn-ghost">Edit</button>
+                </template>
+                <button @click="deleteSubItem(si.id)" class="btn-ghost danger">x</button>
               </template>
-              <template v-else>
-                <span>{{ formatCurrency(subItemAmount(si.id), currency) }}</span>
-                <button @click="startEditSubItem(si.id)" class="btn-ghost">Edit</button>
-              </template>
-              <button @click="deleteSubItem(si.id)" class="btn-ghost danger">x</button>
+              <span v-else class="muted">ended {{ si.endedFrom }}</span>
             </div>
           </div>
           <div class="add-sub">

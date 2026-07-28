@@ -33,6 +33,7 @@ export interface SubItem {
   id: string;
   expenseId: string;
   name: string;
+  endedFrom?: Month;
 }
 
 export interface SubItemAmount {

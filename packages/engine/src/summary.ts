@@ -43,7 +43,10 @@ export function computeMonthlySummary(
     let amountCents: number | undefined;
 
     if (isComposite) {
-      const subAmounts = item.subItems!.map(
+      const activeSubItems = item.subItems!.filter(
+        (si) => si.endedFrom === undefined || si.endedFrom > month,
+      );
+      const subAmounts = activeSubItems.map(
         (si) => household.subItemAmounts.find(
           (a) => a.subItemId === si.id && a.month === month,
         ),

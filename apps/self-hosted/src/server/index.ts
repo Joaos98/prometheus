@@ -366,9 +366,14 @@ app.post("/api/sub-items/:id/amount", (req, res) => {
   res.json({ subItemId: req.params.id, month, amountCents });
 });
 
-app.delete("/api/sub-items/:id", (req, res) => {
-  store.removeSubItem(req.params.id);
-  res.json({ deleted: req.params.id });
+app.post("/api/sub-items/:id/end", (req, res) => {
+  const { effectiveFrom } = req.body as Record<string, unknown>;
+  if (!effectiveFrom || typeof effectiveFrom !== "string") {
+    res.status(400).json({ error: "effectiveFrom is required" });
+    return;
+  }
+  store.endSubItem(req.params.id, effectiveFrom);
+  res.json({ id: req.params.id, endedFrom: effectiveFrom });
 });
 
 app.get("/api/summary", (req, res) => {

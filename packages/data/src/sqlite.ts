@@ -84,7 +84,8 @@ export class SqliteStore implements DataStore {
       CREATE TABLE IF NOT EXISTS sub_items (
         id TEXT PRIMARY KEY,
         expense_id TEXT NOT NULL,
-        name TEXT NOT NULL
+        name TEXT NOT NULL,
+        ended_from TEXT
       );
       CREATE TABLE IF NOT EXISTS sub_item_amounts (
         sub_item_id TEXT NOT NULL,
@@ -109,6 +110,7 @@ export class SqliteStore implements DataStore {
     this.addColumnIfMissing("income_sources", "category", "TEXT");
     this.addColumnIfMissing("expenses", "category", "TEXT");
     this.addColumnIfMissing("goals", "category", "TEXT");
+    this.addColumnIfMissing("sub_items", "ended_from", "TEXT");
   }
 
   private addColumnIfMissing(
@@ -335,7 +337,7 @@ export class SqliteStore implements DataStore {
       split_rule: string;
       participants: string;
     }>;
-    const expenses = rows.map((row) => ({
+    const expenses: Expense[] = rows.map((row) => ({
       id: row.id,
       name: row.name,
       ...(row.category ? { category: row.category } : {}),
@@ -372,9 +374,9 @@ export class SqliteStore implements DataStore {
 
   getSubItems(): SubItem[] {
     const rows = this.db
-      .prepare("SELECT id, expense_id, name FROM sub_items ORDER BY id")
-      .all() as Array<{ id: string; expense_id: string; name: string }>;
-    return rows.map((row) => ({ id: row.id, expenseId: row.expense_id, name: row.name }));
+      .prepare("SELECT id, expense_id, name, ended_from FROM sub_items ORDER BY id")
+      .all() as Array<{ id: string; expense_id: string; name: string; ended_from: string | null }>;
+    return rows.map((row) => ({ id: row.id, expenseId: row.expense_id, name: row.name, ...(row.ended_from ? { endedFrom: row.ended_from } : {}) }));
   }
 
   getSubItemAmounts(): SubItemAmount[] {
@@ -390,13 +392,10 @@ export class SqliteStore implements DataStore {
       .run(subItemId, month, amountCents);
   }
 
-  removeSubItem(subItemId: string): void {
+  endSubItem(subItemId: string, effectiveFrom: Month): void {
     this.db
-      .prepare("DELETE FROM sub_item_amounts WHERE sub_item_id = ?")
-      .run(subItemId);
-    this.db
-      .prepare("DELETE FROM sub_items WHERE id = ?")
-      .run(subItemId);
+      .prepare("UPDATE sub_items SET ended_from = ? WHERE id = ?")
+      .run(effectiveFrom, subItemId);
   }
 
   changeExpenseSplitRule(
@@ -715,10 +714,10 @@ export class SqliteStore implements DataStore {
       }
 
       const insertSubItem = this.db.prepare(
-        "INSERT INTO sub_items (id, expense_id, name) VALUES (?, ?, ?)",
+        "INSERT INTO sub_items (id, expense_id, name, ended_from) VALUES (?, ?, ?, ?)",
       );
       for (const si of h.subItems) {
-        insertSubItem.run(si.id, si.expenseId, si.name);
+        insertSubItem.run(si.id, si.expenseId, si.name, si.endedFrom ?? null);
       }
       const insertSIAmount = this.db.prepare(
         "INSERT INTO sub_item_amounts (sub_item_id, month, amount_cents) VALUES (?, ?, ?)",

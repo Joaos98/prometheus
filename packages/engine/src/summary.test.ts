@@ -924,3 +924,43 @@ test("a composite expense with an unentered Sub-Item is flagged pending", () => 
   ]);
   expect(summary.members[0]!.totalCents).toBe(0);
 });
+
+test("an ended Sub-Item does not contribute to the composite total after its end Month", () => {
+  const h: Household = {
+    currency: "USD",
+    members: [{ id: "m1", name: "Ana" }],
+    incomeSources: [],
+    expenses: [
+      {
+        id: "e1",
+        name: "Rent",
+        participants: ["m1"],
+        splitRule: { method: "even" },
+        effectiveFrom: "2026-01",
+        subItems: [
+          { id: "si1", expenseId: "e1", name: "Base Rent" },
+          { id: "si2", expenseId: "e1", name: "Old Fee", endedFrom: "2026-08" },
+        ],
+      },
+    ],
+    expenseAmounts: [],
+    subItems: [
+      { id: "si1", expenseId: "e1", name: "Base Rent" },
+      { id: "si2", expenseId: "e1", name: "Old Fee", endedFrom: "2026-08" },
+    ],
+    subItemAmounts: [
+      { subItemId: "si1", month: "2026-07", amountCents: 140000 },
+      { subItemId: "si1", month: "2026-09", amountCents: 140000 },
+      { subItemId: "si2", month: "2026-07", amountCents: 20000 },
+      { subItemId: "si2", month: "2026-09", amountCents: 20000 },
+    ],
+    goals: [],
+    goalContributions: [],
+  };
+
+  const julSummary = computeMonthlySummary(h, "2026-07");
+  expect(julSummary.members[0]!.totalCents).toBe(160000); // both active in July
+
+  const sepSummary = computeMonthlySummary(h, "2026-09");
+  expect(sepSummary.members[0]!.totalCents).toBe(140000); // only si1 active in September
+});
