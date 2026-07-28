@@ -110,7 +110,7 @@ function openChangeParticipants(e: Expense) { showChangeParticipants.value = e.i
               <button @click="submitSubItemAmount(si.id)" class="btn-ghost">Save</button>
             </div>
           </div>
-          <div class="add-sub" v-if="e.subItems && e.subItems.length > 0">
+          <div class="add-sub">
             <input v-model="newSubItemName" placeholder="Add sub-item" class="input input-xs" />
             <button @click="addSubItem(e.id)" class="btn-ghost">Add</button>
           </div>

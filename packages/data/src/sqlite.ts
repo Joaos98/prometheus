@@ -335,7 +335,7 @@ export class SqliteStore implements DataStore {
       split_rule: string;
       participants: string;
     }>;
-    return rows.map((row) => ({
+    const expenses = rows.map((row) => ({
       id: row.id,
       name: row.name,
       ...(row.category ? { category: row.category } : {}),
@@ -344,6 +344,12 @@ export class SqliteStore implements DataStore {
       splitRule: JSON.parse(row.split_rule) as SplitRule,
       participants: JSON.parse(row.participants) as string[],
     }));
+    const subItems = this.getSubItems();
+    for (const expense of expenses) {
+      const kids = subItems.filter((s) => s.expenseId === expense.id);
+      if (kids.length > 0) expense.subItems = kids;
+    }
+    return expenses;
   }
 
   endExpense(id: string, effectiveFrom: Month): void {

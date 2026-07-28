@@ -27,6 +27,8 @@ app.get("/api/household", (_req, res) => {
     incomeSources: store.getIncomeSources(),
     expenses: store.getExpenses(),
     expenseAmounts: store.getExpenseAmounts(),
+    subItems: store.getSubItems(),
+    subItemAmounts: store.getSubItemAmounts(),
     goals: store.getGoals(),
     goalContributions: store.getGoalContributions(),
   });
