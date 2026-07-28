@@ -8,6 +8,7 @@ defineEmits<{ navigate: [page: string] }>();
     <div class="brand">Prometheus</div>
     <nav>
       <button :class="{ active: page === 'overview' }" @click="$emit('navigate', 'overview')">Overview</button>
+      <button :class="{ active: page === 'income' }" @click="$emit('navigate', 'income')">Income</button>
     </nav>
   </aside>
 </template>

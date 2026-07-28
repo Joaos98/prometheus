@@ -8,6 +8,14 @@ import type {
   MonthData,
   SplitRule,
 } from "@prometheus/engine";
+
+export interface IncomeProfile {
+  id: string;
+  memberId: string;
+  name: string;
+  amountCents: number;
+  restrictedUse?: boolean;
+}
 import type { DataStore } from "./store.js";
 
 export class SqliteStore implements DataStore {
@@ -29,6 +37,13 @@ export class SqliteStore implements DataStore {
       );
       CREATE TABLE IF NOT EXISTS income_snapshots (
         month TEXT NOT NULL,
+        member_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        amount_cents INTEGER NOT NULL,
+        restricted_use INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS income_profiles (
+        id TEXT PRIMARY KEY,
         member_id TEXT NOT NULL,
         name TEXT NOT NULL,
         amount_cents INTEGER NOT NULL,
@@ -121,6 +136,61 @@ export class SqliteStore implements DataStore {
     }));
   }
 
+  addIncomeProfile(
+    memberId: string,
+    name: string,
+    amountCents: number,
+    restrictedUse = false,
+  ): IncomeProfile {
+    const id = randomUUID();
+    this.db
+      .prepare(
+        "INSERT INTO income_profiles (id, member_id, name, amount_cents, restricted_use) VALUES (?, ?, ?, ?, ?)",
+      )
+      .run(id, memberId, name, amountCents, restrictedUse ? 1 : 0);
+    return { id, memberId, name, amountCents, ...(restrictedUse ? { restrictedUse: true } : {}) };
+  }
+
+  getIncomeProfiles(): IncomeProfile[] {
+    const rows = this.db
+      .prepare("SELECT id, member_id, name, amount_cents, restricted_use FROM income_profiles ORDER BY member_id, name")
+      .all() as Array<{
+      id: string; member_id: string; name: string; amount_cents: number; restricted_use: number;
+    }>;
+    return rows.map((r) => ({
+      id: r.id,
+      memberId: r.member_id,
+      name: r.name,
+      amountCents: r.amount_cents,
+      ...(r.restricted_use ? { restrictedUse: true } : {}),
+    }));
+  }
+
+  updateIncomeProfile(id: string, updates: { amountCents?: number; restrictedUse?: boolean; name?: string }): void {
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    if (updates.amountCents !== undefined) { fields.push("amount_cents = ?"); values.push(updates.amountCents); }
+    if (updates.restrictedUse !== undefined) { fields.push("restricted_use = ?"); values.push(updates.restrictedUse ? 1 : 0); }
+    if (updates.name !== undefined) { fields.push("name = ?"); values.push(updates.name); }
+    if (fields.length === 0) return;
+    values.push(id);
+    this.db.prepare(`UPDATE income_profiles SET ${fields.join(", ")} WHERE id = ?`).run(...values);
+  }
+
+  removeIncomeProfile(id: string): void {
+    this.db.prepare("DELETE FROM income_profiles WHERE id = ?").run(id);
+  }
+
+  snapshotProfile(month: Month): void {
+    const profiles = this.getIncomeProfiles();
+    const insert = this.db.prepare(
+      "INSERT OR REPLACE INTO income_snapshots (month, member_id, name, amount_cents, restricted_use) VALUES (?, ?, ?, ?, ?)",
+    );
+    for (const p of profiles) {
+      insert.run(month, p.memberId, p.name, p.amountCents, p.restrictedUse ? 1 : 0);
+    }
+  }
+
   addExpenseSnapshot(snapshot: ExpenseSnapshot): void {
     this.db
       .prepare(
@@ -165,7 +235,7 @@ export class SqliteStore implements DataStore {
   replaceHousehold(data: MonthData): void {
     const txn = this.db.transaction((): void => {
       this.db.exec(
-        "DELETE FROM expense_snapshots; DELETE FROM income_snapshots; DELETE FROM members; DELETE FROM household;",
+        "DELETE FROM expense_snapshots; DELETE FROM income_snapshots; DELETE FROM income_profiles; DELETE FROM members; DELETE FROM household;",
       );
       this.db
         .prepare("INSERT INTO household (id, currency) VALUES (1, ?)")

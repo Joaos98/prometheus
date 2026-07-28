@@ -69,4 +69,52 @@ export function runDataStoreContract(makeStore: (path: string) => DataStore): vo
       store.close();
     });
   });
+
+  describe("income profiles", () => {
+    test("add and retrieve income profiles", () => {
+      const store = makeStore(freshPath());
+      const p = store.addIncomeProfile("m1", "Salary", 500000);
+      expect(p.name).toBe("Salary");
+      expect(store.getIncomeProfiles()).toEqual([p]);
+      store.close();
+    });
+
+    test("update profile changes amount", () => {
+      const store = makeStore(freshPath());
+      const p = store.addIncomeProfile("m1", "Salary", 500000);
+      store.updateIncomeProfile(p.id, { amountCents: 600000 });
+      expect(store.getIncomeProfiles()[0]!.amountCents).toBe(600000);
+      store.close();
+    });
+
+    test("remove profile deletes it", () => {
+      const store = makeStore(freshPath());
+      const p = store.addIncomeProfile("m1", "Salary", 500000);
+      store.removeIncomeProfile(p.id);
+      expect(store.getIncomeProfiles()).toEqual([]);
+      store.close();
+    });
+
+    test("snapshotProfile copies profiles into income snapshots for a month", () => {
+      const store = makeStore(freshPath());
+      store.addIncomeProfile("m1", "Salary", 500000, true);
+      store.addIncomeProfile("m2", "Freelance", 80000);
+      store.snapshotProfile("2026-07");
+      const snaps = store.getMonthData("2026-07").incomeSnapshots;
+      expect(snaps).toHaveLength(2);
+      expect(snaps[0]!.restrictedUse).toBe(true);
+      store.close();
+    });
+
+    test("snapshotProfile does not overwrite existing snapshots for other months", () => {
+      const store = makeStore(freshPath());
+      store.addIncomeProfile("m1", "Salary", 500000);
+      store.snapshotProfile("2026-07");
+      store.updateIncomeProfile(store.getIncomeProfiles()[0]!.id, { amountCents: 600000 });
+      store.snapshotProfile("2026-08");
+      expect(store.getMonthData("2026-07").incomeSnapshots[0]!.amountCents).toBe(500000);
+      expect(store.getMonthData("2026-08").incomeSnapshots[0]!.amountCents).toBe(600000);
+      store.close();
+    });
+  });
 }

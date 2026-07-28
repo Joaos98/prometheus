@@ -1,18 +1,33 @@
 import type { MonthlySummary } from "@prometheus/engine";
+import type { IncomeProfile } from "@prometheus/data";
 import type { Ref } from "vue";
 
 export function useApi(displayMonth: Ref<string>) {
   const http = {
     async get(u: string) { const r = await fetch(u); if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); },
     async post(u: string, b?: unknown) { const r = await fetch(u, { method: "POST", headers: { "Content-Type": "application/json" }, body: b ? JSON.stringify(b) : undefined }); if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); },
+    async patch(u: string, b?: unknown) { const r = await fetch(u, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: b ? JSON.stringify(b) : undefined }); if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); },
+    async delete(u: string) { const r = await fetch(u, { method: "DELETE" }); if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); },
   };
 
   return {
     async fetchSummary(month?: string): Promise<MonthlySummary> {
-      const m = month ?? displayMonth.value;
-      return http.get(`/api/summary?month=${m}`) as Promise<MonthlySummary>;
+      return http.get(`/api/summary?month=${month ?? displayMonth.value}`) as Promise<MonthlySummary>;
     },
-    async fetchHousehold() { return http.get("/api/household"); },
+    async fetchHousehold(): Promise<{ currency: string | null; members: { id: string; name: string; joinedFrom?: string; departedFrom?: string }[]; incomeProfiles: IncomeProfile[] }> {
+      return http.get("/api/household") as Promise<any>;
+    },
     async setCurrency(currency: string) { return http.post("/api/household/currency", { currency }); },
+    async addIncomeProfile(memberId: string, name: string, amountCents: number, restrictedUse: boolean): Promise<IncomeProfile> {
+      return http.post("/api/income-profiles", { memberId, name, amountCents, restrictedUse }) as Promise<IncomeProfile>;
+    },
+    async updateIncomeProfile(id: string, updates: Record<string, unknown>) { return http.patch(`/api/income-profiles/${id}`, updates); },
+    async deleteIncomeProfile(id: string) { return http.delete(`/api/income-profiles/${id}`); },
+    async snapshotProfile(month: string) { return http.post(`/api/income/snapshot?month=${month}`); },
+    async addOneOffIncome(memberId: string, name: string, amountCents: number, month: string, restrictedUse: boolean) {
+      return http.post("/api/income", { memberId, name, amountCents, month, restrictedUse });
+    },
+    async addMember(name: string, joinedFrom?: string) { return http.post("/api/members", { name, joinedFrom }); },
+    async fetchMembers(): Promise<{ id: string; name: string; joinedFrom?: string }[]> { return http.get("/api/members") as Promise<any>; },
   };
 }
