@@ -1,5 +1,5 @@
 import type { MonthlySummary } from "@prometheus/engine";
-import type { IncomeProfile } from "@prometheus/data";
+import type { ExpenseTemplate, IncomeProfile } from "@prometheus/data";
 import type { Ref } from "vue";
 
 export function useApi(displayMonth: Ref<string>) {
@@ -14,10 +14,12 @@ export function useApi(displayMonth: Ref<string>) {
     async fetchSummary(month?: string): Promise<MonthlySummary> {
       return http.get(`/api/summary?month=${month ?? displayMonth.value}`) as Promise<MonthlySummary>;
     },
-    async fetchHousehold(): Promise<{ currency: string | null; members: { id: string; name: string; joinedFrom?: string; departedFrom?: string }[]; incomeProfiles: IncomeProfile[] }> {
+    async fetchHousehold(): Promise<{ currency: string | null; members: { id: string; name: string }[]; incomeProfiles: IncomeProfile[]; expenseTemplates: ExpenseTemplate[] }> {
       return http.get("/api/household") as Promise<any>;
     },
     async setCurrency(currency: string) { return http.post("/api/household/currency", { currency }); },
+
+    // income
     async addIncomeProfile(memberId: string, name: string, amountCents: number, restrictedUse: boolean): Promise<IncomeProfile> {
       return http.post("/api/income-profiles", { memberId, name, amountCents, restrictedUse }) as Promise<IncomeProfile>;
     },
@@ -27,7 +29,18 @@ export function useApi(displayMonth: Ref<string>) {
     async addOneOffIncome(memberId: string, name: string, amountCents: number, month: string, restrictedUse: boolean) {
       return http.post("/api/income", { memberId, name, amountCents, month, restrictedUse });
     },
+
+    // expenses
+    async addExpenseTemplate(name: string, defaultParticipants: string[], defaultSplitRule: Record<string, unknown>, category?: string): Promise<ExpenseTemplate> {
+      return http.post("/api/expense-templates", { name, defaultParticipants, defaultSplitRule, category }) as Promise<ExpenseTemplate>;
+    },
+    async endExpenseTemplate(id: string) { return http.post(`/api/expense-templates/${id}/end`); },
+    async snapshotExpenses(month: string) { return http.post(`/api/expenses/snapshot?month=${month}`); },
+    async upsertExpenseSnapshot(expenseId: string, month: string, amountCents: number, participants: string[], splitRule: Record<string, unknown>) {
+      return http.post("/api/expense-snapshots", { expenseId, month, amountCents, participants, splitRule });
+    },
+
+    // members
     async addMember(name: string, joinedFrom?: string) { return http.post("/api/members", { name, joinedFrom }); },
-    async fetchMembers(): Promise<{ id: string; name: string; joinedFrom?: string }[]> { return http.get("/api/members") as Promise<any>; },
   };
 }

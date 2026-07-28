@@ -117,4 +117,51 @@ export function runDataStoreContract(makeStore: (path: string) => DataStore): vo
       store.close();
     });
   });
+
+  describe("expense templates", () => {
+    test("add and retrieve templates", () => {
+      const store = makeStore(freshPath());
+      const t = store.addExpenseTemplate("Rent", ["m1", "m2"], { method: "even" });
+      expect(t.name).toBe("Rent");
+      expect(store.getExpenseTemplates()).toEqual([t]);
+      store.close();
+    });
+
+    test("endExpenseTemplate sets active to false", () => {
+      const store = makeStore(freshPath());
+      const t = store.addExpenseTemplate("Rent", ["m1"], { method: "even" });
+      store.endExpenseTemplate(t.id);
+      expect(store.getExpenseTemplates()[0]!.active).toBe(false);
+      store.close();
+    });
+
+    test("snapshotExpenses copies previous month amounts to new month", () => {
+      const store = makeStore(freshPath());
+      store.addExpenseTemplate("Rent", ["m1", "m2"], { method: "even" });
+      // Create a snapshot for July with amount 150000
+      store.addExpenseSnapshot({ month: "2026-07", expenseId: store.getExpenseTemplates()[0]!.id, name: "Rent", amountCents: 150000, participants: ["m1", "m2"], splitRule: { method: "even" } });
+      store.snapshotExpenses("2026-08");
+      const snaps = store.getMonthData("2026-08").expenseSnapshots;
+      expect(snaps).toHaveLength(1);
+      expect(snaps[0]!.amountCents).toBe(150000);
+      store.close();
+    });
+
+    test("snapshotExpenses does not overwrite existing snapshots", () => {
+      const store = makeStore(freshPath());
+      store.addExpenseTemplate("Rent", ["m1"], { method: "even" });
+      store.addExpenseSnapshot({ month: "2026-08", expenseId: store.getExpenseTemplates()[0]!.id, name: "Rent", amountCents: 160000, participants: ["m1"], splitRule: { method: "even" } });
+      store.snapshotExpenses("2026-08");
+      expect(store.getMonthData("2026-08").expenseSnapshots[0]!.amountCents).toBe(160000);
+      store.close();
+    });
+
+    test("snapshotExpenses does not create snapshot when no previous month exists (first-month stays pending)", () => {
+      const store = makeStore(freshPath());
+      store.addExpenseTemplate("Rent", ["m1"], { method: "even" });
+      store.snapshotExpenses("2026-07");
+      expect(store.getMonthData("2026-07").expenseSnapshots).toEqual([]);
+      store.close();
+    });
+  });
 }

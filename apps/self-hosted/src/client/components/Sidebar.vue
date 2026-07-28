@@ -9,6 +9,7 @@ defineEmits<{ navigate: [page: string] }>();
     <nav>
       <button :class="{ active: page === 'overview' }" @click="$emit('navigate', 'overview')">Overview</button>
       <button :class="{ active: page === 'income' }" @click="$emit('navigate', 'income')">Income</button>
+      <button :class="{ active: page === 'expenses' }" @click="$emit('navigate', 'expenses')">Expenses</button>
     </nav>
   </aside>
 </template>

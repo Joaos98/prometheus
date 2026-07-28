@@ -57,6 +57,14 @@ export class SqliteStore implements DataStore {
         participants TEXT NOT NULL,
         split_rule TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS expense_templates (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        category TEXT,
+        default_participants TEXT NOT NULL,
+        default_split_rule TEXT NOT NULL,
+        active INTEGER NOT NULL DEFAULT 1
+      );
     `);
   }
 
@@ -224,18 +232,87 @@ export class SqliteStore implements DataStore {
     }));
   }
 
+  addExpenseTemplate(
+    name: string,
+    defaultParticipants: string[],
+    defaultSplitRule: SplitRule,
+    category?: string,
+  ): ExpenseTemplate {
+    const id = randomUUID();
+    this.db
+      .prepare(
+        "INSERT INTO expense_templates (id, name, category, default_participants, default_split_rule) VALUES (?, ?, ?, ?, ?)",
+      )
+      .run(id, name, category ?? null, JSON.stringify(defaultParticipants), JSON.stringify(defaultSplitRule));
+    return { id, name, category, defaultParticipants, defaultSplitRule, active: true };
+  }
+
+  getExpenseTemplates(): ExpenseTemplate[] {
+    const rows = this.db
+      .prepare("SELECT id, name, category, default_participants, default_split_rule, active FROM expense_templates ORDER BY name")
+      .all() as Array<{
+      id: string; name: string; category: string | null; default_participants: string; default_split_rule: string; active: number;
+    }>;
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      ...(r.category ? { category: r.category } : {}),
+      defaultParticipants: JSON.parse(r.default_participants) as string[],
+      defaultSplitRule: JSON.parse(r.default_split_rule) as SplitRule,
+      active: r.active === 1,
+    }));
+  }
+
+  endExpenseTemplate(id: string): void {
+    this.db.prepare("UPDATE expense_templates SET active = 0 WHERE id = ?").run(id);
+  }
+
+  snapshotExpenses(month: Month): void {
+    const templates = this.getExpenseTemplates().filter((t) => t.active);
+    const existing = new Set(
+      this.getExpenseSnapshots().filter((s) => s.month === month).map((s) => s.expenseId),
+    );
+
+    for (const t of templates) {
+      if (existing.has(t.id)) continue;
+      const prev = this.db
+        .prepare(
+          "SELECT amount_cents FROM expense_snapshots WHERE expense_id = ? AND month < ? ORDER BY month DESC LIMIT 1",
+        )
+        .get(t.id, month) as { amount_cents: number } | undefined;
+
+      // Only auto-create if there's a previous amount to copy from.
+      // First-month expenses stay pending (no snapshot) until the user enters an amount.
+      if (prev === undefined) continue;
+
+      this.db
+        .prepare(
+          "INSERT INTO expense_snapshots (month, expense_id, name, amount_cents, participants, split_rule) VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .run(
+          month,
+          t.id,
+          t.name,
+          prev.amount_cents,
+          JSON.stringify(t.defaultParticipants),
+          JSON.stringify(t.defaultSplitRule),
+        );
+    }
+  }
+
   getMonthData(month: Month): MonthData {
     const currency = this.getCurrency() ?? "USD";
     const members = this.getMembers();
     const incomeSnapshots = this.getIncomeSnapshots().filter((s) => s.month === month);
     const expenseSnapshots = this.getExpenseSnapshots().filter((s) => s.month === month);
-    return { month, currency, members, incomeSnapshots, expenseSnapshots };
+    const activeTemplateIds = this.getExpenseTemplates().filter(t => t.active).map(t => t.id);
+    return { month, currency, members, incomeSnapshots, expenseSnapshots, activeTemplateIds };
   }
 
   replaceHousehold(data: MonthData): void {
     const txn = this.db.transaction((): void => {
       this.db.exec(
-        "DELETE FROM expense_snapshots; DELETE FROM income_snapshots; DELETE FROM income_profiles; DELETE FROM members; DELETE FROM household;",
+        "DELETE FROM expense_snapshots; DELETE FROM expense_templates; DELETE FROM income_snapshots; DELETE FROM income_profiles; DELETE FROM members; DELETE FROM household;",
       );
       this.db
         .prepare("INSERT INTO household (id, currency) VALUES (1, ?)")

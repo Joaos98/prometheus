@@ -15,6 +15,7 @@ app.get("/api/household", (_req, res) => {
     currency: store.getCurrency(),
     members: store.getMembers(),
     incomeProfiles: store.getIncomeProfiles(),
+    expenseTemplates: store.getExpenseTemplates(),
   });
 });
 
@@ -53,7 +54,53 @@ app.delete("/api/income-profiles/:id", (req, res) => {
   res.json({ deleted: req.params.id });
 });
 
-app.post("/api/income/snapshot", (req, res) => {
+app.post("/api/expense-templates", (req, res) => {
+  const { name, defaultParticipants, defaultSplitRule, category } = req.body as Record<string, unknown>;
+  if (!name || !Array.isArray(defaultParticipants) || !defaultSplitRule) {
+    res.status(400).json({ error: "name, defaultParticipants, and defaultSplitRule are required" });
+    return;
+  }
+  const t = store.addExpenseTemplate(
+    name as string,
+    defaultParticipants as string[],
+    defaultSplitRule as { method: "even" } | { method: "proportional" } | { method: "custom"; mode: "percent" | "amount"; values: Record<string, number> },
+    typeof category === "string" ? category : undefined,
+  );
+  res.status(201).json(t);
+});
+
+app.post("/api/expense-templates/:id/end", (req, res) => {
+  store.endExpenseTemplate(req.params.id);
+  res.json({ id: req.params.id, active: false });
+});
+
+app.post("/api/expenses/snapshot", (req, res) => {
+  const month = typeof req.query.month === "string" && /^\d{4}-\d{2}$/.test(req.query.month)
+    ? req.query.month
+    : currentMonth();
+  store.snapshotExpenses(month);
+  res.json({ month, snapshots: store.getMonthData(month).expenseSnapshots.length });
+});
+
+app.post("/api/expense-snapshots", (req, res) => {
+  const { expenseId, month, amountCents, participants, splitRule } = req.body as Record<string, unknown>;
+  if (!expenseId || !month || typeof amountCents !== "number") {
+    res.status(400).json({ error: "expenseId, month, and amountCents are required" });
+    return;
+  }
+  const templates = store.getExpenseTemplates();
+  const t = templates.find((tp) => tp.id === expenseId);
+  const name = t?.name ?? (expenseId as string);
+  store.addExpenseSnapshot({
+    month: month as string,
+    expenseId: expenseId as string,
+    name,
+    amountCents: amountCents as number,
+    participants: (participants as string[]) ?? t?.defaultParticipants ?? [],
+    splitRule: (splitRule as { method: string }) ?? t?.defaultSplitRule ?? { method: "even" },
+  });
+  res.status(201).json({ expenseId, month });
+});
   const month = typeof req.query.month === "string" && /^\d{4}-\d{2}$/.test(req.query.month)
     ? req.query.month
     : currentMonth();

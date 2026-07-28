@@ -37,6 +37,7 @@ export interface MonthData {
   members: Member[];
   incomeSnapshots: IncomeSnapshot[];
   expenseSnapshots: ExpenseSnapshot[];
+  activeTemplateIds?: string[];
 }
 
 export interface Share {
@@ -58,4 +59,5 @@ export interface MonthlySummary {
   month: Month;
   currency: string;
   members: MemberSummary[];
+  pendingExpenses: { expenseId: string; expenseName: string }[];
 }

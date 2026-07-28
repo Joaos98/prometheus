@@ -6,13 +6,33 @@ export function computeMonthlySummary(data: MonthData): MonthlySummary {
   );
 
   const incomeByMember = new Map<string, number>();
+  const restrictedByMember = new Map<string, number>();
   for (const snap of data.incomeSnapshots) {
     const prev = incomeByMember.get(snap.memberId) ?? 0;
     incomeByMember.set(snap.memberId, prev + snap.amountCents);
+    if (snap.restrictedUse) {
+      const rprev = restrictedByMember.get(snap.memberId) ?? 0;
+      restrictedByMember.set(snap.memberId, rprev + snap.amountCents);
+    }
+  }
+
+  const spendable = new Map<string, number>();
+  for (const m of data.members) {
+    spendable.set(m.id, (incomeByMember.get(m.id) ?? 0) - (restrictedByMember.get(m.id) ?? 0));
   }
 
   const sharesByMember = new Map<string, Share[]>();
+  const pendingExpenses: { expenseId: string; expenseName: string }[] = [];
   for (const m of data.members) sharesByMember.set(m.id, []);
+
+  if (data.activeTemplateIds) {
+    const snapIds = new Set(data.expenseSnapshots.map(s => s.expenseId));
+    for (const tid of data.activeTemplateIds) {
+      if (!snapIds.has(tid)) {
+        pendingExpenses.push({ expenseId: tid, expenseName: tid });
+      }
+    }
+  }
 
   for (const snap of data.expenseSnapshots) {
     const ordered = [...snap.participants].sort(
@@ -20,7 +40,25 @@ export function computeMonthlySummary(data: MonthData): MonthlySummary {
         (memberOrder.get(a) ?? Number.MAX_SAFE_INTEGER) -
         (memberOrder.get(b) ?? Number.MAX_SAFE_INTEGER),
     );
-    const shares = splitEvenly(snap.amountCents, ordered);
+
+    let shares: Array<[string, number]>;
+    if (snap.splitRule.method === "proportional") {
+      const totalSpendable = snap.participants.reduce((s, p) => s + (spendable.get(p) ?? 0), 0);
+      if (totalSpendable === 0) {
+        shares = splitEvenly(snap.amountCents, ordered);
+      } else {
+        shares = splitProportional(snap.amountCents, snap.participants, spendable, memberOrder);
+      }
+    } else if (snap.splitRule.method === "custom") {
+      if (snap.splitRule.mode === "amount") {
+        shares = snap.participants.map((mid) => [mid, snap.splitRule.values[mid] ?? 0] as [string, number]);
+      } else {
+        shares = splitProportional(snap.amountCents, snap.participants, new Map(snap.participants.map(p => [p, snap.splitRule.values[p] ?? 0])), memberOrder);
+      }
+    } else {
+      shares = splitEvenly(snap.amountCents, ordered);
+    }
+
     for (const [memberId, amountCents] of shares) {
       sharesByMember.get(memberId)?.push({
         expenseId: snap.expenseId,
@@ -40,22 +78,50 @@ export function computeMonthlySummary(data: MonthData): MonthlySummary {
       incomeCents: income,
       shares,
       totalCents,
-      leftoverCents: income - totalCents,
+      leftoverCents: (spendable.get(m.id) ?? 0) - totalCents,
     };
   });
 
-  return { month: data.month, currency: data.currency, members };
+  return { month: data.month, currency: data.currency, members, pendingExpenses };
 }
 
-function splitEvenly(
-  amountCents: number,
-  participants: string[],
-): Array<[string, number]> {
+function splitEvenly(amountCents: number, participants: string[]): Array<[string, number]> {
   const count = participants.length;
   const base = Math.floor(amountCents / count);
   const remainder = amountCents - base * count;
-  return participants.map((memberId, i) => [
-    memberId,
-    i < remainder ? base + 1 : base,
-  ]);
+  return participants.map((memberId, i) => [memberId, i < remainder ? base + 1 : base]);
+}
+
+function splitProportional(
+  amountCents: number,
+  participants: string[],
+  weights: Map<string, number>,
+  memberOrder: Map<string, number>,
+): Array<[string, number]> {
+  const totalWeight = participants.reduce((s, p) => s + (weights.get(p) ?? 0), 0);
+  if (totalWeight === 0) return splitEvenly(amountCents, participants);
+
+  const exact = participants.map((p) => ({
+    memberId: p,
+    exact: (amountCents * (weights.get(p) ?? 0)) / totalWeight,
+  }));
+
+  const floored = exact.map((e) => ({
+    memberId: e.memberId,
+    amount: Math.floor(e.exact),
+    remainder: e.exact - Math.floor(e.exact),
+  }));
+
+  let distributed = floored.reduce((s, f) => s + f.amount, 0);
+  let remaining = amountCents - distributed;
+
+  const sorted = [...floored].sort((a, b) => {
+    if (b.remainder !== a.remainder) return b.remainder - a.remainder;
+    const oa = memberOrder.get(a.memberId) ?? Number.MAX_SAFE_INTEGER;
+    const ob = memberOrder.get(b.memberId) ?? Number.MAX_SAFE_INTEGER;
+    return oa - ob;
+  });
+
+  for (let i = 0; i < remaining; i++) sorted[i]!.amount++;
+  return sorted.map((s) => [s.memberId, s.amount]);
 }
