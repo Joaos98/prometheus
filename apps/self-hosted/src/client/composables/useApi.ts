@@ -50,6 +50,8 @@ export function useApi(s: State) {
     async endExpense(id: string, eff: string) { await http.post(`/api/expenses/${id}/end`, { effectiveFrom: eff }); await loadAll(); },
     async changeExpenseSplit(eid: string, rule: Record<string, unknown>, eff: string) { await http.post(`/api/expenses/${eid}/change-split`, { splitRule: rule, effectiveFrom: eff }); await loadAll(); await refreshSummary(); },
     async changeExpenseParticipants(eid: string, participants: string[], eff: string) { await http.post(`/api/expenses/${eid}/change-participants`, { participants, effectiveFrom: eff }); await loadAll(); await refreshSummary(); },
+    async addSubItem(expenseId: string, name: string) { await http.post(`/api/expenses/${expenseId}/sub-items`, { name }); await loadAll(); },
+    async submitSubItemAmount(siid: string, amountCents: number) { await http.post(`/api/sub-items/${siid}/amount`, { month: s.displayMonth.value, amountCents }); await loadAll(); await refreshSummary(); },
     async submitGoal(name: string, participants: string[], splitRule: Record<string, unknown>, targetAmountCents: number | undefined, startAmountCents: number | undefined, effectiveFrom: string, category?: string) { await http.post("/api/goals", { name, participants, splitRule, targetAmountCents, startAmountCents, effectiveFrom, category }); await loadAll(); },
     async submitGoalContribution(gid: string, amountCents: number) { await http.post(`/api/goals/${gid}/contribution`, { month: s.displayMonth.value, amountCents }); await loadAll(); await refreshSummary(); },
     async endGoal(id: string, eff: string) { await http.post(`/api/goals/${id}/end`, { effectiveFrom: eff }); await loadAll(); },

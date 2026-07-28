@@ -14,11 +14,13 @@ const props = defineProps<{
   expenseAmounts: { expenseId: string; month: string; amountCents: number }[];
   summaryMembers: { shares: { expenseId: string; amountCents: number }[]; memberId: string; name: string }[];
   api: {
-    submitExpense(name: string, participants: string[], splitRule: Record<string, unknown>, effectiveFrom: string, oneOff: boolean): Promise<Expense>;
+    submitExpense(name: string, participants: string[], splitRule: Record<string, unknown>, effectiveFrom: string, oneOff: boolean, category?: string): Promise<Expense>;
     submitExpenseAmount(eid: string, amountCents: number): Promise<void>;
     endExpense(id: string, eff: string): Promise<void>;
     changeExpenseSplit(eid: string, rule: Record<string, unknown>, eff: string): Promise<void>;
     changeExpenseParticipants(eid: string, participants: string[], eff: string): Promise<void>;
+    addSubItem(expenseId: string, name: string): Promise<void>;
+    submitSubItemAmount(siid: string, amountCents: number): Promise<void>;
   };
   backdateWarning: (eff: string) => string | null;
   formatCurrency: (cents: number, currency: string) => string;
@@ -29,6 +31,8 @@ const newExpenseName = ref(""); const newExpenseParticipants = ref<string[]>([])
 const newExpenseCustomMode = ref("percent"); const newExpenseCustomValues = ref<Record<string, number>>({});
 const newExpenseOneOff = ref(false); const newExpenseEffectiveFrom = ref("");
 const newExpenseCategory = ref("");
+const newSubItemName = ref("");
+const subItemAmountValues = ref<Record<string, string>>({});
 const amountValue = ref(""); const expandedExpense = ref<string | null>(null);
 const endingExpenseId = ref<string | null>(null); const endingEff = ref("");
 
@@ -51,6 +55,8 @@ async function submit() {
   newExpenseName.value = ""; newExpenseParticipants.value = []; newExpenseCustomValues.value = {}; newExpenseOneOff.value = false; newExpenseEffectiveFrom.value = ""; newExpenseCategory.value = ""; showForm.value = false;
 }
 async function submitAmount(eid: string) { const a = parseFloat(amountValue.value); if (isNaN(a)) return; await props.api.submitExpenseAmount(eid, Math.round(a * 100)); amountValue.value = ""; }
+async function submitSubItemAmount(siid: string) { const a = parseFloat(subItemAmountValues.value[siid] ?? ""); if (isNaN(a)) return; await props.api.submitSubItemAmount(siid, Math.round(a * 100)); delete subItemAmountValues.value[siid]; }
+async function addSubItem(eid: string) { const n = newSubItemName.value.trim(); if (!n) return; await props.api.addSubItem(eid, n); newSubItemName.value = ""; }
 async function doEndExpense(id: string) { await props.api.endExpense(id, endingEff.value); endingExpenseId.value = null; }
 async function doChangeSplit(eid: string) { await props.api.changeExpenseSplit(eid, { method: changeSplitRule.value }, changeSplitEff.value); showChangeSplit.value = null; }
 async function doChangeParticipants(eid: string) { await props.api.changeExpenseParticipants(eid, [...changeParticipantsList.value], changeParticipantsEff.value); showChangeParticipants.value = null; }
@@ -95,6 +101,19 @@ function openChangeParticipants(e: Expense) { showChangeParticipants.value = e.i
             <input v-model="amountValue" placeholder="0.00" type="number" step="0.01" min="0" class="input input-xs" />
             <button @click="submitAmount(e.id)" class="btn-accent">Save Amount</button>
           </template>
+
+          <div class="sub-items" v-if="e.subItems && e.subItems.length > 0">
+            <h4 class="sub-label">Sub-Items</h4>
+            <div v-for="si in e.subItems" :key="si.id" class="share-row">
+              <span>{{ si.name }}</span>
+              <input v-model="subItemAmountValues[si.id]" placeholder="0.00" type="number" step="0.01" min="0" class="input input-xs" />
+              <button @click="submitSubItemAmount(si.id)" class="btn-ghost">Save</button>
+            </div>
+          </div>
+          <div class="add-sub" v-if="e.subItems && e.subItems.length > 0">
+            <input v-model="newSubItemName" placeholder="Add sub-item" class="input input-xs" />
+            <button @click="addSubItem(e.id)" class="btn-ghost">Add</button>
+          </div>
           <div v-if="e.endedFrom === undefined" class="exp-actions">
             <button @click="openChangeSplit(e)" class="btn-ghost">Change Split</button>
             <button @click="openChangeParticipants(e)" class="btn-ghost">Change Participants</button>

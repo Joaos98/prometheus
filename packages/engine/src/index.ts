@@ -15,6 +15,8 @@ export type {
   SavingsGoal,
   Share,
   SplitRule,
+  SubItem,
+  SubItemAmount,
 } from "./types.js";
 export { computeMonthlySummary } from "./summary.js";
 export { validateCustomSplitRule, validateExpenseAmount } from "./validation.js";

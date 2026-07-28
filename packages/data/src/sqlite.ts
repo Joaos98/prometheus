@@ -11,6 +11,8 @@ import type {
   Month,
   SavingsGoal,
   SplitRule,
+  SubItem,
+  SubItemAmount,
 } from "@prometheus/engine";
 import type { DataStore } from "./store.js";
 
@@ -78,6 +80,17 @@ export class SqliteStore implements DataStore {
         month TEXT NOT NULL,
         amount_cents INTEGER NOT NULL,
         PRIMARY KEY (expense_id, month)
+      );
+      CREATE TABLE IF NOT EXISTS sub_items (
+        id TEXT PRIMARY KEY,
+        expense_id TEXT NOT NULL,
+        name TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS sub_item_amounts (
+        sub_item_id TEXT NOT NULL,
+        month TEXT NOT NULL,
+        amount_cents INTEGER NOT NULL,
+        PRIMARY KEY (sub_item_id, month)
       );
     `);
     this.migrate();
@@ -343,6 +356,34 @@ export class SqliteStore implements DataStore {
     return this.getExpenses().find((e) => e.id === id);
   }
 
+  addSubItem(expenseId: string, name: string): SubItem {
+    const id = randomUUID();
+    this.db
+      .prepare("INSERT INTO sub_items (id, expense_id, name) VALUES (?, ?, ?)")
+      .run(id, expenseId, name);
+    return { id, expenseId, name };
+  }
+
+  getSubItems(): SubItem[] {
+    const rows = this.db
+      .prepare("SELECT id, expense_id, name FROM sub_items ORDER BY id")
+      .all() as Array<{ id: string; expense_id: string; name: string }>;
+    return rows.map((row) => ({ id: row.id, expenseId: row.expense_id, name: row.name }));
+  }
+
+  getSubItemAmounts(): SubItemAmount[] {
+    const rows = this.db
+      .prepare("SELECT sub_item_id, month, amount_cents FROM sub_item_amounts ORDER BY sub_item_id, month")
+      .all() as Array<{ sub_item_id: string; month: string; amount_cents: number }>;
+    return rows.map((row) => ({ subItemId: row.sub_item_id, month: row.month, amountCents: row.amount_cents }));
+  }
+
+  setSubItemAmount(subItemId: string, month: Month, amountCents: number): void {
+    this.db
+      .prepare("INSERT OR REPLACE INTO sub_item_amounts (sub_item_id, month, amount_cents) VALUES (?, ?, ?)")
+      .run(subItemId, month, amountCents);
+  }
+
   changeExpenseSplitRule(
     id: string,
     splitRule: SplitRule,
@@ -571,10 +612,20 @@ export class SqliteStore implements DataStore {
       amountCents: row.amount_cents,
     }));
 
+    const subItems = this.getSubItems();
+    const subItemAmounts = this.getSubItemAmounts();
+
+    for (const expense of expenses) {
+      const kids = subItems.filter((s) => s.expenseId === expense.id);
+      if (kids.length > 0) expense.subItems = kids;
+    }
+
     return {
       currency: householdRow?.currency ?? "USD",
       members,
       incomeSources,
+      subItems,
+      subItemAmounts,
       goals,
       goalContributions,
       expenses,
@@ -585,7 +636,7 @@ export class SqliteStore implements DataStore {
   replaceHousehold(household: Household): void {
     const replace = this.db.transaction((h: Household): void => {
       this.db.exec(
-        "DELETE FROM goal_contributions; DELETE FROM goals; DELETE FROM expense_amounts; DELETE FROM expenses; DELETE FROM income_source_entries; DELETE FROM income_sources; DELETE FROM members; DELETE FROM household;",
+        "DELETE FROM sub_item_amounts; DELETE FROM sub_items; DELETE FROM goal_contributions; DELETE FROM goals; DELETE FROM expense_amounts; DELETE FROM expenses; DELETE FROM income_source_entries; DELETE FROM income_sources; DELETE FROM members; DELETE FROM household;",
       );
 
       this.db
@@ -646,6 +697,19 @@ export class SqliteStore implements DataStore {
       );
       for (const amount of h.expenseAmounts) {
         insertAmount.run(amount.expenseId, amount.month, amount.amountCents);
+      }
+
+      const insertSubItem = this.db.prepare(
+        "INSERT INTO sub_items (id, expense_id, name) VALUES (?, ?, ?)",
+      );
+      for (const si of h.subItems) {
+        insertSubItem.run(si.id, si.expenseId, si.name);
+      }
+      const insertSIAmount = this.db.prepare(
+        "INSERT INTO sub_item_amounts (sub_item_id, month, amount_cents) VALUES (?, ?, ?)",
+      );
+      for (const a of h.subItemAmounts) {
+        insertSIAmount.run(a.subItemId, a.month, a.amountCents);
       }
 
       const insertGoal = this.db.prepare(

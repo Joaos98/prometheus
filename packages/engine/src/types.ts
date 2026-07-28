@@ -26,6 +26,19 @@ export interface Expense {
   effectiveFrom: Month;
   /** If set, the expense is not effective in or after this Month. */
   endedFrom?: Month;
+  subItems?: SubItem[];
+}
+
+export interface SubItem {
+  id: string;
+  expenseId: string;
+  name: string;
+}
+
+export interface SubItemAmount {
+  subItemId: string;
+  month: Month;
+  amountCents: number;
 }
 
 /** The actual amount entered for an Expense in a given Month, in integer cents. */
@@ -42,6 +55,8 @@ export interface Household {
   incomeSources: IncomeSource[];
   expenses: Expense[];
   expenseAmounts: ExpenseAmount[];
+  subItems: SubItem[];
+  subItemAmounts: SubItemAmount[];
   goals: SavingsGoal[];
   goalContributions: GoalContribution[];
 }
@@ -69,6 +84,7 @@ export interface GoalProgress {
   goalName: string;
   targetAmountCents?: number;
   accumulatedCents: number;
+  memberShares: { memberId: string; name: string; amountCents: number }[];
 }
 
 export interface IncomeSourceEntry {

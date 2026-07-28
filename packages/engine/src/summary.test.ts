@@ -19,6 +19,8 @@ const household: Household = {
     },
   ],
   expenseAmounts: [{ expenseId: "e1", month: "2026-07", amountCents: 150000 }],
+  subItems: [],
+  subItemAmounts: [],
   goals: [],
   goalContributions: [],
 };
@@ -679,6 +681,8 @@ test("a one-off income source affects exactly its own Month and carries nothing 
     ],
     expenses: [],
     expenseAmounts: [],
+    subItems: [],
+    subItemAmounts: [],
     goals: [],
     goalContributions: [],
   };
@@ -710,6 +714,8 @@ test("a one-off expense affects exactly its own Month and nothing before or afte
       },
     ],
     expenseAmounts: [{ expenseId: "repair", month: "2026-05", amountCents: 20000 }],
+    subItems: [],
+    subItemAmounts: [],
     goals: [],
     goalContributions: [],
   };
@@ -757,6 +763,8 @@ test("proportional split uses Spendable Income, excluding restricted-use sources
       },
     ],
     expenseAmounts: [{ expenseId: "e1", month: "2026-07", amountCents: 90000 }],
+    subItems: [],
+    subItemAmounts: [],
     goals: [],
     goalContributions: [],
   };
@@ -803,6 +811,8 @@ test("Leftover Balance defaults to Spendable Income minus expense Shares", () =>
       },
     ],
     expenseAmounts: [{ expenseId: "e1", month: "2026-07", amountCents: 300000 }],
+    subItems: [],
+    subItemAmounts: [],
     goals: [],
     goalContributions: [],
   };
@@ -819,6 +829,8 @@ test("goal progress includes startAmountCents in its accumulated total", () => {
     incomeSources: [],
     expenses: [],
     expenseAmounts: [],
+    subItems: [],
+    subItemAmounts: [],
     goals: [
       {
         id: "g1",
@@ -839,4 +851,76 @@ test("goal progress includes startAmountCents in its accumulated total", () => {
   const summary = computeMonthlySummary(h, "2026-07");
   expect(summary.goalProgress).toHaveLength(1);
   expect(summary.goalProgress[0]!.accumulatedCents).toBe(150000); // 100000 + 25000 + 25000
+});
+
+test("a composite expense derives its total from the sum of its Sub-Items", () => {
+  const h: Household = {
+    currency: "USD",
+    members: [{ id: "m1", name: "Ana" }],
+    incomeSources: [],
+    expenses: [
+      {
+        id: "e1",
+        name: "Rent",
+        participants: ["m1"],
+        splitRule: { method: "even" },
+        effectiveFrom: "2026-01",
+        subItems: [
+          { id: "si1", expenseId: "e1", name: "Base Rent" },
+          { id: "si2", expenseId: "e1", name: "Condo Fee" },
+        ],
+      },
+    ],
+    expenseAmounts: [],
+    subItems: [
+      { id: "si1", expenseId: "e1", name: "Base Rent" },
+      { id: "si2", expenseId: "e1", name: "Condo Fee" },
+    ],
+    subItemAmounts: [
+      { subItemId: "si1", month: "2026-07", amountCents: 140000 },
+      { subItemId: "si2", month: "2026-07", amountCents: 20000 },
+    ],
+    goals: [],
+    goalContributions: [],
+  };
+
+  const summary = computeMonthlySummary(h, "2026-07");
+  expect(summary.members[0]!.totalCents).toBe(160000); // 140000 + 20000
+});
+
+test("a composite expense with an unentered Sub-Item is flagged pending", () => {
+  const h: Household = {
+    currency: "USD",
+    members: [{ id: "m1", name: "Ana" }],
+    incomeSources: [],
+    expenses: [
+      {
+        id: "e1",
+        name: "Rent",
+        participants: ["m1"],
+        splitRule: { method: "even" },
+        effectiveFrom: "2026-01",
+        subItems: [
+          { id: "si1", expenseId: "e1", name: "Base Rent" },
+          { id: "si2", expenseId: "e1", name: "Utilities" },
+        ],
+      },
+    ],
+    expenseAmounts: [],
+    subItems: [
+      { id: "si1", expenseId: "e1", name: "Base Rent" },
+      { id: "si2", expenseId: "e1", name: "Utilities" },
+    ],
+    subItemAmounts: [
+      { subItemId: "si1", month: "2026-07", amountCents: 140000 },
+    ],
+    goals: [],
+    goalContributions: [],
+  };
+
+  const summary = computeMonthlySummary(h, "2026-07");
+  expect(summary.pendingExpenses).toEqual([
+    { itemId: "e1", itemName: "Rent" },
+  ]);
+  expect(summary.members[0]!.totalCents).toBe(0);
 });

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Expense, ExpenseAmount, IncomeSource, Member, MonthlySummary, SavingsGoal } from "@prometheus/engine";
-import { computed, onMounted, ref, watch } from "vue";
+import { onMounted, ref, watch } from "vue";
 import { useMonth } from "./composables/useMonth";
 import { useApi } from "./composables/useApi";
 import Sidebar from "./components/Sidebar.vue";
@@ -24,7 +24,6 @@ const goals = ref<SavingsGoal[]>([]);
 const summary = ref<MonthlySummary | null>(null);
 const appError = ref<string | null>(null);
 const currencyValue = ref("USD");
-const householdLeftover = computed(() => (summary.value?.members ?? []).reduce((s, m) => s + m.leftoverCents, 0));
 
 const month = useMonth();
 const api = useApi({ currency, members, incomeSources, expenses, expenseAmounts, goals, summary, appError, displayMonth: month.displayMonth });
@@ -57,9 +56,9 @@ watch(month.displayMonth, () => refreshSummary());
 
         <OverviewPage v-if="page === 'overview'"
           :summary="summary" :members="members" :expenses="expenses" :goals="goals"
+          :incomeSources="incomeSources"
           :expenseAmounts="expenseAmounts" :displayMonth="month.displayMonth.value"
-          :goalProgressPercent="goalProgressPercent" :memberName="memberName" :formatCurrency="formatCurrency"
-          :householdLeftover="householdLeftover" />
+          :goalProgressPercent="goalProgressPercent" :memberName="memberName" :formatCurrency="formatCurrency" />
 
         <IncomePage v-if="page === 'income'"
           :members="members" :incomeSources="incomeSources" :currency="summary.currency"

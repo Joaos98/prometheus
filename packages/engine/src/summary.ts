@@ -39,12 +39,29 @@ export function computeMonthlySummary(
     household.expenses,
     month,
   )) {
-    const amount = household.expenseAmounts.find(
-      (a) => a.expenseId === item.id && a.month === month,
-    );
-    if (!amount) {
-      pendingExpenses.push({ itemId: item.id, itemName: item.name });
-      continue;
+    const isComposite = (item.subItems?.length ?? 0) > 0;
+    let amountCents: number | undefined;
+
+    if (isComposite) {
+      const subAmounts = item.subItems!.map(
+        (si) => household.subItemAmounts.find(
+          (a) => a.subItemId === si.id && a.month === month,
+        ),
+      );
+      if (subAmounts.some((a) => !a)) {
+        pendingExpenses.push({ itemId: item.id, itemName: item.name });
+        continue;
+      }
+      amountCents = subAmounts.reduce((sum, a) => sum + (a?.amountCents ?? 0), 0);
+    } else {
+      const amount = household.expenseAmounts.find(
+        (a) => a.expenseId === item.id && a.month === month,
+      );
+      if (!amount) {
+        pendingExpenses.push({ itemId: item.id, itemName: item.name });
+        continue;
+      }
+      amountCents = amount.amountCents;
     }
 
     const ordered = [...item.participants].sort(
@@ -56,7 +73,7 @@ export function computeMonthlySummary(
     let shares: Array<[string, number]>;
     if (item.splitRule.method === "proportional") {
       shares = computeProportionalShares(
-        amount.amountCents,
+        amountCents,
         item.id,
         item.name,
         item.participants,
@@ -67,13 +84,13 @@ export function computeMonthlySummary(
       );
     } else if (item.splitRule.method === "custom") {
       shares = computeCustomShares(
-        amount.amountCents,
+        amountCents,
         item.participants,
         item.splitRule,
         memberOrder,
       );
     } else {
-      shares = splitEvenly(amount.amountCents, ordered);
+      shares = splitEvenly(amountCents, ordered);
     }
 
     for (const [memberId, amountCents] of shares) {
@@ -92,6 +109,7 @@ export function computeMonthlySummary(
 
   const pendingContributions: PendingItem[] = [];
   const fallbackContributions: PendingItem[] = [];
+  const goalMemberShares = new Map<string, Array<[string, number]>>();
 
   for (const item of activeItems(
     household.goals,
@@ -140,6 +158,7 @@ export function computeMonthlySummary(
         (contributionByMember.get(memberId) ?? 0) + amountCents,
       );
     }
+    goalMemberShares.set(item.id, shares.map(([id, amt]) => [id, amt]));
   }
 
   const goalProgress: GoalProgress[] = household.goals.map((g) => {
@@ -151,6 +170,11 @@ export function computeMonthlySummary(
       goalId: g.id,
       goalName: g.name,
       accumulatedCents: accumulated,
+      memberShares: (goalMemberShares.get(g.id) ?? []).map(([memberId, amountCents]) => ({
+        memberId,
+        name: activeMembers.find(m => m.id === memberId)?.name ?? memberId,
+        amountCents,
+      })),
     };
     if (g.targetAmountCents !== undefined) {
       progress.targetAmountCents = g.targetAmountCents;

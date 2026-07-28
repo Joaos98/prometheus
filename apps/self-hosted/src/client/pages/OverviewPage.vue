@@ -1,34 +1,56 @@
 <script setup lang="ts">
-import type { Expense, ExpenseAmount, GoalProgress, MemberSummary, SavingsGoal } from "@prometheus/engine";
+import type { Expense, ExpenseAmount, GoalProgress, IncomeSource, MemberSummary, SavingsGoal } from "@prometheus/engine";
+import GoalProgressCard from "../components/GoalProgressCard.vue";
 
 const props = defineProps<{
   summary: { currency: string; members: MemberSummary[]; goalProgress: GoalProgress[]; pendingContributions: { itemId: string; itemName: string }[] };
   members: { id: string; name: string }[];
   expenses: Expense[];
   goals: SavingsGoal[];
+  incomeSources: IncomeSource[];
   expenseAmounts: ExpenseAmount[];
   displayMonth: string;
   goalProgressPercent: (gp: GoalProgress) => number;
   memberName: (id: string) => string;
   formatCurrency: (cents: number, currency: string) => string;
-  householdLeftover: number;
 }>();
 
 function activeExpenses() { return props.expenses.filter(e => e.effectiveFrom <= props.displayMonth && (e.endedFrom === undefined || e.endedFrom > props.displayMonth)); }
 function expenseHasAmount(eid: string) { return props.expenseAmounts.some(a => a.expenseId === eid && a.month === props.displayMonth); }
 function expenseAmountCents(eid: string) { return props.expenseAmounts.find(a => a.expenseId === eid && a.month === props.displayMonth)?.amountCents; }
 function isGoalPending(gid: string) { return props.summary.pendingContributions.some(p => p.itemId === gid); }
+function sourcesForMember(mid: string) { return props.incomeSources.filter(s => s.memberId === mid); }
+const latestAmount = (s: IncomeSource) => { const a = [...s.timeline].sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom)); return a[0]?.amountCents ?? 0; };
+const householdIncome = props.summary.members.reduce((s, m) => s + m.incomeCents, 0);
+const householdRestricted = props.summary.members.reduce((s, m) => s + m.restrictedCents, 0);
 </script>
 
 <template>
   <section class="balance-row">
+    <div class="balance-card">
+      <span class="balance-label">Total income</span>
+      <span class="balance-value">{{ formatCurrency(householdIncome, summary.currency) }}</span>
+    </div>
+    <div class="balance-card">
+      <span class="balance-label">Spendable</span>
+      <span class="balance-value">{{ formatCurrency(householdIncome - householdRestricted, summary.currency) }}</span>
+    </div>
+    <div class="balance-card">
+      <span class="balance-label">Restricted</span>
+      <span class="balance-value muted">{{ formatCurrency(householdRestricted, summary.currency) }}</span>
+    </div>
+  </section>
+
+  <section class="balance-row">
     <div class="balance-card" v-for="m in summary.members" :key="m.memberId">
       <span class="balance-label">{{ m.name }}</span>
-      <span class="balance-value" :class="{ negative: m.leftoverCents < 0 }">{{ formatCurrency(m.leftoverCents, summary.currency) }}</span>
-    </div>
-    <div class="balance-card balance-total">
-      <span class="balance-label">Household</span>
-      <span class="balance-value" :class="{ negative: householdLeftover < 0 }">{{ formatCurrency(householdLeftover, summary.currency) }}</span>
+      <span class="balance-value">{{ formatCurrency(m.incomeCents, summary.currency) }}</span>
+      <div class="income-sources" v-if="sourcesForMember(m.memberId).length > 0">
+        <div class="income-source-row" v-for="s in sourcesForMember(m.memberId)" :key="s.id">
+          <span>{{ s.name }}</span>
+          <span>{{ formatCurrency(latestAmount(s), summary.currency) }}</span>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -46,18 +68,7 @@ function isGoalPending(gid: string) { return props.summary.pendingContributions.
         <li v-if="activeExpenses().length === 0" class="ov-empty">No active expenses</li>
       </ul>
     </div>
-    <div class="card">
-      <h3 class="card-label">Goal progress</h3>
-      <ul class="ov-list">
-        <li v-for="gp in summary.goalProgress" :key="gp.goalId" class="ov-row">
-          <svg class="orbit-ring" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="none" stroke="#262A38" stroke-width="3" /><circle cx="16" cy="16" r="13" fill="none" stroke="#7DC9E8" stroke-width="3" stroke-dasharray="81.7" :stroke-dashoffset="81.7 * (1 - goalProgressPercent(gp) / 100)" stroke-linecap="round" transform="rotate(-90 16 16)" /></svg>
-          <span>{{ gp.goalName }}<span v-if="isGoalPending(gp.goalId)" class="pending-label">pending</span></span>
-          <span class="muted" style="font-size:11px">{{ (goals.find(g => g.id === gp.goalId)?.participants ?? []).map(memberName).join(', ') }}</span>
-          <span class="gp-pct">{{ goalProgressPercent(gp) }}%</span>
-        </li>
-        <li v-if="summary.goalProgress.length === 0" class="ov-empty">No goals yet</li>
-      </ul>
-    </div>
+    <GoalProgressCard :goalProgress="summary.goalProgress" :goals="goals" :currency="summary.currency" :pendingContributions="summary.pendingContributions" :formatCurrency="formatCurrency" />
   </section>
 
   <h3 class="section-heading">Leftover</h3>

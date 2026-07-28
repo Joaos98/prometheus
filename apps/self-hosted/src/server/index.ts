@@ -340,6 +340,30 @@ app.post("/api/goals/:id/contribution", (req, res) => {
   res.json({ goalId: req.params.id, month, amountCents });
 });
 
+app.post("/api/expenses/:id/sub-items", (req, res) => {
+  const { name } = req.body as Record<string, unknown>;
+  if (!name || typeof name !== "string") {
+    res.status(400).json({ error: "name is required" });
+    return;
+  }
+  const si = store.addSubItem(req.params.id, name);
+  res.status(201).json(si);
+});
+
+app.post("/api/sub-items/:id/amount", (req, res) => {
+  const { month, amountCents } = req.body as Record<string, unknown>;
+  if (!month || typeof month !== "string") {
+    res.status(400).json({ error: "month is required" });
+    return;
+  }
+  if (typeof amountCents !== "number" || !Number.isInteger(amountCents)) {
+    res.status(400).json({ error: "amountCents must be an integer" });
+    return;
+  }
+  store.setSubItemAmount(req.params.id, month, amountCents);
+  res.json({ subItemId: req.params.id, month, amountCents });
+});
+
 app.get("/api/summary", (req, res) => {
   const month =
     typeof req.query.month === "string" ? req.query.month : currentMonth();

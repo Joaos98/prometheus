@@ -21,7 +21,7 @@ body { margin: 0; }
 .nav-dot { font-size: 8px; opacity: 0; }
 .sidebar-nav button.active .nav-dot { opacity: 1; }
 
-.content { flex: 1; padding: 24px 32px; overflow-y: auto; max-width: 960px; }
+.content { flex: 1; padding: 24px 32px; overflow-y: auto; }
 
 .error-banner { background: rgba(248,113,113,0.12); color: var(--danger); padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; cursor: pointer; }
 .error-dismiss { margin-left: 8px; opacity: 0.6; }
@@ -51,6 +51,10 @@ body { margin: 0; }
 .balance-value { font-size: 24px; font-weight: 500; color: var(--text); }
 .balance-value.negative { color: var(--danger); }
 .balance-total .balance-value { color: var(--accent); }
+.income-sources { margin-top: 8px; border-top: 0.5px solid var(--border); padding-top: 6px; }
+.income-source-row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 11px; }
+.income-source-row span:first-child { color: var(--text2); }
+.income-source-row span:last-child { color: var(--text); font-variant-numeric: tabular-nums; }
 
 .overview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
 .field { display: inline-flex; flex-direction: column; gap: 2px; }
@@ -69,6 +73,10 @@ body { margin: 0; }
 .card { background: var(--card); border-radius: var(--radius); padding: 20px; border: 0.5px solid var(--border); margin-bottom: 16px; }
 .card-label { font-size: 12px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 12px; }
 .section-heading { font-size: 14px; font-weight: 500; margin: 20px 0 12px; color: var(--text); }
+.income-summary { }
+.income-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
+.income-row span:first-child { color: var(--text2); }
+.income-row span:last-child { color: var(--text); font-variant-numeric: tabular-nums; }
 
 .ov-list { list-style: none; margin: 0; padding: 0; }
 .ov-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 0.5px solid var(--border); font-size: 13px; }
@@ -82,7 +90,9 @@ body { margin: 0; }
 
 .orbit-ring { width: 24px; height: 24px; flex-shrink: 0; }
 .orbit-ring circle:last-child { transition: stroke-dashoffset 0.6s ease; }
-.gp-pct { margin-left: auto; font-size: 12px; color: var(--ice); font-weight: 500; }
+.goal-info { display: flex; flex-direction: column; gap: 2px; }
+.goal-participants { display: flex; gap: 8px; flex-wrap: wrap; font-size: 11px; color: var(--text2); }
+.goal-total { margin-left: auto; font-size: 13px; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .leftover-row { display: flex; gap: 24px; flex-wrap: wrap; }
 .leftover-col { flex: 1; min-width: 200px; display: flex; flex-direction: column; }

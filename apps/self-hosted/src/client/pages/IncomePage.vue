@@ -11,7 +11,7 @@ const props = defineProps<{
   displayMonth: string;
   currentMonth: string;
   api: {
-    submitIncome(name: string, memberId: string, amountCents: number, effectiveFrom: string, restrictedUse: boolean, oneOff: boolean): Promise<IncomeSource>;
+    submitIncome(name: string, memberId: string, amountCents: number, effectiveFrom: string, restrictedUse: boolean, oneOff: boolean, category?: string): Promise<IncomeSource>;
     updateIncomeAmount(id: string, amountCents: number, effectiveFrom: string): Promise<void>;
     endIncome(id: string, eff: string): Promise<void>;
     submitMember(name: string, joinedFrom?: string): Promise<Member>;

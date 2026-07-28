@@ -12,6 +12,8 @@ const household: Household = {
     { id: "m2", name: "Bruno" },
   ],
   incomeSources: [],
+  subItems: [],
+  subItemAmounts: [],
   goals: [],
   goalContributions: [],
   expenses: [
@@ -304,6 +306,28 @@ export function runDataStoreContract(
       const changed = store.changeExpenseParticipants(expense.id, ["m1"], "2026-06");
       expect(changed.participants).toEqual(["m1"]);
       expect(changed.effectiveFrom).toBe("2026-06");
+      store.close();
+    });
+  });
+
+  describe("sub-items", () => {
+    test("addSubItem creates a Sub-Item for an expense", () => {
+      const store = makeStore(freshPath());
+      const si = store.addSubItem("e1", "Base Rent");
+      expect(si.id).toBeTypeOf("string");
+      expect(si.expenseId).toBe("e1");
+      expect(si.name).toBe("Base Rent");
+      const all = store.getSubItems();
+      expect(all).toEqual([si]);
+      store.close();
+    });
+
+    test("setSubItemAmount stores and retrieves a per-Month amount", () => {
+      const store = makeStore(freshPath());
+      const si = store.addSubItem("e1", "Utilities");
+      store.setSubItemAmount(si.id, "2026-07", 8500);
+      const amounts = store.getSubItemAmounts();
+      expect(amounts).toEqual([{ subItemId: si.id, month: "2026-07", amountCents: 8500 }]);
       store.close();
     });
   });

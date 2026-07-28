@@ -1,4 +1,4 @@
-import type { Expense, ExpenseAmount, GoalContribution, Household, IncomeSource, Member, Month, SavingsGoal, SplitRule } from "@prometheus/engine";
+import type { Expense, ExpenseAmount, GoalContribution, Household, IncomeSource, Member, Month, SavingsGoal, SplitRule, SubItem, SubItemAmount } from "@prometheus/engine";
 
 /**
  * The single internal data-access interface. All persistence flows through
@@ -59,6 +59,12 @@ export interface DataStore {
     amountCents: number,
   ): void;
   getExpenseAmounts(): ExpenseAmount[];
+
+  // Sub-Items
+  addSubItem(expenseId: string, name: string): SubItem;
+  getSubItems(): SubItem[];
+  getSubItemAmounts(): SubItemAmount[];
+  setSubItemAmount(subItemId: string, month: Month, amountCents: number): void;
 
   // Goals
   addGoal(

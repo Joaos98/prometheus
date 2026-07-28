@@ -3,6 +3,7 @@ import type { GoalProgress, Member, SavingsGoal } from "@prometheus/engine";
 import { ref } from "vue";
 import MonthPicker from "../components/MonthPicker.vue";
 import ParticipantPicker from "../components/ParticipantPicker.vue";
+import GoalProgressCard from "../components/GoalProgressCard.vue";
 
 const props = defineProps<{
   members: Member[];
@@ -13,7 +14,7 @@ const props = defineProps<{
   goalProgress: GoalProgress[];
   pendingContributions: { itemId: string; itemName: string }[];
   api: {
-    submitGoal(name: string, participants: string[], splitRule: Record<string, unknown>, targetAmountCents: number | undefined, startAmountCents: number | undefined, effectiveFrom: string): Promise<void>;
+    submitGoal(name: string, participants: string[], splitRule: Record<string, unknown>, targetAmountCents: number | undefined, startAmountCents: number | undefined, effectiveFrom: string, category?: string): Promise<void>;
     submitGoalContribution(gid: string, amountCents: number): Promise<void>;
     endGoal(id: string, eff: string): Promise<void>;
   };
@@ -58,18 +59,7 @@ async function doEndGoal(id: string) { await props.api.endGoal(id, endingEffecti
     <div class="field"><span class="field-label">Category (optional)</span><input v-model="newGoalCategory" list="goal-cats" placeholder="e.g. Travel" class="input" /></div>
     <button type="submit" class="btn-accent">Save</button>
   </form>
-  <div class="card" v-if="goalProgress.length > 0">
-    <h3 class="card-label">Progress</h3>
-    <ul class="ov-list">
-      <li v-for="gp in goalProgress" :key="gp.goalId" class="ov-row">
-        <svg class="orbit-ring" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="none" stroke="#262A38" stroke-width="3" /><circle cx="16" cy="16" r="13" fill="none" stroke="#7DC9E8" stroke-width="3" stroke-dasharray="81.7" :stroke-dashoffset="81.7 * (1 - goalPct(gp) / 100)" stroke-linecap="round" transform="rotate(-90 16 16)" /></svg>
-         <span>{{ gp.goalName }}<span v-if="isGoalPending(gp.goalId)" class="pending-label">pending</span></span>
-        <span class="muted" style="font-size:11px">{{ (goals.find(g => g.id === gp.goalId)?.participants ?? []).map(memberName).join(', ') }}</span>
-        <span>{{ formatCurrency(gp.accumulatedCents) }}<template v-if="gp.targetAmountCents !== undefined"> / {{ formatCurrency(gp.targetAmountCents) }}</template></span>
-        <span class="gp-pct">{{ goalPct(gp) }}%</span>
-      </li>
-    </ul>
-  </div>
+  <GoalProgressCard :goalProgress="goalProgress" :goals="goals" :currency="currency" :pendingContributions="pendingContributions" :formatCurrency="(c: number, _: string) => formatCurrency(c)" />
   <div class="card" v-if="goals.length > 0">
     <h3 class="card-label">Manage</h3>
     <ul class="ov-list">
