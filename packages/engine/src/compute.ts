@@ -23,7 +23,42 @@ export function computeMonthlySummary(data: MonthData): MonthlySummary {
 
   const sharesByMember = new Map<string, Share[]>();
   const pendingExpenses: { expenseId: string; expenseName: string }[] = [];
+  const contributionByMember = new Map<string, number>();
   for (const m of data.members) sharesByMember.set(m.id, []);
+
+  // Goal contributions
+  const allContributions: Map<string, number> = new Map();
+  const contributionThisMonth = new Set<string>();
+  if (data.goalContributions) {
+    for (const c of data.goalContributions) {
+      if (c.month === data.month) {
+        contributionThisMonth.add(c.goalId);
+        const prev = contributionByMember.get(c.memberId) ?? 0;
+        contributionByMember.set(c.memberId, prev + c.amountCents);
+      }
+      const total = (allContributions.get(c.goalId) ?? 0) + c.amountCents;
+      allContributions.set(c.goalId, total);
+    }
+  }
+
+  // Goal progress
+  const goalProgress: GoalProgress[] = [];
+  const pendingContributions: { goalId: string; goalName: string }[] = [];
+  if (data.goals) {
+    for (const g of data.goals) {
+      if (!g.active) continue;
+      const accumulated = (g.startAmountCents ?? 0) + (allContributions.get(g.id) ?? 0);
+      goalProgress.push({
+        goalId: g.id,
+        goalName: g.name,
+        targetAmountCents: g.targetAmountCents,
+        accumulatedCents: accumulated,
+      });
+      if (!contributionThisMonth.has(g.id)) {
+        pendingContributions.push({ goalId: g.id, goalName: g.name });
+      }
+    }
+  }
 
   if (data.activeTemplateIds) {
     const snapIds = new Set(data.expenseSnapshots.map(s => s.expenseId));
@@ -72,17 +107,18 @@ export function computeMonthlySummary(data: MonthData): MonthlySummary {
     const shares = sharesByMember.get(m.id) ?? [];
     const totalCents = shares.reduce((s, sh) => s + sh.amountCents, 0);
     const income = incomeByMember.get(m.id) ?? 0;
+    const contribs = contributionByMember.get(m.id) ?? 0;
     return {
       memberId: m.id,
       name: m.name,
       incomeCents: income,
       shares,
       totalCents,
-      leftoverCents: (spendable.get(m.id) ?? 0) - totalCents,
+      leftoverCents: (spendable.get(m.id) ?? 0) - totalCents - contribs,
     };
   });
 
-  return { month: data.month, currency: data.currency, members, pendingExpenses };
+  return { month: data.month, currency: data.currency, members, pendingExpenses, goalProgress, pendingContributions };
 }
 
 function splitEvenly(amountCents: number, participants: string[]): Array<[string, number]> {

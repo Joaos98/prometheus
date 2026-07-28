@@ -1,4 +1,4 @@
-import type { ExpenseSnapshot, IncomeSnapshot, Member, Month, MonthData, SplitRule } from "@prometheus/engine";
+import type { ExpenseSnapshot, Goal, GoalContribution, IncomeSnapshot, Member, Month, MonthData, SplitRule } from "@prometheus/engine";
 
 export interface IncomeProfile {
   id: string;
@@ -35,6 +35,11 @@ export interface DataStore {
   getExpenseTemplates(): ExpenseTemplate[];
   endExpenseTemplate(id: string): void;
   snapshotExpenses(month: Month): void;
+  addGoal(name: string, participants: string[], targetAmountCents?: number, startAmountCents?: number): Goal;
+  getGoals(): Goal[];
+  endGoal(id: string): void;
+  addGoalContribution(goalId: string, memberId: string, month: Month, amountCents: number): void;
+  getGoalContributions(): GoalContribution[];
   getMonthData(month: Month): MonthData;
   replaceHousehold(data: MonthData): void;
   close(): void;

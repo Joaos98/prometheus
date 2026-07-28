@@ -65,6 +65,20 @@ export class SqliteStore implements DataStore {
         default_split_rule TEXT NOT NULL,
         active INTEGER NOT NULL DEFAULT 1
       );
+      CREATE TABLE IF NOT EXISTS goals (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        target_amount_cents INTEGER,
+        start_amount_cents INTEGER,
+        participants TEXT NOT NULL,
+        active INTEGER NOT NULL DEFAULT 1
+      );
+      CREATE TABLE IF NOT EXISTS goal_contributions (
+        goal_id TEXT NOT NULL,
+        member_id TEXT NOT NULL,
+        month TEXT NOT NULL,
+        amount_cents INTEGER NOT NULL
+      );
     `);
   }
 
@@ -300,13 +314,33 @@ export class SqliteStore implements DataStore {
     }
   }
 
+  addGoal(name: string, participants: string[], targetAmountCents?: number, startAmountCents?: number): Goal {
+    const id = randomUUID();
+    this.db.prepare("INSERT INTO goals (id, name, target_amount_cents, start_amount_cents, participants) VALUES (?, ?, ?, ?, ?)").run(id, name, targetAmountCents ?? null, startAmountCents ?? null, JSON.stringify(participants));
+    return { id, name, participants, active: true, ...(targetAmountCents !== undefined ? { targetAmountCents } : {}), ...(startAmountCents !== undefined ? { startAmountCents } : {}) };
+  }
+  getGoals(): Goal[] {
+    const rows = this.db.prepare("SELECT id, name, target_amount_cents, start_amount_cents, participants, active FROM goals ORDER BY name").all() as Array<{ id: string; name: string; target_amount_cents: number | null; start_amount_cents: number | null; participants: string; active: number }>;
+    return rows.map((r) => ({ id: r.id, name: r.name, ...(r.target_amount_cents !== null ? { targetAmountCents: r.target_amount_cents } : {}), ...(r.start_amount_cents !== null ? { startAmountCents: r.start_amount_cents } : {}), participants: JSON.parse(r.participants) as string[], active: r.active === 1 }));
+  }
+  endGoal(id: string): void { this.db.prepare("UPDATE goals SET active = 0 WHERE id = ?").run(id); }
+  addGoalContribution(goalId: string, memberId: string, month: Month, amountCents: number): void {
+    this.db.prepare("INSERT INTO goal_contributions (goal_id, member_id, month, amount_cents) VALUES (?, ?, ?, ?)").run(goalId, memberId, month, amountCents);
+  }
+  getGoalContributions(): GoalContribution[] {
+    const rows = this.db.prepare("SELECT goal_id, member_id, month, amount_cents FROM goal_contributions ORDER BY goal_id, member_id, month").all() as Array<{ goal_id: string; member_id: string; month: string; amount_cents: number }>;
+    return rows.map((r) => ({ goalId: r.goal_id, memberId: r.member_id, month: r.month, amountCents: r.amount_cents }));
+  }
+
   getMonthData(month: Month): MonthData {
     const currency = this.getCurrency() ?? "USD";
     const members = this.getMembers();
     const incomeSnapshots = this.getIncomeSnapshots().filter((s) => s.month === month);
     const expenseSnapshots = this.getExpenseSnapshots().filter((s) => s.month === month);
     const activeTemplateIds = this.getExpenseTemplates().filter(t => t.active).map(t => t.id);
-    return { month, currency, members, incomeSnapshots, expenseSnapshots, activeTemplateIds };
+    const goals = this.getGoals();
+    const goalContributions = this.getGoalContributions();
+    return { month, currency, members, incomeSnapshots, expenseSnapshots, activeTemplateIds, goals, goalContributions };
   }
 
   replaceHousehold(data: MonthData): void {

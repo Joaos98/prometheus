@@ -1,5 +1,8 @@
 export type {
   ExpenseSnapshot,
+  Goal,
+  GoalContribution,
+  GoalProgress,
   IncomeSnapshot,
   Member,
   MemberSummary,

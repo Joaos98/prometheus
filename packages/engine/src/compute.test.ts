@@ -111,3 +111,36 @@ test("custom percent split distributes by percentage with rounding exactness", (
   expect(s.members[0]!.totalCents).toBe(60000);
   expect(s.members[1]!.totalCents).toBe(40000);
 });
+
+test("goal contributions are summed per member and pending goals are flagged", () => {
+  const d: MonthData = {
+    ...data,
+    goals: [
+      { id: "g1", name: "Car Fund", participants: ["m1", "m2"], active: true },
+      { id: "g2", name: "Vacation", participants: ["m1"], active: true, startAmountCents: 10000 },
+    ],
+    goalContributions: [
+      { goalId: "g1", memberId: "m1", month: "2026-07", amountCents: 30000 },
+      { goalId: "g1", memberId: "m2", month: "2026-07", amountCents: 20000 },
+    ],
+  };
+  const s = computeMonthlySummary(d);
+  expect(s.goalProgress).toHaveLength(2);
+  expect(s.goalProgress.find(g => g.goalId === "g1")!.accumulatedCents).toBe(50000);
+  expect(s.goalProgress.find(g => g.goalId === "g2")!.accumulatedCents).toBe(10000); // startAmount only
+  expect(s.pendingContributions).toEqual([{ goalId: "g2", goalName: "Vacation" }]);
+  expect(s.members[0]!.leftoverCents).toBe(425000 - 30000); // spendable 500k - 75k rent - 30k goal
+});
+
+test("inactive goals are excluded from progress", () => {
+  const d: MonthData = {
+    ...data,
+    goals: [
+      { id: "g1", name: "Car Fund", participants: ["m1"], active: false, startAmountCents: 50000 },
+    ],
+    goalContributions: [],
+  };
+  const s = computeMonthlySummary(d);
+  expect(s.goalProgress).toEqual([]);
+  expect(s.pendingContributions).toEqual([]);
+});

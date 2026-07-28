@@ -16,6 +16,7 @@ app.get("/api/household", (_req, res) => {
     members: store.getMembers(),
     incomeProfiles: store.getIncomeProfiles(),
     expenseTemplates: store.getExpenseTemplates(),
+    goals: store.getGoals(),
   });
 });
 
@@ -100,6 +101,26 @@ app.post("/api/expense-snapshots", (req, res) => {
     splitRule: (splitRule as { method: string }) ?? t?.defaultSplitRule ?? { method: "even" },
   });
   res.status(201).json({ expenseId, month });
+});
+
+app.get("/api/goals", (_req, res) => { res.json(store.getGoals()); });
+
+app.post("/api/goals", (req, res) => {
+  const { name, participants, targetAmountCents, startAmountCents } = req.body as Record<string, unknown>;
+  if (!name || !Array.isArray(participants)) { res.status(400).json({ error: "name and participants are required" }); return; }
+  const g = store.addGoal(name as string, participants as string[], typeof targetAmountCents === "number" ? targetAmountCents as number : undefined, typeof startAmountCents === "number" ? startAmountCents as number : undefined);
+  res.status(201).json(g);
+});
+
+app.post("/api/goals/:id/end", (req, res) => { store.endGoal(req.params.id); res.json({ id: req.params.id, active: false }); });
+
+app.post("/api/goal-contributions", (req, res) => {
+  const { goalId, memberId, month, amountCents } = req.body as Record<string, unknown>;
+  if (!goalId || !memberId || !month || typeof amountCents !== "number" || !Number.isInteger(amountCents)) {
+    res.status(400).json({ error: "invalid fields" }); return;
+  }
+  store.addGoalContribution(goalId as string, memberId as string, month as string, amountCents as number);
+  res.status(201).json({ goalId, memberId, month, amountCents });
 });
   const month = typeof req.query.month === "string" && /^\d{4}-\d{2}$/.test(req.query.month)
     ? req.query.month

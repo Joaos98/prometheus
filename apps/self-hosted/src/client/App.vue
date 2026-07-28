@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { MonthlySummary } from "@prometheus/engine";
+import type { Goal, MonthlySummary } from "@prometheus/engine";
 import type { ExpenseTemplate, IncomeProfile } from "@prometheus/data";
 import { onMounted, ref, watch } from "vue";
 import { useMonth } from "./composables/useMonth";
@@ -9,6 +9,7 @@ import MonthBar from "./components/MonthBar.vue";
 import OverviewPage from "./pages/OverviewPage.vue";
 import IncomePage from "./pages/IncomePage.vue";
 import ExpensesPage from "./pages/ExpensesPage.vue";
+import GoalsPage from "./pages/GoalsPage.vue";
 
 const month = useMonth();
 const api = useApi(month.displayMonth);
@@ -18,6 +19,7 @@ const summary = ref<MonthlySummary | null>(null);
 const members = ref<{ id: string; name: string }[]>([]);
 const profiles = ref<IncomeProfile[]>([]);
 const templates = ref<ExpenseTemplate[]>([]);
+const goals = ref<Goal[]>([]);
 const loading = ref(true);
 
 onMounted(async () => {
@@ -26,6 +28,7 @@ onMounted(async () => {
     members.value = hh.members;
     profiles.value = hh.incomeProfiles;
     templates.value = hh.expenseTemplates;
+    goals.value = hh.goals;
     summary.value = await api.fetchSummary();
   } finally { loading.value = false; }
 });
@@ -51,6 +54,7 @@ watch(month.displayMonth, async () => {
         <OverviewPage v-if="page === 'overview'" :summary="summary" />
         <IncomePage v-if="page === 'income'" :members="members" :profiles="profiles" :currency="summary.currency" :api="api" />
         <ExpensesPage v-if="page === 'expenses'" :members="members" :templates="templates" :summary="summary" :currency="summary.currency" :displayMonth="month.displayMonth.value" :profiles="profiles" :api="api" />
+        <GoalsPage v-if="page === 'goals'" :members="members" :goals="goals" :summary="summary" :currency="summary.currency" :displayMonth="month.displayMonth.value" :api="api" />
       </template>
     </main>
   </div>

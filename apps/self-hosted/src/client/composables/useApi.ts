@@ -1,4 +1,4 @@
-import type { MonthlySummary } from "@prometheus/engine";
+import type { Goal, MonthlySummary } from "@prometheus/engine";
 import type { ExpenseTemplate, IncomeProfile } from "@prometheus/data";
 import type { Ref } from "vue";
 
@@ -14,7 +14,7 @@ export function useApi(displayMonth: Ref<string>) {
     async fetchSummary(month?: string): Promise<MonthlySummary> {
       return http.get(`/api/summary?month=${month ?? displayMonth.value}`) as Promise<MonthlySummary>;
     },
-    async fetchHousehold(): Promise<{ currency: string | null; members: { id: string; name: string }[]; incomeProfiles: IncomeProfile[]; expenseTemplates: ExpenseTemplate[] }> {
+    async fetchHousehold(): Promise<{ currency: string | null; members: { id: string; name: string }[]; incomeProfiles: IncomeProfile[]; expenseTemplates: ExpenseTemplate[]; goals: Goal[] }> {
       return http.get("/api/household") as Promise<any>;
     },
     async setCurrency(currency: string) { return http.post("/api/household/currency", { currency }); },
@@ -38,6 +38,15 @@ export function useApi(displayMonth: Ref<string>) {
     async snapshotExpenses(month: string) { return http.post(`/api/expenses/snapshot?month=${month}`); },
     async upsertExpenseSnapshot(expenseId: string, month: string, amountCents: number, participants: string[], splitRule: Record<string, unknown>) {
       return http.post("/api/expense-snapshots", { expenseId, month, amountCents, participants, splitRule });
+    },
+
+    // goals
+    async addGoal(name: string, participants: string[], targetAmountCents?: number, startAmountCents?: number) {
+      return http.post("/api/goals", { name, participants, targetAmountCents, startAmountCents });
+    },
+    async endGoal(id: string) { return http.post(`/api/goals/${id}/end`); },
+    async addGoalContribution(goalId: string, memberId: string, month: string, amountCents: number) {
+      return http.post("/api/goal-contributions", { goalId, memberId, month, amountCents });
     },
 
     // members

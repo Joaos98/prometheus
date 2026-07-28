@@ -38,6 +38,31 @@ export interface MonthData {
   incomeSnapshots: IncomeSnapshot[];
   expenseSnapshots: ExpenseSnapshot[];
   activeTemplateIds?: string[];
+  goals?: Goal[];
+  goalContributions?: GoalContribution[];
+}
+
+export interface Goal {
+  id: string;
+  name: string;
+  targetAmountCents?: number;
+  startAmountCents?: number;
+  participants: string[];
+  active: boolean;
+}
+
+export interface GoalContribution {
+  goalId: string;
+  memberId: string;
+  month: Month;
+  amountCents: number;
+}
+
+export interface GoalProgress {
+  goalId: string;
+  goalName: string;
+  targetAmountCents?: number;
+  accumulatedCents: number;
 }
 
 export interface Share {
@@ -60,4 +85,6 @@ export interface MonthlySummary {
   currency: string;
   members: MemberSummary[];
   pendingExpenses: { expenseId: string; expenseName: string }[];
+  goalProgress: GoalProgress[];
+  pendingContributions: { goalId: string; goalName: string }[];
 }
