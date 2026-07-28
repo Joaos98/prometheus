@@ -25,9 +25,9 @@ export class LocalStore implements DataStore {
   getCurrency(): string | null { return load<string | null>("currency", null); }
   setCurrency(c: string): void { if (this.getCurrency() !== null) throw new Error("already set"); save("currency", c); }
 
-  addMember(name: string, joinedFrom?: string): Member {
+  addMember(name: string): Member {
     const members = this.getMembers();
-    const m: Member = { id: this.uid(), name, ...(joinedFrom ? { joinedFrom } : {}) };
+    const m: Member = { id: this.uid(), name };
     members.push(m);
     save("members", members);
     return m;

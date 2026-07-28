@@ -4,8 +4,6 @@ export type Month = string;
 export interface Member {
   id: string;
   name: string;
-  joinedFrom?: Month;
-  departedFrom?: Month;
 }
 
 export type SplitRule =

@@ -53,6 +53,8 @@ export function useApi(displayMonth: Ref<string>) {
     },
 
     // members
-    async addMember(name: string, joinedFrom?: string) { return http.post("/api/members", { name, joinedFrom }); },
+    async addMember(name: string): Promise<{ id: string; name: string }> {
+      return http.post("/api/members", { name }) as Promise<{ id: string; name: string }>;
+    },
   };
 }

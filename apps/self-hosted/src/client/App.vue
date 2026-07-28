@@ -24,6 +24,10 @@ const templates = ref<ExpenseTemplate[]>([]);
 const goals = ref<Goal[]>([]);
 const loading = ref(true);
 const currencyValue = ref("USD");
+const currencies = [
+  "USD", "EUR", "GBP", "BRL", "CAD", "AUD", "JPY", "CHF", "MXN", "ARS",
+  "CLP", "COP", "INR", "CNY", "KRW", "NZD", "SEK", "NOK", "DKK", "PLN",
+];
 
 async function submitCurrency() {
   await api.setCurrency(currencyValue.value);
@@ -64,7 +68,9 @@ watch(month.displayMonth, async () => {
       <h2>Welcome to Prometheus</h2>
       <p class="muted">Choose your household currency to get started. This cannot be changed later.</p>
       <form @submit.prevent="submitCurrency" style="display:flex;gap:8px;margin-top:12px">
-        <input v-model="currencyValue" class="input" />
+        <select v-model="currencyValue" class="input">
+          <option v-for="c in currencies" :key="c" :value="c">{{ c }}</option>
+        </select>
         <button type="submit" class="btn-accent">Set Currency</button>
       </form>
     </div>

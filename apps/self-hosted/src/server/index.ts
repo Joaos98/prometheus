@@ -156,9 +156,9 @@ app.get("/api/members", (_req, res) => {
 });
 
 app.post("/api/members", (req, res) => {
-  const { name, joinedFrom } = req.body as Record<string, unknown>;
+  const { name } = req.body as Record<string, unknown>;
   if (!name || typeof name !== "string") { res.status(400).json({ error: "name is required" }); return; }
-  const member = store.addMember(name, typeof joinedFrom === "string" ? joinedFrom : undefined);
+  const member = store.addMember(name);
   res.status(201).json(member);
 });
 

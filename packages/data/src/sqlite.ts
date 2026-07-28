@@ -31,8 +31,6 @@ export class SqliteStore implements DataStore {
       CREATE TABLE IF NOT EXISTS members (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        joined_from TEXT,
-        departed_from TEXT,
         position INTEGER NOT NULL
       );
       CREATE TABLE IF NOT EXISTS income_snapshots (
@@ -97,7 +95,7 @@ export class SqliteStore implements DataStore {
       .run(currency);
   }
 
-  addMember(name: string, joinedFrom?: Month): Member {
+  addMember(name: string): Member {
     const id = randomUUID();
     const maxPos = (
       this.db
@@ -105,27 +103,16 @@ export class SqliteStore implements DataStore {
         .get() as { maxPos: number }
     ).maxPos;
     this.db
-      .prepare(
-        "INSERT INTO members (id, name, joined_from, position) VALUES (?, ?, ?, ?)",
-      )
-      .run(id, name, joinedFrom ?? null, maxPos + 1);
-    return { id, name, ...(joinedFrom ? { joinedFrom } : {}) };
+      .prepare("INSERT INTO members (id, name, position) VALUES (?, ?, ?)")
+      .run(id, name, maxPos + 1);
+    return { id, name };
   }
 
   getMembers(): Member[] {
     const rows = this.db
-      .prepare(
-        "SELECT id, name, joined_from, departed_from FROM members ORDER BY position",
-      )
-      .all() as Array<{
-      id: string; name: string; joined_from: string | null; departed_from: string | null;
-    }>;
-    return rows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      ...(r.joined_from ? { joinedFrom: r.joined_from } : {}),
-      ...(r.departed_from ? { departedFrom: r.departed_from } : {}),
-    }));
+      .prepare("SELECT id, name FROM members ORDER BY position")
+      .all() as Array<{ id: string; name: string }>;
+    return rows.map((r) => ({ id: r.id, name: r.name }));
   }
 
   addIncomeSnapshot(snapshot: IncomeSnapshot): void {
@@ -353,10 +340,10 @@ export class SqliteStore implements DataStore {
         .prepare("INSERT INTO household (id, currency) VALUES (1, ?)")
         .run(data.currency);
       const insMember = this.db.prepare(
-        "INSERT INTO members (id, name, joined_from, position) VALUES (?, ?, ?, ?)",
+        "INSERT INTO members (id, name, position) VALUES (?, ?, ?)",
       );
       data.members.forEach((m, i) =>
-        insMember.run(m.id, m.name, m.joinedFrom ?? null, i),
+        insMember.run(m.id, m.name, i),
       );
       for (const s of data.incomeSnapshots) this.addIncomeSnapshot(s);
       for (const s of data.expenseSnapshots) this.addExpenseSnapshot(s);

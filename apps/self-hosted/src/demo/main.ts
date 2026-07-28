@@ -78,7 +78,7 @@ const store = new LocalStore();
     store.addGoalContribution(body!.goalId as string, body!.memberId as string, body!.month as string, body!.amountCents as number);
     status = 201; result = { ok: true };
   } else if (u.pathname === "/api/members" && init?.method === "POST") {
-    result = store.addMember(body!.name as string, body!.joinedFrom as string | undefined); status = 201;
+    result = store.addMember(body!.name as string); status = 201;
   } else if (u.pathname === "/api/members") {
     result = store.getMembers();
   }

@@ -20,7 +20,7 @@ export interface ExpenseTemplate {
 export interface DataStore {
   getCurrency(): string | null;
   setCurrency(currency: string): void;
-  addMember(name: string, joinedFrom?: Month): Member;
+  addMember(name: string): Member;
   getMembers(): Member[];
   addIncomeSnapshot(snapshot: IncomeSnapshot): void;
   getIncomeSnapshots(): IncomeSnapshot[];
