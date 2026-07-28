@@ -366,6 +366,11 @@ app.post("/api/sub-items/:id/amount", (req, res) => {
   res.json({ subItemId: req.params.id, month, amountCents });
 });
 
+app.delete("/api/sub-items/:id", (req, res) => {
+  store.removeSubItem(req.params.id);
+  res.json({ deleted: req.params.id });
+});
+
 app.get("/api/summary", (req, res) => {
   const month =
     typeof req.query.month === "string" ? req.query.month : currentMonth();

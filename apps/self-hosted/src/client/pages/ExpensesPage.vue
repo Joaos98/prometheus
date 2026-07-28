@@ -21,6 +21,7 @@ const props = defineProps<{
     changeExpenseParticipants(eid: string, participants: string[], eff: string): Promise<void>;
     addSubItem(expenseId: string, name: string): Promise<void>;
     submitSubItemAmount(siid: string, amountCents: number): Promise<void>;
+    removeSubItem(siid: string): Promise<void>;
   };
   backdateWarning: (eff: string) => string | null;
   formatCurrency: (cents: number, currency: string) => string;
@@ -57,6 +58,7 @@ async function submit() {
 async function submitAmount(eid: string) { const a = parseFloat(amountValue.value); if (isNaN(a)) return; await props.api.submitExpenseAmount(eid, Math.round(a * 100)); amountValue.value = ""; }
 async function submitSubItemAmount(siid: string) { const a = parseFloat(subItemAmountValues.value[siid] ?? ""); if (isNaN(a)) return; await props.api.submitSubItemAmount(siid, Math.round(a * 100)); delete subItemAmountValues.value[siid]; }
 async function addSubItem(eid: string) { const n = newSubItemName.value.trim(); if (!n) return; await props.api.addSubItem(eid, n); newSubItemName.value = ""; }
+async function deleteSubItem(siid: string) { await props.api.removeSubItem(siid); }
 async function doEndExpense(id: string) { await props.api.endExpense(id, endingEff.value); endingExpenseId.value = null; }
 async function doChangeSplit(eid: string) { await props.api.changeExpenseSplit(eid, { method: changeSplitRule.value }, changeSplitEff.value); showChangeSplit.value = null; }
 async function doChangeParticipants(eid: string) { await props.api.changeExpenseParticipants(eid, [...changeParticipantsList.value], changeParticipantsEff.value); showChangeParticipants.value = null; }
@@ -108,6 +110,7 @@ function openChangeParticipants(e: Expense) { showChangeParticipants.value = e.i
               <span>{{ si.name }}</span>
               <input v-model="subItemAmountValues[si.id]" placeholder="0.00" type="number" step="0.01" min="0" class="input input-xs" />
               <button @click="submitSubItemAmount(si.id)" class="btn-ghost">Save</button>
+              <button @click="deleteSubItem(si.id)" class="btn-ghost danger">x</button>
             </div>
           </div>
           <div class="add-sub">

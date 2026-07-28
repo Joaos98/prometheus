@@ -390,6 +390,15 @@ export class SqliteStore implements DataStore {
       .run(subItemId, month, amountCents);
   }
 
+  removeSubItem(subItemId: string): void {
+    this.db
+      .prepare("DELETE FROM sub_item_amounts WHERE sub_item_id = ?")
+      .run(subItemId);
+    this.db
+      .prepare("DELETE FROM sub_items WHERE id = ?")
+      .run(subItemId);
+  }
+
   changeExpenseSplitRule(
     id: string,
     splitRule: SplitRule,
