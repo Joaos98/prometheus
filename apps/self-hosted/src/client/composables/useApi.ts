@@ -39,6 +39,9 @@ export function useApi(displayMonth: Ref<string>) {
     async upsertExpenseSnapshot(expenseId: string, month: string, amountCents: number, participants: string[], splitRule: Record<string, unknown>) {
       return http.post("/api/expense-snapshots", { expenseId, month, amountCents, participants, splitRule });
     },
+    async propagateExpense(expenseId: string, sourceMonth: string) {
+      return http.post("/api/expenses/propagate", { expenseId, sourceMonth });
+    },
 
     // goals
     async addGoal(name: string, participants: string[], targetAmountCents?: number, startAmountCents?: number) {

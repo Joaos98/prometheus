@@ -22,6 +22,7 @@ const newName = ref(""); const newParticipants = ref<string[]>([]); const newSpl
 const newCategory = ref("");
 const amountValues = ref<Record<string, string>>({});
 const expanded = ref<string | null>(null);
+const propagateAmount = ref(false);
 
 const fmt = (cents: number) => new Intl.NumberFormat(undefined, { style: "currency", currency: props.currency }).format(cents / 100);
 const fmtCur = (cents: number, currency: string) => new Intl.NumberFormat(undefined, { style: "currency", currency }).format(cents / 100);
@@ -42,7 +43,9 @@ async function saveAmount(tid: string) {
   if (isNaN(a)) return;
   const t = props.templates.find(tp => tp.id === tid);
   await props.api.upsertExpenseSnapshot(tid, props.displayMonth, Math.round(a * 100), t?.defaultParticipants ?? [], t?.defaultSplitRule ?? { method: "even" });
+  if (propagateAmount.value) await props.api.propagateExpense(tid, props.displayMonth);
   delete amountValues.value[tid];
+  propagateAmount.value = false;
 }
 </script>
 
@@ -73,6 +76,7 @@ async function saveAmount(tid: string) {
           <template v-if="props.summary.pendingExpenses?.some(p => p.expenseId === t.id)">
             <input v-model="amountValues[t.id]" placeholder="0.00" type="number" step="0.01" min="0" class="input input-xs" />
             <button @click="saveAmount(t.id)" class="btn-accent">Save Amount</button>
+            <label class="check" style="margin-left:4px"><input type="checkbox" v-model="propagateAmount" /> Apply to forward months</label>
           </template>
           <template v-else>
             <div v-for="m in summary.members" :key="m.memberId" class="share-row">

@@ -103,6 +103,18 @@ app.post("/api/expense-snapshots", (req, res) => {
   res.status(201).json({ expenseId, month });
 });
 
+app.post("/api/expenses/propagate", (req, res) => {
+  const { expenseId, sourceMonth } = req.body as Record<string, unknown>;
+  if (!expenseId || !sourceMonth) { res.status(400).json({ error: "expenseId and sourceMonth required" }); return; }
+  const src = store.getExpenseSnapshots().find(s => s.expenseId === expenseId && s.month === sourceMonth);
+  if (!src) { res.status(404).json({ error: "source snapshot not found" }); return; }
+  const all = store.getExpenseSnapshots().filter(s => s.expenseId === expenseId && s.month > sourceMonth);
+  for (const snap of all) {
+    store.addExpenseSnapshot({ ...snap, amountCents: src.amountCents, participants: src.participants, splitRule: src.splitRule });
+  }
+  res.json({ propagated: all.length });
+});
+
 app.get("/api/goals", (_req, res) => { res.json(store.getGoals()); });
 
 app.post("/api/goals", (req, res) => {

@@ -55,7 +55,8 @@ export class SqliteStore implements DataStore {
         name TEXT NOT NULL,
         amount_cents INTEGER NOT NULL,
         participants TEXT NOT NULL,
-        split_rule TEXT NOT NULL
+        split_rule TEXT NOT NULL,
+        PRIMARY KEY (expense_id, month)
       );
       CREATE TABLE IF NOT EXISTS expense_templates (
         id TEXT PRIMARY KEY,
@@ -216,7 +217,7 @@ export class SqliteStore implements DataStore {
   addExpenseSnapshot(snapshot: ExpenseSnapshot): void {
     this.db
       .prepare(
-        "INSERT INTO expense_snapshots (month, expense_id, name, amount_cents, participants, split_rule) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO expense_snapshots (month, expense_id, name, amount_cents, participants, split_rule) VALUES (?, ?, ?, ?, ?, ?)",
       )
       .run(
         snapshot.month,
