@@ -80,6 +80,18 @@ export class SqliteStore implements DataStore {
         amount_cents INTEGER NOT NULL
       );
     `);
+    this.migrate();
+  }
+
+  private migrate(): void {
+    this.addColumnIfMissing("members", "active", "INTEGER NOT NULL DEFAULT 1");
+  }
+
+  private addColumnIfMissing(table: string, column: string, type: string): void {
+    const cols = this.db.prepare(`PRAGMA table_info('${table}')`).all() as Array<{ name: string }>;
+    if (!cols.some((c) => c.name === column)) {
+      this.db.exec(`ALTER TABLE "${table}" ADD COLUMN "${column}" ${type}`);
+    }
   }
 
   getCurrency(): string | null {
