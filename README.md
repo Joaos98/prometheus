@@ -1,6 +1,6 @@
 # Prometheus
 
-A self-hosted household finance tracker that replaces spreadsheets with flexible split rules. Couples, roommates, or small groups track income, shared expenses, and savings goals — each member sees their monthly leftover after everything is accounted for.
+A self-hosted household finance tracker built on the **snapshot model** — every Month owns its data as an independent row. Couples, roommates, or small groups track income, shared expenses, and savings goals. Editing a month touches only that month. A serverless demo build with browser storage is available for trying the app without deploying anything.
 
 <details open>
 <summary><b>Table of contents</b></summary>
@@ -11,7 +11,8 @@ A self-hosted household finance tracker that replaces spreadsheets with flexible
 - [Project layout](#project-layout)
 - [Getting started](#getting-started)
 - [Running locally (dev)](#running-locally-dev)
-- [Self-hosting (production)](#self-hosting-production)
+- [Self-hosting (Docker)](#self-hosting-docker)
+- [Demo build](#demo-build)
 - [Testing](#testing)
 </details>
 
@@ -20,54 +21,55 @@ A self-hosted household finance tracker that replaces spreadsheets with flexible
 | Feature | Status |
 |---------|--------|
 | Household setup (currency, members with join/depart dates) | ✅ MVP |
-| Persistent income sources + one-off income + restricted-use flag | ✅ MVP |
-| Shared expenses with 3 split methods (even, proportional to income, custom) | ✅ MVP |
-| Per-month expense amounts, pending flagging, end effective dates | ✅ MVP |
-| Savings goals with targets, start balances, and shared split rules | ✅ MVP |
-| Dashboard: balance cards, expense summary, goal progress, leftover breakdown | ✅ MVP |
-| Month navigation with history browsing (past months use rules in effect then) | ✅ MVP |
-| Change split rules / participants effective from any month, with back-date warning | ✅ MVP |
-| Composite expenses (variable sub-items rolling into one total) | V2 |
-| Expected vs. actual amounts, savings projections, visual trends | V2 |
-| New-month carry-over convenience | V2 |
-| Net worth view, unusual-month flagging, what-if reallocation | Stretch |
-| Export (CSV/PDF), bill reminders, annual summary | Stretch |
-| Public serverless demo (same codebase, mock data, no backend) | Stretch |
+| Income profile with named sources + restricted-use flag, snapshotted per Month | ✅ MVP |
+| Expense templates (default participants/split) + per-Month snapshots | ✅ MVP |
+| Three split methods per expense (even, proportional, custom) | ✅ MVP |
+| Per-Month expense amounts, auto-previous for recurring costs, pending flagging | ✅ MVP |
+| Savings goals with per-member contributions (no split rules) | ✅ MVP |
+| Dashboard: per-member income, expense shares, goal contributions, leftover | ✅ MVP |
+| Leftover breakdown with restricted-income toggle | ✅ MVP |
+| Goal progress: accumulated vs. target | ✅ MVP |
+| Month navigation with history browsing (each Month independently editable) | ✅ MVP |
+| Docker self-hosted deployment | ✅ MVP |
+| Serverless demo with browser storage (fully functional, no backend) | ✅ MVP |
+| Forward propagation toggle (edit one month, apply to all forward months) | V2 |
+| Composite expenses (sub-items rolling into one total) | V2 |
+| Visual trends over time | V2 |
 
 ## Screenshots
 
-<!-- TODO: add screenshots of the Overview, Income, Expenses, Goals, and Members pages -->
+<!-- TODO: add screenshots -->
 
 
 ## Tech stack
 
 | Layer | Technology |
 |-------|-----------|
-| Engine (domain core) | TypeScript — pure, zero dependencies |
-| Data layer | TypeScript interface + [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) adapter |
-| API server | [Express](https://expressjs.com/) 5 |
-| Frontend | [Vue 3](https://vuejs.org/) + [Vite](https://vitejs.dev/) + TypeScript |
-| Testing | [Vitest](https://vitest.dev/) at both seams |
-| Package manager | [pnpm](https://pnpm.io/) workspace monorepo |
+| Engine (domain core) | TypeScript — pure, zero dependencies, shared by server and demo |
+| Data layer | TypeScript interface + better-sqlite3 adapter (server) + localStorage adapter (demo) |
+| API server | Express 5 (TypeScript) |
+| Frontend | Vue 3 + Vite + TypeScript |
+| Testing | Vitest at both seams (engine behavior + data-layer contract) |
+| Package manager | pnpm workspace monorepo |
+| Deployment | Docker (multi-stage: Vite build → Express server → Node image) |
+| Demo | Static Vite build + localStorage + same engine code, hosted for free (serverless) |
 
 ## Project layout
 
 ```
 prometheus/
 ├── packages/
-│   ├── engine/           @prometheus/engine — pure domain core
-│   │   └── src/          types, computeMonthlySummary, validation
+│   ├── engine/           @prometheus/engine — pure domain core (~150 lines)
+│   │   └── src/          types, computeMonthlySummary, splits, rounding
 │   └── data/             @prometheus/data — persistence layer
 │       └── src/          DataStore interface, SqliteStore, contract suite
 ├── apps/
 │   └── self-hosted/      @prometheus/self-hosted — runnable application
 │       └── src/
-│           ├── server/   Express API
+│           ├── server/   Express API (TypeScript)
 │           └── client/   Vue 3 SPA (pages, components, composables)
-├── docs/
-│   └── adr/              Architectural Decision Records
-├── CONTEXT.md            Domain glossary
-└── README.md
+├── Dockerfile            Multi-stage build
+└── docker-compose.yml
 ```
 
 ## Getting started
@@ -87,30 +89,44 @@ Two terminals from the repo root:
 # Terminal 1 — API server (Express on :3000)
 pnpm --filter @prometheus/self-hosted dev:server
 
-# Terminal 2 — Vue dev server (Vite, proxies /api to Express)
+# Terminal 2 — Vue dev server (Vite proxies /api to Express, port :5173)
 pnpm --filter @prometheus/self-hosted dev:client
 ```
 
-Open the Vite URL (usually `http://localhost:5173`). The database is created at `apps/self-hosted/prometheus.db` on first run.
+The database is created at `apps/self-hosted/prometheus.db` on first run.
 
-## Self-hosting (production)
-
-```bash
-pnpm build
-pnpm start
-```
-
-The app listens on port 3000. Use environment variables to override:
+## Self-hosting (Docker)
 
 ```bash
-PORT=8080 PROMETHEUS_DB=/data/prometheus.db pnpm start
+docker build -t prometheus .
+docker run -p 3000:3000 -v prometheus-data:/data prometheus
 ```
 
-Everything is self-contained — one Node process, one embedded SQLite database, no external services.
+The database persists in a Docker volume. Override with environment variables:
+
+```bash
+docker run -p 8080:8080 -e PORT=8080 -e PROMETHEUS_DB=/data/my-household.db prometheus
+```
+
+Or with Docker Compose:
+
+```bash
+docker compose up -d
+```
+
+## Demo build
+
+A fully functional, serverless version that stores all data in the browser (`localStorage`). Uses the same engine and Vue UI — swaps the data layer from SQLite to a browser-storage adapter at build time.
+
+```bash
+pnpm --filter @prometheus/self-hosted build:demo
+```
+
+Output is a static `dist/` folder — deploy anywhere (GitHub Pages, Netlify, Vercel) for free indefinitely.
 
 ## Testing
 
 ```bash
-pnpm test        # engine + data layer + client smoke
+pnpm test        # engine behavior + data-layer contract + client smoke
 pnpm typecheck   # full project typecheck
 ```
