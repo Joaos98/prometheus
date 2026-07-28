@@ -1,132 +1,54 @@
 # Prometheus
 
-A self-hosted household finance tracker built on the **snapshot model** — every Month owns its data as an independent row. Couples, roommates, or small groups track income, shared expenses, and savings goals. Editing a month touches only that month. A serverless demo build with browser storage is available for trying the app without deploying anything.
+A self-hosted household finance tracker built on the **snapshot model** — every Month owns its data as an independent row. Couples, roommates, or small groups track income, shared expenses, and savings goals. Editing a month touches only that month. A serverless demo build with browser storage is planned for portfolio showcase.
 
-<details open>
-<summary><b>Table of contents</b></summary>
+## How it works
 
-- [Features & roadmap](#features--roadmap)
-- [Screenshots](#screenshots)
-- [Tech stack](#tech-stack)
-- [Project layout](#project-layout)
-- [Getting started](#getting-started)
-- [Running locally (dev)](#running-locally-dev)
-- [Self-hosting (Docker)](#self-hosting-docker)
-- [Demo build](#demo-build)
-- [Testing](#testing)
-</details>
+**The snapshot model.** Unlike traditional budget apps that use effective-dating (timelines of changes), Prometheus stores every Month as a self-contained snapshot. July's data is a row. Editing July changes July. August is its own row. No timelines, no hidden entries, no ceremony when you change a split rule.
 
-## Features & roadmap
+**Income profile.** Each member sets up recurring income sources (name, amount, restricted-use flag) in their profile. When a new Month opens, the profile snapshots into that Month's income rows. Editing the profile changes future months only — past months keep what was captured.
 
-| Feature | Status |
-|---------|--------|
-| Household setup (currency, members with join/depart dates) | ✅ MVP |
-| Income profile with named sources + restricted-use flag, snapshotted per Month | ✅ MVP |
-| Expense templates (default participants/split) + per-Month snapshots | ✅ MVP |
-| Three split methods per expense (even, proportional, custom) | ✅ MVP |
-| Per-Month expense amounts, auto-previous for recurring costs, pending flagging | ✅ MVP |
-| Savings goals with per-member contributions (no split rules) | ✅ MVP |
-| Dashboard: per-member income, expense shares, goal contributions, leftover | ✅ MVP |
-| Leftover breakdown with restricted-income toggle | ✅ MVP |
-| Goal progress: accumulated vs. target | ✅ MVP |
-| Month navigation with history browsing (each Month independently editable) | ✅ MVP |
-| Docker self-hosted deployment | ✅ MVP |
-| Serverless demo with browser storage (fully functional, no backend) | ✅ MVP |
-| Forward propagation toggle (edit one month, apply to all forward months) | V2 |
-| Composite expenses (sub-items rolling into one total) | V2 |
-| Visual trends over time | V2 |
+**Expense templates.** An expense is created as a template with default participants and split rule. Each Month stores its own amount. Amounts auto-fill from the previous Month. Editing a month's expense changes only that month. First-month expenses appear as pending until an amount is entered.
 
-## Screenshots
+**Split rules.** Three methods per expense: even, proportional to spendable income, or custom (percentages or fixed amounts per participant).
 
-<!-- TODO: add screenshots -->
+**Savings goals.** No split rules — each participant enters their contribution directly each Month. Accumulated progress = start amount + sum of all contributions. Targets are optional.
 
+**Leftover Balance.** Per member, per Month: Spendable Income minus expense Shares minus goal contributions. Negative values display plainly. A dashboard toggle includes/excludes restricted-use income.
+
+## Features
+
+- Household setup with currency picker and member management
+- Income profile (multiple named sources per member, restricted-use flag)
+- Expense templates with default participants and three split methods
+- Per-Month expense amounts with auto-previous fill
+- Savings goals with per-member contributions (no split rules)
+- Dashboard: per-member leftover, income, expense shares, goal progress
+- Month navigation with history browsing
+- Forward propagation toggle (apply a change to all forward months)
+- Pending flags for unentered expenses and unentered goal contributions
 
 ## Tech stack
 
 | Layer | Technology |
 |-------|-----------|
-| Engine (domain core) | TypeScript — pure, zero dependencies, shared by server and demo |
-| Data layer | TypeScript interface + better-sqlite3 adapter (server) + localStorage adapter (demo) |
+| Engine (domain core) | TypeScript — pure, zero dependencies |
+| Data layer | TypeScript interface + better-sqlite3 adapter (self-hosted) + localStorage adapter (demo) |
 | API server | Express 5 (TypeScript) |
 | Frontend | Vue 3 + Vite + TypeScript |
-| Testing | Vitest at both seams (engine behavior + data-layer contract) |
+| Testing | Vitest at both seams |
 | Package manager | pnpm workspace monorepo |
-| Deployment | Docker (multi-stage: Vite build → Express server → Node image) |
-| Demo | Static Vite build + localStorage + same engine code, hosted for free (serverless) |
+| Deployment | Docker (multi-stage build) |
+| Demo | Static Vite build + localStorage, fully functional in the browser |
 
-## Project layout
+## Deployment
 
-```
-prometheus/
-├── packages/
-│   ├── engine/           @prometheus/engine — pure domain core (~150 lines)
-│   │   └── src/          types, computeMonthlySummary, splits, rounding
-│   └── data/             @prometheus/data — persistence layer
-│       └── src/          DataStore interface, SqliteStore, contract suite
-├── apps/
-│   └── self-hosted/      @prometheus/self-hosted — runnable application
-│       └── src/
-│           ├── server/   Express API (TypeScript)
-│           └── client/   Vue 3 SPA (pages, components, composables)
-├── Dockerfile            Multi-stage build
-└── docker-compose.yml
-```
+**Self-hosted:** Docker multi-stage build. Single container with Express serving the Vue app and API, embedded SQLite for persistence.
 
-## Getting started
+**Demo:** Static Vite build with a localStorage DataStore adapter. Same engine and Vue UI — fully functional in the browser with no backend. Hostable for free on any static host.
 
-**Prerequisites:** Node.js 22+ and pnpm.
+## Domain model
 
-```bash
-npm install -g pnpm
-pnpm install
-```
+See `CONTEXT.md` for the complete glossary of domain terms.
 
-## Running locally (dev)
-
-Two terminals from the repo root:
-
-```bash
-# Terminal 1 — API server (Express on :3000)
-pnpm --filter @prometheus/self-hosted dev:server
-
-# Terminal 2 — Vue dev server (Vite proxies /api to Express, port :5173)
-pnpm --filter @prometheus/self-hosted dev:client
-```
-
-The database is created at `apps/self-hosted/prometheus.db` on first run.
-
-## Self-hosting (Docker)
-
-```bash
-docker build -t prometheus .
-docker run -p 3000:3000 -v prometheus-data:/data prometheus
-```
-
-The database persists in a Docker volume. Override with environment variables:
-
-```bash
-docker run -p 8080:8080 -e PORT=8080 -e PROMETHEUS_DB=/data/my-household.db prometheus
-```
-
-Or with Docker Compose:
-
-```bash
-docker compose up -d
-```
-
-## Demo build
-
-A fully functional, serverless version that stores all data in the browser (`localStorage`). Uses the same engine and Vue UI — swaps the data layer from SQLite to a browser-storage adapter at build time.
-
-```bash
-pnpm --filter @prometheus/self-hosted build:demo
-```
-
-Output is a static `dist/` folder — deploy anywhere (GitHub Pages, Netlify, Vercel) for free indefinitely.
-
-## Testing
-
-```bash
-pnpm test        # engine behavior + data-layer contract + client smoke
-pnpm typecheck   # full project typecheck
-```
+See `.scratch/prometheus-snapshot/spec-snapshot.md` for the full specification with user stories and implementation decisions.
