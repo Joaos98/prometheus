@@ -12,6 +12,7 @@ const props = defineProps<{
   displayMonth: string;
   currentMonth: string;
   expenseAmounts: { expenseId: string; month: string; amountCents: number }[];
+  subItemAmounts: { subItemId: string; month: string; amountCents: number }[];
   summaryMembers: { shares: { expenseId: string; amountCents: number }[]; memberId: string; name: string }[];
   api: {
     submitExpense(name: string, participants: string[], splitRule: Record<string, unknown>, effectiveFrom: string, oneOff: boolean, category?: string): Promise<Expense>;
@@ -34,6 +35,8 @@ const newExpenseOneOff = ref(false); const newExpenseEffectiveFrom = ref("");
 const newExpenseCategory = ref("");
 const newSubItemName = ref("");
 const subItemAmountValues = ref<Record<string, string>>({});
+const editingSubItemId = ref<string | null>(null);
+const editingSubItemAmount = ref("");
 const amountValue = ref(""); const expandedExpense = ref<string | null>(null);
 const endingExpenseId = ref<string | null>(null); const endingEff = ref("");
 
@@ -45,6 +48,7 @@ function activeExpenses() { return props.expenses.filter(e => e.effectiveFrom <=
 function hasAmount(eid: string) { return props.expenseAmounts.some(a => a.expenseId === eid && a.month === props.displayMonth); }
 function amountCents(eid: string) { return props.expenseAmounts.find(a => a.expenseId === eid && a.month === props.displayMonth)?.amountCents; }
 function shares(eid: string) { return props.summaryMembers.flatMap(m => m.shares.filter(s => s.expenseId === eid).map(s => ({ memberId: m.memberId, name: m.name, amountCents: s.amountCents }))); }
+function subItemAmount(siid: string) { return props.subItemAmounts.find(a => a.subItemId === siid && a.month === props.displayMonth)?.amountCents ?? 0; }
 
 async function submit() {
   const n = newExpenseName.value.trim(); const p = [...newExpenseParticipants.value]; const eff = newExpenseEffectiveFrom.value;
@@ -59,6 +63,8 @@ async function submitAmount(eid: string) { const a = parseFloat(amountValue.valu
 async function submitSubItemAmount(siid: string) { const a = parseFloat(subItemAmountValues.value[siid] ?? ""); if (isNaN(a)) return; await props.api.submitSubItemAmount(siid, Math.round(a * 100)); delete subItemAmountValues.value[siid]; }
 async function addSubItem(eid: string) { const n = newSubItemName.value.trim(); if (!n) return; await props.api.addSubItem(eid, n); newSubItemName.value = ""; }
 async function deleteSubItem(siid: string) { await props.api.removeSubItem(siid); }
+function startEditSubItem(siid: string) { editingSubItemId.value = siid; editingSubItemAmount.value = String(subItemAmount(siid) / 100); }
+async function saveSubItemEdit(siid: string) { const a = parseFloat(editingSubItemAmount.value); if (isNaN(a)) return; await props.api.submitSubItemAmount(siid, Math.round(a * 100)); editingSubItemId.value = null; }
 async function doEndExpense(id: string) { await props.api.endExpense(id, endingEff.value); endingExpenseId.value = null; }
 async function doChangeSplit(eid: string) { await props.api.changeExpenseSplit(eid, { method: changeSplitRule.value }, changeSplitEff.value); showChangeSplit.value = null; }
 async function doChangeParticipants(eid: string) { await props.api.changeExpenseParticipants(eid, [...changeParticipantsList.value], changeParticipantsEff.value); showChangeParticipants.value = null; }
@@ -108,8 +114,15 @@ function openChangeParticipants(e: Expense) { showChangeParticipants.value = e.i
             <h4 class="sub-label">Sub-Items</h4>
             <div v-for="si in e.subItems" :key="si.id" class="share-row">
               <span>{{ si.name }}</span>
-              <input v-model="subItemAmountValues[si.id]" placeholder="0.00" type="number" step="0.01" min="0" class="input input-xs" />
-              <button @click="submitSubItemAmount(si.id)" class="btn-ghost">Save</button>
+              <template v-if="editingSubItemId === si.id">
+                <input v-model="editingSubItemAmount" type="number" step="0.01" min="0" class="input input-xs" />
+                <button @click="saveSubItemEdit(si.id)" class="btn-ghost">Save</button>
+                <button @click="editingSubItemId = null" class="btn-ghost">Cancel</button>
+              </template>
+              <template v-else>
+                <span>{{ formatCurrency(subItemAmount(si.id), currency) }}</span>
+                <button @click="startEditSubItem(si.id)" class="btn-ghost">Edit</button>
+              </template>
               <button @click="deleteSubItem(si.id)" class="btn-ghost danger">x</button>
             </div>
           </div>

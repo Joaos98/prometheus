@@ -1,4 +1,4 @@
-import type { Expense, ExpenseAmount, IncomeSource, Member, MonthlySummary, SavingsGoal } from "@prometheus/engine";
+import type { Expense, ExpenseAmount, IncomeSource, Member, MonthlySummary, SavingsGoal, SubItemAmount } from "@prometheus/engine";
 import type { Ref } from "vue";
 
 interface State {
@@ -7,6 +7,7 @@ interface State {
   incomeSources: Ref<IncomeSource[]>;
   expenses: Ref<Expense[]>;
   expenseAmounts: Ref<ExpenseAmount[]>;
+  subItemAmounts: Ref<SubItemAmount[]>;
   goals: Ref<SavingsGoal[]>;
   summary: Ref<MonthlySummary | null>;
   appError: Ref<string | null>;
@@ -28,12 +29,12 @@ export function useApi(s: State) {
 
   const refreshSummary = async () => { s.summary.value = (await http.get(`/api/summary?month=${s.displayMonth.value}`)) as MonthlySummary; };
   const loadAll = async () => {
-    const d = (await http.get("/api/household")) as { members: Member[]; incomeSources: IncomeSource[]; expenses: Expense[]; expenseAmounts: ExpenseAmount[]; goals: SavingsGoal[] };
-    s.members.value = d.members ?? []; s.incomeSources.value = d.incomeSources ?? []; s.expenses.value = d.expenses ?? []; s.expenseAmounts.value = d.expenseAmounts ?? []; s.goals.value = d.goals ?? [];
+    const d = (await http.get("/api/household")) as { members: Member[]; incomeSources: IncomeSource[]; expenses: Expense[]; expenseAmounts: ExpenseAmount[]; subItemAmounts: SubItemAmount[]; goals: SavingsGoal[] };
+    s.members.value = d.members ?? []; s.incomeSources.value = d.incomeSources ?? []; s.expenses.value = d.expenses ?? []; s.expenseAmounts.value = d.expenseAmounts ?? []; s.subItemAmounts.value = d.subItemAmounts ?? []; s.goals.value = d.goals ?? [];
   };
   const loadHousehold = async () => {
-    const d = (await http.get("/api/household")) as { currency: string | null; members: Member[]; incomeSources: IncomeSource[]; expenses: Expense[]; expenseAmounts: ExpenseAmount[]; goals: SavingsGoal[] };
-    s.currency.value = d.currency; s.members.value = d.members ?? []; s.incomeSources.value = d.incomeSources ?? []; s.expenses.value = d.expenses ?? []; s.expenseAmounts.value = d.expenseAmounts ?? []; s.goals.value = d.goals ?? [];
+    const d = (await http.get("/api/household")) as { currency: string | null; members: Member[]; incomeSources: IncomeSource[]; expenses: Expense[]; expenseAmounts: ExpenseAmount[]; subItemAmounts: SubItemAmount[]; goals: SavingsGoal[] };
+    s.currency.value = d.currency; s.members.value = d.members ?? []; s.incomeSources.value = d.incomeSources ?? []; s.expenses.value = d.expenses ?? []; s.expenseAmounts.value = d.expenseAmounts ?? []; s.subItemAmounts.value = d.subItemAmounts ?? []; s.goals.value = d.goals ?? [];
   };
 
   return {

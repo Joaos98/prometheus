@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Expense, ExpenseAmount, IncomeSource, Member, MonthlySummary, SavingsGoal } from "@prometheus/engine";
+import type { Expense, ExpenseAmount, IncomeSource, Member, MonthlySummary, SavingsGoal, SubItemAmount } from "@prometheus/engine";
 import { onMounted, ref, watch } from "vue";
 import { useMonth } from "./composables/useMonth";
 import { useApi } from "./composables/useApi";
@@ -20,13 +20,14 @@ const members = ref<Member[]>([]);
 const incomeSources = ref<IncomeSource[]>([]);
 const expenses = ref<Expense[]>([]);
 const expenseAmounts = ref<ExpenseAmount[]>([]);
+const subItemAmounts = ref<SubItemAmount[]>([]);
 const goals = ref<SavingsGoal[]>([]);
 const summary = ref<MonthlySummary | null>(null);
 const appError = ref<string | null>(null);
 const currencyValue = ref("USD");
 
 const month = useMonth();
-const api = useApi({ currency, members, incomeSources, expenses, expenseAmounts, goals, summary, appError, displayMonth: month.displayMonth });
+const api = useApi({ currency, members, incomeSources, expenses, expenseAmounts, subItemAmounts, goals, summary, appError, displayMonth: month.displayMonth });
 
 const formatCurrency = (cents: number, curr: string) => new Intl.NumberFormat(undefined, { style: "currency", currency: curr }).format(cents / 100);
 function goalProgressPercent(gp: { accumulatedCents: number; targetAmountCents?: number }) { if (!gp.targetAmountCents || gp.targetAmountCents === 0) return 0; return Math.min(100, Math.round((gp.accumulatedCents / gp.targetAmountCents) * 100)); }
@@ -67,7 +68,7 @@ watch(month.displayMonth, () => refreshSummary());
         <ExpensesPage v-if="page === 'expenses'"
           :members="members" :expenses="expenses" :currency="summary.currency"
           :displayMonth="month.displayMonth.value" :currentMonth="month.currentMonth()"
-          :expenseAmounts="expenseAmounts" :summaryMembers="summary.members"
+          :expenseAmounts="expenseAmounts" :subItemAmounts="subItemAmounts" :summaryMembers="summary.members"
           :backdateWarning="month.backdateWarning" :formatCurrency="formatCurrency" :api="api" />
 
         <GoalsPage v-if="page === 'goals'"
