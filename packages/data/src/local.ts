@@ -32,7 +32,12 @@ export class LocalStore implements DataStore {
     save("members", members);
     return m;
   }
-  getMembers(): Member[] { return load<Member[]>("members", []); }
+  getMembers(): Member[] { return load<Member[]>("members", []).filter(m => (m as any).active !== false); }
+  getAllMembers(): Member[] { return load<Member[]>("members", []); }
+  removeMember(id: string): void {
+    const members = this.getAllMembers().map(m => m.id === id ? { ...m, active: false } as any : m);
+    save("members", members);
+  }
 
   addIncomeSnapshot(s: IncomeSnapshot): void { const snaps = this.getIncomeSnapshots(); snaps.push(s); save("incomeSnapshots", snaps); }
   getIncomeSnapshots(): IncomeSnapshot[] { return load<IncomeSnapshot[]>("incomeSnapshots", []); }

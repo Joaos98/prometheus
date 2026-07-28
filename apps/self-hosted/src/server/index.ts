@@ -162,6 +162,11 @@ app.post("/api/members", (req, res) => {
   res.status(201).json(member);
 });
 
+app.delete("/api/members/:id", (req, res) => {
+  store.removeMember(req.params.id);
+  res.json({ deleted: req.params.id });
+});
+
 app.get("/api/summary", (req, res) => {
   const month = typeof req.query.month === "string" && /^\d{4}-\d{2}$/.test(req.query.month)
     ? req.query.month

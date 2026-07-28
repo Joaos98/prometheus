@@ -3,17 +3,14 @@ import { ref } from "vue";
 
 const props = defineProps<{
   members: { id: string; name: string }[];
-  api: { addMember(name: string): Promise<{ id: string; name: string }> };
+  api: { addMember(name: string): Promise<{ id: string; name: string }>; deleteMember(id: string): Promise<unknown> };
 }>();
 
 const showForm = ref(false);
 const newName = ref("");
 
-async function submit() {
-  if (!newName.value.trim()) return;
-  await props.api.addMember(newName.value.trim());
-  newName.value = ""; showForm.value = false;
-}
+async function submit() { if (!newName.value.trim()) return; await props.api.addMember(newName.value.trim()); newName.value = ""; showForm.value = false; }
+async function remove(id: string) { await props.api.deleteMember(id); }
 </script>
 
 <template>
@@ -26,6 +23,7 @@ async function submit() {
     <ul class="ov-list">
       <li v-for="m in members" :key="m.id" class="ov-row">
         <span>{{ m.name }}</span>
+        <button @click="remove(m.id)" class="btn-ghost danger">Remove</button>
       </li>
     </ul>
   </div>

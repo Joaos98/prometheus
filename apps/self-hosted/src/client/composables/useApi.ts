@@ -56,5 +56,6 @@ export function useApi(displayMonth: Ref<string>) {
     async addMember(name: string): Promise<{ id: string; name: string }> {
       return http.post("/api/members", { name }) as Promise<{ id: string; name: string }>;
     },
+    async deleteMember(id: string) { return http.delete(`/api/members/${id}`); },
   };
 }

@@ -22,6 +22,7 @@ export interface DataStore {
   setCurrency(currency: string): void;
   addMember(name: string): Member;
   getMembers(): Member[];
+  removeMember(id: string): void;
   addIncomeSnapshot(snapshot: IncomeSnapshot): void;
   getIncomeSnapshots(): IncomeSnapshot[];
   addIncomeProfile(memberId: string, name: string, amountCents: number, restrictedUse?: boolean): IncomeProfile;

@@ -31,7 +31,8 @@ export class SqliteStore implements DataStore {
       CREATE TABLE IF NOT EXISTS members (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        position INTEGER NOT NULL
+        position INTEGER NOT NULL,
+        active INTEGER NOT NULL DEFAULT 1
       );
       CREATE TABLE IF NOT EXISTS income_snapshots (
         month TEXT NOT NULL,
@@ -110,9 +111,18 @@ export class SqliteStore implements DataStore {
 
   getMembers(): Member[] {
     const rows = this.db
-      .prepare("SELECT id, name FROM members ORDER BY position")
+      .prepare("SELECT id, name FROM members WHERE active = 1 ORDER BY position")
       .all() as Array<{ id: string; name: string }>;
     return rows.map((r) => ({ id: r.id, name: r.name }));
+  }
+
+  getAllMembers(): Member[] {
+    const rows = this.db.prepare("SELECT id, name FROM members ORDER BY position").all() as Array<{ id: string; name: string }>;
+    return rows.map((r) => ({ id: r.id, name: r.name }));
+  }
+
+  removeMember(id: string): void {
+    this.db.prepare("UPDATE members SET active = 0 WHERE id = ?").run(id);
   }
 
   addIncomeSnapshot(snapshot: IncomeSnapshot): void {
@@ -322,7 +332,7 @@ export class SqliteStore implements DataStore {
 
   getMonthData(month: Month): MonthData {
     const currency = this.getCurrency() ?? "USD";
-    const members = this.getMembers();
+    const members = this.getAllMembers();
     const incomeSnapshots = this.getIncomeSnapshots().filter((s) => s.month === month);
     const expenseSnapshots = this.getExpenseSnapshots().filter((s) => s.month === month);
     const activeTemplateIds = this.getExpenseTemplates().filter(t => t.active).map(t => t.id);
