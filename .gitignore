@@ -5,5 +5,4 @@ dist/
 *.db-wal
 *.db-shm
 .scratch/
-docs/agents/
 AGENTS.md
