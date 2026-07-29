@@ -1,11 +1,17 @@
 import { ref, shallowRef } from 'vue'
 import {
+  addIncomeSnapshot,
+  editIncomeSnapshot,
   openedMonthKeys,
   relabelCurrency,
+  removeIncomeSnapshot,
   setUpHousehold,
   type Currency,
   type Household,
+  type IncomeDraft,
+  type IncomeEdits,
   type MonthKey,
+  type RowId,
   type Setup,
 } from '../domain/index.js'
 import { localStorageStore } from '../storage/local-storage-store.js'
@@ -54,6 +60,46 @@ async function relabel(currency: Currency): Promise<void> {
   household.value = relabelled
 }
 
+/**
+ * Income, one row at a time. The engine decides what the Household becomes; the port
+ * is handed only the row that changed, so two members editing different rows never
+ * collide.
+ */
+async function addIncome(month: MonthKey, draft: IncomeDraft): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const { household: after, row } = addIncomeSnapshot(current, month, draft)
+  await store.writeRow(month, 'income', row)
+  household.value = after
+}
+
+async function editIncome(month: MonthKey, id: RowId, edits: IncomeEdits): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const { household: after, row } = editIncomeSnapshot(current, month, id, edits)
+  await store.writeRow(month, 'income', row)
+  household.value = after
+}
+
+async function removeIncome(month: MonthKey, id: RowId): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const after = removeIncomeSnapshot(current, month, id)
+  await store.deleteRow(month, 'income', id)
+  household.value = after
+}
+
 export function useHousehold() {
-  return { household, viewing, loading, failure, load, setUp, relabel }
+  return {
+    household,
+    viewing,
+    loading,
+    failure,
+    load,
+    setUp,
+    relabel,
+    addIncome,
+    editIncome,
+    removeIncome,
+  }
 }

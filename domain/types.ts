@@ -29,8 +29,17 @@ export interface Member {
   active: boolean
 }
 
+/**
+ * One named income source for one member in one Month. There is no standing record of
+ * what anyone earns — income exists only as these rows. `amount` of `null` is Pending:
+ * no amount entered at all, which is not the same as an amount of zero.
+ */
 export interface IncomeSnapshot {
   id: RowId
+  name: string
+  member: MemberId
+  amount: Minor | null
+  restrictedUse: boolean
 }
 
 export interface ExpenseSnapshot {

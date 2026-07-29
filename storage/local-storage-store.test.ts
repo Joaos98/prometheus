@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { openMonth, setUpHousehold, type Household } from '../domain/index.js'
+import {
+  isPending,
+  openMonth,
+  setUpHousehold,
+  type Household,
+  type IncomeSnapshot,
+  type Minor,
+} from '../domain/index.js'
 import { localStorageStore } from './local-storage-store.js'
 import { StorageError, type HouseholdStore } from './port.js'
 
@@ -24,6 +31,14 @@ const household = (): Household =>
     memberNames: ['Ana', 'Bruno'],
     startingMonth: '2026-07',
   })
+
+const salary = (amount: Minor | null): IncomeSnapshot => ({
+  id: 'salary',
+  name: 'Salary',
+  member: 'ana',
+  amount,
+  restrictedUse: false,
+})
 
 describe('the localStorage adapter', () => {
   let storage: Storage
@@ -88,11 +103,35 @@ describe('the localStorage adapter', () => {
 
   it('takes the last write to a row', async () => {
     await store.createHousehold(household())
-    await store.writeRow('2026-07', 'income', { id: 'salary' })
+    await store.writeRow('2026-07', 'income', salary(320000))
 
-    await store.writeRow('2026-07', 'income', { id: 'salary' })
+    await store.writeRow('2026-07', 'income', salary(335000))
 
-    expect((await store.loadHousehold())!.months['2026-07']!.income).toHaveLength(1)
+    const income = (await store.loadHousehold())!.months['2026-07']!.income
+    expect(income).toHaveLength(1)
+    expect(income[0]!.amount).toBe(335000)
+  })
+
+  it('tells an amount of nothing, an amount of zero and no row at all apart', async () => {
+    await store.createHousehold(household())
+
+    await store.writeRow('2026-07', 'income', { ...salary(null), id: 'pending' })
+    await store.writeRow('2026-07', 'income', { ...salary(0), id: 'zero' })
+
+    const income = (await store.loadHousehold())!.months['2026-07']!.income
+    expect(income.map((row) => row.amount)).toEqual([null, 0])
+    expect(income.map((row) => 'amount' in row)).toEqual([true, true])
+    expect(income.find((row) => row.id === 'never-recorded')).toBeUndefined()
+  })
+
+  it('brings a Pending row back as Pending and not as zero', async () => {
+    await store.createHousehold(household())
+    await store.writeRow('2026-07', 'income', { ...salary(null), id: 'bonus' })
+
+    const row = (await store.loadHousehold())!.months['2026-07']!.income[0]!
+
+    expect(isPending(row)).toBe(true)
+    expect(row.amount).not.toBe(0)
   })
 
   it('removes a row', async () => {

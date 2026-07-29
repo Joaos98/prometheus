@@ -5,6 +5,15 @@
  */
 export { DomainError } from './errors.js'
 export { relabelCurrency, setUpHousehold, type Setup } from './household.js'
+export {
+  addIncomeSnapshot,
+  editIncomeSnapshot,
+  removeIncomeSnapshot,
+  spendableIncome,
+  type IncomeDraft,
+  type IncomeEdits,
+} from './income.js'
+export { isPending, type RowChange } from './rows.js'
 export { assertMonthKey, monthKey, monthName } from './month-key.js'
 export { isOpened, monthAt, openedMonthKeys, openMonth, previousMonthKey } from './month.js'
 export { formatAmount, toMinor } from './money.js'

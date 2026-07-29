@@ -27,14 +27,12 @@ const rowCount = computed(
           <span class="figure muted">—</span>
         </li>
       </ul>
-      <p class="muted note">
-        Spendable Income, minus Shares, minus Contributions. This Month holds no rows yet.
-      </p>
+      <p class="muted note">Spendable Income, minus Shares, minus Contributions.</p>
     </section>
 
     <section class="card">
       <h2 class="section-label">Review</h2>
-      <p class="secondary note">{{ rowCount }} rows in this Month, none Unreviewed.</p>
+      <p class="secondary note">{{ rowCount }} rows in this Month.</p>
     </section>
 
     <section class="card">

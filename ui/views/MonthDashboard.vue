@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { monthAt, monthName, type Household, type MonthKey } from '../../domain/index.js'
+import IncomePanel from '../components/IncomePanel.vue'
 import MonthPanel from '../components/MonthPanel.vue'
 import MonthRail from '../components/MonthRail.vue'
 import { CURRENCIES } from '../currencies.js'
@@ -75,7 +76,7 @@ async function saveCurrency(): Promise<void> {
       </main>
 
       <div class="right-column">
-        <MonthPanel title="Income" empty="No Income Snapshots in this Month yet." />
+        <IncomePanel :household="household" :month="month" />
         <MonthPanel title="Savings Goals" empty="No Savings Goals in this Month yet." />
       </div>
     </div>
