@@ -1,0 +1,888 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTOTYPE — Prometheus monthly dashboard</title>
+<!--
+  THROWAWAY PROTOTYPE — not app code. Answers one question:
+  "What should the monthly dashboard of an opened Month look like?"
+
+  Structurally different variants on one page, switchable via ?variant= and the
+  floating bar at the bottom. One shared seed Household, one real split engine
+  (largest-remainder), no persistence, no build step. Open the file directly.
+
+    F — pinned left rail · expenses centre · income + collapsible goals right (round 3)
+    D — summary tiles + three panel columns (round 2)
+    E — panels left, viewer summary pinned right (round 2)
+    A — single-column ledger (round 1)
+    C — review queue, shows only what needs attention (round 1)
+
+  Round-1 variant B (a matrix column per member) was rejected and removed.
+
+  Vocabulary is CONTEXT.md verbatim. Colours/radii are prometheus-redesign-brief.md.
+-->
+<style>
+  :root{
+    --bg:#12141C; --surface:#1A1D28; --line:#262A38;
+    --t1:#F0F1F5; --t2:#8B92A5; --t3:#6B7280;
+    --fire:#E8935C; --fire-hi:#F0A868; --ice:#7DC9E8;
+    --r-card:12px; --r-ctl:9px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--t1)}
+  body{
+    font:400 14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased; padding-bottom:96px;
+  }
+  h1,h2,h3{margin:0;font-weight:500}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  a{color:inherit}
+  .num{font-variant-numeric:tabular-nums}
+  .med{font-weight:500}
+  .t2{color:var(--t2)} .t3{color:var(--t3)}
+  .fire{color:var(--fire)}
+  .neg{color:#E07A6E}
+
+  /* section label — letter-spaced uppercase, per brief */
+  .slab{
+    font-size:10.5px;font-weight:500;letter-spacing:.11em;text-transform:uppercase;
+    color:var(--t3);
+  }
+
+  .card{background:var(--surface);border:.5px solid var(--line);border-radius:var(--r-card)}
+  .hr{height:.5px;background:var(--line);border:0;margin:0}
+
+  .chip{
+    display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;
+    border:.5px solid var(--line);border-radius:6px;
+    font-size:10.5px;letter-spacing:.04em;color:var(--t2);white-space:nowrap;
+  }
+  .chip.warn{color:var(--fire);border-color:rgba(232,147,92,.38)}
+  .chip.unrev{color:var(--t2);border-color:var(--line);background:rgba(139,146,165,.07)}
+  .dot{width:5px;height:5px;border-radius:50%;background:currentColor;flex:none}
+
+  /* shared header (A + C) */
+  .top{display:flex;align-items:center;gap:18px;padding:18px 28px;border-bottom:.5px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:9px}
+  .brand svg{width:25px;height:18px;display:block}   /* 932:672 — the mark's own ratio */
+  .brand .nm{font-size:14px;letter-spacing:.02em;font-weight:500}
+  .mnav{display:flex;align-items:center;gap:2px;margin-left:auto}
+  .mnav button{
+    height:30px;padding:0 11px;border-radius:8px;font-size:13px;color:var(--t2);
+  }
+  .mnav button:hover{color:var(--t1)}
+  .mnav button.on{color:var(--fire);background:rgba(232,147,92,.10)}
+  .mnav .arrow{color:var(--t3);padding:0 8px}
+  .viewer{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--t3)}
+  .viewer select{
+    background:var(--surface);color:var(--t1);border:.5px solid var(--line);
+    border-radius:8px;height:28px;padding:0 8px;font:inherit;font-size:12.5px;
+  }
+  .toggle{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--t3);cursor:pointer;user-select:none}
+  .toggle .track{width:28px;height:16px;border-radius:8px;background:#232735;border:.5px solid var(--line);position:relative;transition:.14s}
+  .toggle .knob{position:absolute;top:1.5px;left:1.5px;width:11px;height:11px;border-radius:50%;background:var(--t3);transition:.14s}
+  .toggle input{display:none}
+  .toggle input:checked + .track{background:rgba(232,147,92,.22);border-color:rgba(232,147,92,.4)}
+  .toggle input:checked + .track .knob{left:14px;background:var(--fire)}
+
+  .wrap{max-width:1080px;margin:0 auto;padding:26px 28px 0}
+
+  /* ───────── Variant A — ledger ───────── */
+  .a-strip{
+    position:sticky;top:0;z-index:5;background:var(--bg);
+    border-bottom:.5px solid var(--line);
+  }
+  .a-strip-in{max-width:1080px;margin:0 auto;padding:14px 28px;display:flex;gap:0;align-items:stretch}
+  .a-mem{flex:1;padding:0 18px;border-left:.5px solid var(--line)}
+  .a-mem:first-child{border-left:0;padding-left:0}
+  .a-mem .nm{font-size:12.5px;color:var(--t2);display:flex;align-items:center;gap:6px}
+  .a-mem .lv{font-size:23px;font-weight:500;letter-spacing:-.01em;margin-top:3px}
+  .a-mem .sub{font-size:11.5px;color:var(--t3);margin-top:2px}
+  .a-mem.me .nm{color:var(--t1)}
+  .a-mem.me .lv{color:var(--fire)}
+
+  .a-sec{margin:26px 0 0}
+  .a-sec-h{display:flex;align-items:center;gap:12px;padding:0 2px 9px}
+  .a-sec-h .tot{margin-left:auto;font-size:12.5px;color:var(--t2)}
+  .a-row{
+    display:flex;align-items:center;gap:12px;padding:11px 14px;
+    border-bottom:.5px solid var(--line);
+  }
+  .a-row:last-child{border-bottom:0}
+  .a-row.is-unrev{background:rgba(139,146,165,.035)}
+  .a-row.is-pending{background:rgba(232,147,92,.045)}
+  .rev{
+    flex:none;width:17px;height:17px;border-radius:5px;border:.5px solid var(--line);
+    display:grid;place-items:center;color:transparent;font-size:10px;
+  }
+  .rev:hover{border-color:var(--t3)}
+  .rev.done{border-color:rgba(232,147,92,.45);color:var(--fire);background:rgba(232,147,92,.10)}
+  .a-row .name{min-width:0}
+  .a-row .name .n{display:flex;align-items:center;gap:8px}
+  .a-row .name .split{font-size:11.5px;color:var(--t3);margin-top:3px}
+  .a-row .amt{margin-left:auto;text-align:right;font-size:15px;font-weight:500;white-space:nowrap}
+  .a-row .amt.none{color:var(--fire);font-size:13px;font-weight:400}
+  .a-foot{
+    position:fixed;left:0;right:0;bottom:0;z-index:4;
+    background:rgba(18,20,28,.94);backdrop-filter:blur(8px);
+    border-top:.5px solid var(--line);
+  }
+  .a-foot-in{max-width:1080px;margin:0 auto;padding:12px 28px 30px;display:flex;align-items:center;gap:14px;font-size:13px}
+  .bar{display:block;flex:1;max-width:280px;height:3px;border-radius:2px;background:#232735;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--fire);transition:width .18s}
+  .add{color:var(--fire);font-size:12.5px}
+
+  /* ───────── Variants D + E — modular panels ───────── */
+  .dwrap,.ewrap{max-width:1460px;margin:0 auto;padding:18px 24px 40px}
+  .dhead{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+  .tile{padding:13px 15px}
+  .tile .nm{font-size:12.5px;color:var(--t2);display:flex;align-items:center;gap:6px}
+  .tile .lv{font-size:22px;font-weight:500;letter-spacing:-.015em;margin-top:4px}
+  .tile .sub{font-size:11px;color:var(--t3);margin-top:3px}
+  .tile.me{border-color:rgba(232,147,92,.30)}
+  .tile.me .nm{color:var(--t1)}
+  .tile.me .lv{color:var(--fire)}
+
+  .cols3{display:grid;grid-template-columns:1.7fr 1.15fr 1.15fr;gap:12px;align-items:start}
+  .cols3r{display:grid;grid-template-columns:294px minmax(0,1fr) 340px;gap:14px;align-items:start}
+  .gdet{padding:0 15px 11px 50px;border-bottom:.5px solid var(--line);background:rgba(255,255,255,.015)}
+  .gline{display:flex;justify-content:space-between;gap:12px;font-size:12px;padding:4px 0;color:var(--t2)}
+  .gline .num{color:var(--t1)}
+  .gline.tot{border-top:.5px solid var(--line);margin-top:4px;padding-top:6px}
+  .chev{flex:none;color:var(--t3);font-size:9px;transition:transform .12s}
+  .chev.open{transform:rotate(90deg);color:var(--fire)}
+  .prow.clk{cursor:pointer}
+  .prow.clk:hover{background:rgba(255,255,255,.022)}
+  /* F: month identity centred in the header, so all three columns start level */
+  .top.f{position:relative}
+  .top.f .top-c{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    white-space:nowrap;pointer-events:none;
+  }
+  .top.f .top-c h2{font-size:16px;letter-spacing:-.005em}
+  .cols2{display:grid;grid-template-columns:minmax(0,1fr) 322px;gap:16px;align-items:start}
+  .sub2{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+  .stack{display:flex;flex-direction:column;gap:12px;min-width:0}
+  .rail{position:sticky;top:14px}
+
+  .pl{background:var(--surface);border:.5px solid var(--line);border-radius:var(--r-card);overflow:hidden}
+  .pl-h{display:flex;align-items:center;gap:9px;padding:11px 15px;border-bottom:.5px solid var(--line)}
+  .pl-h .tot{margin-left:auto;font-size:12px;color:var(--t2)}
+  .pl-f{padding:8px 15px;border-top:.5px solid var(--line);display:flex;align-items:center;gap:10px}
+  .prow{display:flex;gap:9px;align-items:center;padding:8px 15px;border-bottom:.5px solid var(--line)}
+  .prow:last-child{border-bottom:0}
+  .prow.unrev{background:rgba(139,146,165,.035)}
+  .prow.pend{background:rgba(232,147,92,.05)}
+  .prow .nm{flex:1;min-width:0}
+  .prow .nm .n{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:13.5px}
+  .prow .nm .sp{font-size:11px;color:var(--t3);margin-top:2px}
+  .prow .v{font-size:13.5px;font-weight:500;white-space:nowrap;text-align:right}
+  .prow .v.none{color:var(--fire);font-weight:400;font-size:12px}
+
+  @media (max-width:1240px){
+    .cols3{grid-template-columns:1fr 1fr}
+    .cols3r{grid-template-columns:1fr}
+    .tiles{grid-template-columns:repeat(2,1fr)}
+    .cols2{grid-template-columns:1fr}
+    .rail{position:static}
+  }
+
+  /* ───────── Variant C — review queue ───────── */
+  .c{display:grid;grid-template-columns:330px 1fr;gap:26px;max-width:1120px;margin:0 auto;padding:26px 28px 0;align-items:start}
+  .c-hero{padding:22px}
+  .c-hero .who{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t2)}
+  .c-hero .big{font-size:38px;font-weight:500;letter-spacing:-.022em;color:var(--fire);margin:8px 0 2px}
+  .c-line{display:flex;justify-content:space-between;font-size:13px;padding:7px 0;border-bottom:.5px solid var(--line)}
+  .c-line:last-child{border-bottom:0}
+  .c-others{display:flex;flex-direction:column;gap:0;margin-top:4px}
+  .c-oth{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:.5px solid var(--line);font-size:13px}
+  .c-oth .v{margin-left:auto;font-weight:500}
+  .ring{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:.5px solid var(--line)}
+  .ring svg{flex:none}
+  .ring .g{min-width:0;flex:1}
+  .ring .g .n{font-size:13px}
+  .ring .g .s{font-size:11.5px;color:var(--t3);margin-top:2px}
+  .c-q{min-width:0}
+  .c-q-h{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  .c-q-h .cnt{margin-left:auto;font-size:12.5px;color:var(--t2)}
+  .qcard{padding:16px 18px;margin-bottom:10px;display:flex;gap:16px;align-items:flex-start}
+  .qcard.pending{border-color:rgba(232,147,92,.32)}
+  .qcard .body{flex:1;min-width:0}
+  .qcard .ttl{display:flex;align-items:center;gap:9px}
+  .qcard .ttl .n{font-size:15px;font-weight:500}
+  .qcard .why{font-size:12.5px;color:var(--t3);margin-top:5px}
+  .qcard .brk{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
+  .pill{
+    display:inline-flex;gap:6px;align-items:center;padding:4px 9px;border-radius:7px;
+    background:rgba(255,255,255,.028);border:.5px solid var(--line);font-size:11.5px;color:var(--t2);
+  }
+  .pill b{font-weight:500;color:var(--t1)}
+  .qcard .right{flex:none;text-align:right}
+  .qcard .right .v{font-size:19px;font-weight:500}
+  .qcard .right .v.none{font-size:13px;font-weight:400;color:var(--fire)}
+  .acts{display:flex;gap:7px;justify-content:flex-end;margin-top:11px}
+  .btn{height:29px;padding:0 13px;border-radius:var(--r-ctl);border:.5px solid var(--line);font-size:12.5px;color:var(--t2)}
+  .btn:hover{color:var(--t1);border-color:var(--t3)}
+  .btn.p{background:rgba(232,147,92,.13);border-color:rgba(232,147,92,.42);color:var(--fire-hi)}
+  .c-done{margin-top:22px}
+  .c-done-h{display:flex;align-items:center;gap:10px;padding:0 2px 10px;cursor:pointer}
+  .c-done-r{display:flex;align-items:center;gap:12px;padding:9px 14px;border-bottom:.5px solid var(--line);font-size:13px;color:var(--t2)}
+  .c-done-r:last-child{border-bottom:0}
+  .c-done-r .v{margin-left:auto;color:var(--t1);font-weight:500}
+  .c-empty{padding:26px;text-align:center;color:var(--t2);font-size:13.5px}
+  .c-empty .k{font-size:15px;color:var(--fire);font-weight:500;display:block;margin-bottom:5px}
+
+  /* ───────── prototype switcher (deliberately NOT part of the design) ───────── */
+  #sw{
+    position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:99;
+    display:flex;align-items:center;gap:2px;height:38px;padding:0 6px;
+    background:#F4F5F7;color:#14161E;border-radius:19px;
+    box-shadow:0 6px 22px rgba(0,0,0,.45);
+    font:500 12.5px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  #sw button{width:26px;height:26px;border-radius:50%;color:#14161E;display:grid;place-items:center;font-size:14px}
+  #sw button:hover{background:rgba(0,0,0,.08)}
+  #sw .lbl{padding:0 8px;letter-spacing:.01em;white-space:nowrap}
+  #sw .lbl span{opacity:.5;font-weight:400}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="sw"></div>
+
+<script>
+/* ══ seed household — one dataset, all three variants ══════════════════════ */
+const HH = { name:'Casa Prometheus', cur:'€', month:'July 2026' };
+
+const MEMBERS = [
+  { id:'ana',   name:'Ana' },
+  { id:'bruno', name:'Bruno' },
+  { id:'cleo',  name:'Cleo' },
+];
+
+const INCOME = [
+  { id:'i1', member:'ana',   source:'Salary — Vestas',      cents:285000, restricted:false, unreviewed:false },
+  { id:'i2', member:'ana',   source:'Meal card',            cents: 18000, restricted:true,  unreviewed:false },
+  { id:'i3', member:'bruno', source:'Salary — Northlight',  cents:215000, restricted:false, unreviewed:false },
+  { id:'i4', member:'bruno', source:'Freelance — logo job', cents: 32000, restricted:false, unreviewed:false, oneOff:true },
+  { id:'i5', member:'cleo',  source:'Salary — Atrium',      cents:160000, restricted:false, unreviewed:true  },
+  { id:'i6', member:'cleo',  source:'Meal card',            cents: 16000, restricted:true,  unreviewed:false },
+];
+
+// rule: {t:'prop'|'even'|'pct'|'fixed', v:{memberId:number}}
+const EXPENSES = [
+  { id:'e1', name:'Rent',              cat:'Housing',   cents:140000, parts:['ana','bruno','cleo'], rule:{t:'prop'},  unreviewed:false },
+  { id:'e2', name:'Electricity',       cat:'Utilities', cents:  9640, parts:['ana','bruno','cleo'], rule:{t:'even'},  unreviewed:true  },
+  { id:'e3', name:'Groceries',         cat:'Food',      cents: 62000, parts:['ana','bruno','cleo'], rule:{t:'pct', v:{ana:40,bruno:35,cleo:25}}, unreviewed:false },
+  { id:'e4', name:'Internet',          cat:'Utilities', cents:  4490, parts:['ana','bruno','cleo'], rule:{t:'even'},  unreviewed:true  },
+  { id:'e5', name:'Car insurance',     cat:'Transport', cents:  7800, parts:['bruno'],              rule:{t:'even'},  unreviewed:true  },
+  { id:'e6', name:'Climbing gym',      cat:'Health',    cents:  5900, parts:['ana','cleo'],         rule:{t:'even'},  unreviewed:false, oneOff:true },
+  { id:'e7', name:'Streaming bundle',  cat:'Leisure',   cents:  2799, parts:['ana','bruno','cleo'], rule:{t:'fixed', v:{ana:1000,bruno:1000,cleo:799}}, unreviewed:true },
+  { id:'e8', name:'Vet — Nim',         cat:'Pets',      cents:  null, parts:['cleo'],               rule:{t:'even'},  unreviewed:false },
+];
+
+const GOALS = [
+  { id:'g1', name:'Emergency fund',  target:600000, start:324000, parts:['ana','bruno','cleo'], contrib:{ana:20000,bruno:15000,cleo:10000}, unreviewed:false },
+  { id:'g2', name:'Trip to Lisbon',  target:180000, start: 42000, parts:['ana','cleo'],         contrib:{ana:12000,cleo:8000},              unreviewed:false },
+  { id:'g3', name:'Sofa',            target:null,   start: 15000, parts:['bruno'],              contrib:{bruno:6000},                       unreviewed:false },
+];
+
+/* ══ per-device state (Viewer + dashboard toggle are not Household data) ══ */
+const state = {
+  viewer: 'ana',
+  countRestricted: false,          // substitutes total Income for Spendable Income in Leftover only
+  reviewed: new Set(),             // ids confirmed in this session
+  showDone: false,
+  openGoals: new Set(['g1']),      // expanded Savings Goals (variant F)
+};
+
+/* ══ money + split engine ══════════════════════════════════════════════════ */
+const fmt = c => HH.cur + (c/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtS = c => (c<0 ? '−' : '') + fmt(Math.abs(c));
+
+function largestRemainder(total, weights){
+  const sum = weights.reduce((a,b)=>a+b,0);
+  if (sum === 0) return weights.map(()=>0);
+  const raw  = weights.map(w => total*w/sum);
+  const base = raw.map(Math.floor);
+  let left = total - base.reduce((a,b)=>a+b,0);
+  raw.map((r,i)=>({i, rem:r-Math.floor(r)}))
+     .sort((a,b)=> b.rem-a.rem || a.i-b.i)
+     .forEach(o => { if (left-- > 0) base[o.i]++; });
+  return base;
+}
+
+const isUnreviewed = row => !!row.unreviewed && !state.reviewed.has(row.id);
+const isPending    = row => row.cents === null || row.cents === undefined;
+
+function spendable(mid){
+  return INCOME.filter(i=>i.member===mid && !i.restricted).reduce((a,i)=>a+i.cents,0);
+}
+function totalIncome(mid){
+  return INCOME.filter(i=>i.member===mid).reduce((a,i)=>a+i.cents,0);
+}
+
+// {shares:{mid:cents}, fellBack:bool}
+function shares(e){
+  const out = {}; let fellBack = false;
+  if (isPending(e)) { e.parts.forEach(p=>out[p]=null); return {shares:out, fellBack}; }
+  let weights;
+  if (e.rule.t === 'prop'){
+    weights = e.parts.map(spendable);
+    if (weights.reduce((a,b)=>a+b,0) === 0){ weights = e.parts.map(()=>1); fellBack = true; }
+  } else if (e.rule.t === 'even'){
+    weights = e.parts.map(()=>1);
+  } else if (e.rule.t === 'pct'){
+    weights = e.parts.map(p => e.rule.v[p]);
+  } else {                                  // fixed amounts — already exact
+    e.parts.forEach(p => out[p] = e.rule.v[p]);
+    return {shares:out, fellBack};
+  }
+  largestRemainder(e.cents, weights).forEach((c,i)=> out[e.parts[i]] = c);
+  return {shares:out, fellBack};
+}
+
+const shareOf = (e,mid) => shares(e).shares[mid] ?? 0;
+const sharesTotal = mid => EXPENSES.reduce((a,e)=> a + (isPending(e)?0:shareOf(e,mid)), 0);
+const contribTotal = mid => GOALS.reduce((a,g)=> a + (g.contrib[mid]||0), 0);
+
+function leftover(mid){
+  const basis = state.countRestricted ? totalIncome(mid) : spendable(mid);
+  return basis - sharesTotal(mid) - contribTotal(mid);
+}
+
+const accumulated = g => g.start + Object.values(g.contrib).reduce((a,b)=>a+b,0);
+const memberName  = id => MEMBERS.find(m=>m.id===id).name;
+
+function ruleLabel(e){
+  const {fellBack} = shares(e);
+  if (e.rule.t==='prop')  return fellBack ? 'even (no spendable income)' : 'proportional';
+  if (e.rule.t==='even')  return 'even';
+  if (e.rule.t==='pct')   return 'custom %';
+  return 'custom amounts';
+}
+function splitPreview(e){
+  if (isPending(e)) return 'No amount entered';
+  if (e.parts.length === 1) return memberName(e.parts[0]) + ' only';
+  const s = shares(e).shares;
+  return e.parts.map(p => memberName(p)+' '+fmt(s[p])).join('   ·   ');
+}
+
+const unreviewedRows = () => [...INCOME, ...EXPENSES, ...GOALS].filter(isUnreviewed);
+const pendingRows    = () => EXPENSES.filter(isPending);
+
+/* ══ shared bits ═══════════════════════════════════════════════════════════ */
+const LOGO = `<svg viewBox="380 442 932 672" aria-hidden="true"><g transform="translate(0,1428) scale(0.1,-0.1)" fill="#e8935c"><path d="M8315 9705 c-355 -33 -689 -99 -865 -172 -167 -69 -435 -225 -600 -349 -193 -146 -525 -529 -692 -801 -276 -446 -350 -782 -328 -1486 5 -153 7 -284 4 -290 -3 -7 -51 -43 -107 -82 -257 -177 -654 -480 -877 -669 -371 -314 -696 -653 -826 -862 -118 -189 -118 -357 -1 -472 92 -90 213 -125 422 -124 323 1 805 113 1420 329 177 61 766 286 873 331 37 16 126 53 197 82 214 87 546 226 615 258 36 17 148 68 250 115 405 187 718 344 1085 547 473 262 691 387 880 507 39 24 156 98 260 164 242 154 499 326 965 647 703 485 787 549 1080 818 367 339 566 549 625 663 8 17 35 58 59 93 89 128 134 252 151 415 7 76 -9 176 -37 222 -38 60 -165 101 -318 101 -174 0 -545 -64 -783 -136 -67 -20 -165 -49 -217 -65 -235 -69 -312 -95 -565 -194 -223 -88 -473 -207 -490 -235 -7 -11 115 -129 134 -130 8 0 71 16 140 35 169 46 281 65 431 72 150 7 187 -4 214 -61 16 -35 16 -38 -3 -82 -27 -61 -124 -176 -257 -304 -113 -109 -269 -248 -315 -281 l-27 -19 -53 92 c-124 221 -197 322 -374 517 -300 332 -517 498 -835 641 -350 157 -744 210 -1235 165z m-2361 -3492 c47 -141 110 -278 174 -381 29 -46 52 -86 52 -88 0 -25 -316 -113 -551 -154 -148 -25 -305 -35 -341 -21 -15 5 -35 22 -44 36 -16 24 -15 28 14 88 39 78 129 198 219 291 84 87 406 336 435 336 3 0 22 -48 42 -107z"/><path d="M4606 8949 c-109 -26 -225 -121 -274 -227 -24 -51 -27 -68 -27 -172 0 -104 3 -120 27 -173 15 -32 51 -81 80 -110 236 -236 629 -109 690 222 29 154 -58 333 -203 419 -75 45 -201 62 -293 41z"/><path d="M12479 7036 c-111 -43 -181 -106 -227 -204 -24 -50 -27 -69 -27 -162 0 -95 3 -110 28 -163 37 -74 110 -147 184 -184 53 -25 68 -28 163 -28 95 0 111 3 162 28 79 39 143 104 181 185 29 61 32 76 32 162 0 82 -4 103 -27 152 -37 80 -107 152 -186 190 -56 28 -77 33 -156 35 -59 2 -103 -2 -127 -11z"/><path d="M10679 6633 c-449 -336 -646 -477 -854 -611 -237 -152 -335 -207 -695 -389 -424 -215 -946 -449 -1545 -693 -231 -95 -338 -144 -355 -165 -11 -14 -7 -23 36 -66 164 -167 503 -309 847 -354 152 -19 422 -19 574 0 312 41 611 140 943 311 667 344 1076 803 1291 1446 54 162 96 340 108 463 6 55 13 128 17 161 7 64 -2 154 -15 154 -4 0 -162 -116 -352 -257z"/><path d="M10376 3996 c-154 -65 -233 -196 -224 -370 4 -65 11 -93 35 -141 38 -72 99 -133 173 -171 50 -26 65 -29 155 -29 89 0 106 3 157 28 74 36 139 101 175 175 25 51 28 68 28 157 0 88 -3 107 -27 157 -34 74 -113 152 -186 186 -85 39 -205 42 -286 8z"/></g></svg>`;
+
+const brand = () => `<div class="brand">${LOGO}<span class="nm">Prometheus</span><span class="t3" style="font-size:12.5px">${HH.name}</span></div>`;
+
+const MONTHS = [
+  {k:'2026-04', l:'Apr', open:true},
+  {k:'2026-05', l:'May', open:true},
+  {k:'2026-06', l:'Jun', open:true},
+  {k:'2026-07', l:'Jul', open:true, now:true},
+  {k:'2026-08', l:'Aug', open:true, drift:3},
+  {k:'2026-09', l:'Sep', open:false},
+];
+
+const monthNav = () => `<div class="mnav">
+  <button class="arrow">‹</button>
+  ${MONTHS.map(m=>`<button class="${m.now?'on':''}" title="${m.open?'opened':'not opened'}">${m.l}${
+     m.drift?' <span class="t3" style="font-size:10px">·'+m.drift+'</span>':''}${
+     !m.open?' <span class="t3" style="font-size:10px">+</span>':''}</button>`).join('')}
+  <button class="arrow">›</button>
+</div>`;
+
+const restrictedToggle = () => `<label class="toggle" data-act="restricted">
+  <input type="checkbox" ${state.countRestricted?'checked':''}>
+  <span class="track"><span class="knob"></span></span>
+  Count restricted-use income
+</label>`;
+
+const viewerPick = () => `<div class="viewer">Viewer
+  <select data-act="viewer">${MEMBERS.map(m=>`<option value="${m.id}" ${state.viewer===m.id?'selected':''}>${m.name}</option>`).join('')}</select>
+</div>`;
+
+const chips = row => {
+  const out = [];
+  if (isPending(row))    out.push('<span class="chip warn"><i class="dot"></i>Pending</span>');
+  if (isUnreviewed(row)) out.push('<span class="chip unrev"><i class="dot"></i>Unreviewed</span>');
+  if (row.oneOff)        out.push('<span class="chip">One-Off</span>');
+  return out.join(' ');
+};
+
+/* ══ VARIANT A — Ledger: one dense column, review checklist is the spine ══ */
+function VariantA(){
+  const rows = (title, list, renderRow, total) => `
+    <section class="a-sec">
+      <div class="a-sec-h"><span class="slab">${title}</span>
+        ${total!=null?`<span class="tot num">${fmt(total)}</span>`:''}</div>
+      <div class="card">${list.map(renderRow).join('')}</div>
+      <div style="padding:9px 2px 0"><button class="add">+ Add ${title.toLowerCase().replace(/s$/,'')}</button></div>
+    </section>`;
+
+  const revBox = r => r.unreviewed
+    ? `<button class="rev ${state.reviewed.has(r.id)?'done':''}" data-act="review" data-id="${r.id}" title="Mark reviewed">✓</button>`
+    : `<span class="rev done" style="opacity:.32">✓</span>`;
+
+  const incRow = i => `<div class="a-row ${isUnreviewed(i)?'is-unrev':''}">
+      ${revBox(i)}
+      <div class="name"><div class="n"><span>${i.source}</span>${chips(i)}</div>
+        <div class="split">${memberName(i.member)}${i.restricted?'  ·  restricted-use':''}</div></div>
+      <div class="amt num">${fmt(i.cents)}</div></div>`;
+
+  const expRow = e => `<div class="a-row ${isPending(e)?'is-pending':''} ${isUnreviewed(e)?'is-unrev':''}">
+      ${revBox(e)}
+      <div class="name"><div class="n"><span>${e.name}</span>
+          <span class="chip">${ruleLabel(e)}</span>${chips(e)}</div>
+        <div class="split num">${splitPreview(e)}</div></div>
+      <div class="amt num ${isPending(e)?'none':''}">${isPending(e)?'Enter amount':fmt(e.cents)}</div></div>`;
+
+  const goalRow = g => {
+    const acc = accumulated(g), pct = g.target ? Math.min(100, Math.round(acc/g.target*100)) : null;
+    return `<div class="a-row">
+      ${revBox(g)}
+      <div class="name"><div class="n"><span>${g.name}</span>
+        <span class="chip" style="color:var(--ice);border-color:rgba(125,201,232,.3)">${pct!=null?pct+'% of '+fmt(g.target):'no target'}</span></div>
+        <div class="split num">${g.parts.map(p=>memberName(p)+' '+fmt(g.contrib[p]||0)).join('   ·   ')}</div></div>
+      <div class="amt num">${fmt(acc)}</div></div>`;
+  };
+
+  const expTotal = EXPENSES.reduce((a,e)=>a+(e.cents||0),0);
+  const incTotal = MEMBERS.reduce((a,m)=>a+totalIncome(m.id),0);
+  const unrev = unreviewedRows().length, pend = pendingRows().length;
+  const total = [...INCOME,...EXPENSES,...GOALS].length;
+  const doneN = total - unrev;
+
+  return `
+  <div class="top">${brand()}${monthNav()}${viewerPick()}</div>
+  <div class="a-strip"><div class="a-strip-in">
+    ${MEMBERS.map(m=>`<div class="a-mem ${m.id===state.viewer?'me':''}">
+      <div class="nm">${m.name}${m.id===state.viewer?' <span class="chip">you</span>':''}</div>
+      <div class="lv num ${leftover(m.id)<0?'neg':''}">${fmtS(leftover(m.id))}</div>
+      <div class="sub num">${fmt(state.countRestricted?totalIncome(m.id):spendable(m.id))} − ${fmt(sharesTotal(m.id))} shares − ${fmt(contribTotal(m.id))} saved</div>
+    </div>`).join('')}
+  </div></div>
+  <div class="wrap">
+    <div style="display:flex;align-items:center;gap:16px;margin:20px 0 4px">
+      <h2 style="font-size:19px;letter-spacing:-.01em">${HH.month}</h2>
+      <span class="chip">Opened · copied from June 2026</span>
+      <span style="margin-left:auto">${restrictedToggle()}</span>
+    </div>
+    ${rows('Income',   INCOME,   incRow, incTotal)}
+    ${rows('Expenses', EXPENSES, expRow, expTotal)}
+    ${rows('Savings goals', GOALS, goalRow, null)}
+    <div style="height:40px"></div>
+  </div>
+  <div class="a-foot"><div class="a-foot-in">
+    <span class="med num">${unrev===0?'Nothing left to review':unrev+' unreviewed'}</span>
+    <span class="bar"><i style="width:${Math.round(doneN/total*100)}%"></i></span>
+    <span class="t3 num">${doneN}/${total} rows</span>
+    ${pend?`<span class="chip warn" style="margin-left:8px"><i class="dot"></i>${pend} Pending</span>`:''}
+    <span style="margin-left:auto" class="t3">Household total ${fmt(expTotal)}</span>
+  </div></div>`;
+}
+VariantA.title = 'Ledger — one column, review checklist';
+
+/* ══ panel rows — shared by D and E (rows, not layout) ═════════════════════ */
+const revBox = r => r.unreviewed
+  ? `<button class="rev ${state.reviewed.has(r.id)?'done':''}" data-act="review" data-id="${r.id}" title="Mark reviewed">✓</button>`
+  : `<span class="rev done" style="opacity:.3">✓</span>`;
+
+const pRowInc = i => `<div class="prow ${isUnreviewed(i)?'unrev':''}">
+    ${revBox(i)}
+    <div class="nm"><div class="n">${i.source}${chips(i)}</div>
+      <div class="sp">${memberName(i.member)}${i.restricted?' · restricted-use':''}</div></div>
+    <div class="v num">${fmt(i.cents)}</div></div>`;
+
+const pRowExp = (e, {split=true}={}) => `<div class="prow ${isPending(e)?'pend':''} ${isUnreviewed(e)?'unrev':''}">
+    ${revBox(e)}
+    <div class="nm"><div class="n">${e.name}<span class="chip">${ruleLabel(e)}</span>${chips(e)}</div>
+      ${split?`<div class="sp num">${splitPreview(e)}</div>`:''}</div>
+    <div class="v num ${isPending(e)?'none':''}">${isPending(e)?'Enter amount':fmt(e.cents)}</div></div>`;
+
+const ringSVG = (g, size=34, w=3) => {
+  const R = size/2 - w/2 - .5, C = 2*Math.PI*R;
+  const pct = g.target ? Math.min(1, accumulated(g)/g.target) : 0;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="flex:none">
+    <circle cx="${size/2}" cy="${size/2}" r="${R}" fill="none" stroke="#262A38" stroke-width="${w}"/>
+    ${g.target?`<circle cx="${size/2}" cy="${size/2}" r="${R}" fill="none" stroke="#7DC9E8" stroke-width="${w}"
+      stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-pct)}"
+      transform="rotate(-90 ${size/2} ${size/2})"/>`:''}</svg>`;
+};
+
+const pRowGoal = g => `<div class="prow">
+    ${ringSVG(g)}
+    <div class="nm"><div class="n">${g.name}</div>
+      <div class="sp num">${g.target?fmt(accumulated(g))+' of '+fmt(g.target):fmt(accumulated(g))+' · no target'}
+        · as of ${HH.month}</div></div>
+    <div class="v num ${g.parts.includes(state.viewer)?'':'t3'}">${
+      g.parts.includes(state.viewer) ? fmt(g.contrib[state.viewer]||0) : '—'}</div></div>`;
+
+const panel = (title, rowsHtml, {tot=null, add=null, foot=null}={}) => `<div class="pl">
+    <div class="pl-h"><span class="slab">${title}</span>${tot!=null?`<span class="tot num">${tot}</span>`:''}</div>
+    ${rowsHtml}
+    ${foot?`<div class="pl-f">${foot}</div>`:''}
+    ${add?`<div class="pl-f"><button class="add">+ ${add}</button></div>`:''}
+  </div>`;
+
+const reviewMeter = () => {
+  const total = [...INCOME,...EXPENSES,...GOALS].length;
+  const unrev = unreviewedRows().length, pend = pendingRows().length, done = total-unrev;
+  return `<div class="nm"><div class="n med">${unrev===0?'Nothing left to review':unrev+' unreviewed'}</div>
+      <div class="sp num">${done}/${total} rows confirmed${pend?' · '+pend+' Pending':''}</div></div>
+    <span class="bar" style="max-width:120px"><i style="width:${Math.round(done/total*100)}%"></i></span>`;
+};
+
+/* ══ VARIANT D — Deck: summary tiles across the top, three panel columns ═══ */
+function VariantD(){
+  const expTotal = EXPENSES.reduce((a,e)=>a+(e.cents||0),0);
+  const incTotal = MEMBERS.reduce((a,m)=>a+totalIncome(m.id),0);
+  const goalTotal = GOALS.reduce((a,g)=>a+accumulated(g),0);
+  const queue = [...pendingRows(), ...unreviewedRows().filter(r=>!isPending(r))];
+
+  return `
+  <div class="top">${brand()}${monthNav()}${viewerPick()}</div>
+  <div class="dwrap">
+    <div class="dhead">
+      <h2 style="font-size:19px;letter-spacing:-.01em">${HH.month}</h2>
+      <span class="chip">Opened · copied from June 2026</span>
+      <span style="margin-left:auto">${restrictedToggle()}</span>
+    </div>
+
+    <div class="tiles">
+      ${MEMBERS.map(m=>`<div class="card tile ${m.id===state.viewer?'me':''}">
+        <div class="nm">${m.name}${m.id===state.viewer?' <span class="chip">you</span>':''}</div>
+        <div class="lv num ${leftover(m.id)<0?'neg':''}">${fmtS(leftover(m.id))}</div>
+        <div class="sub num">${fmt(state.countRestricted?totalIncome(m.id):spendable(m.id))} − ${fmt(sharesTotal(m.id))} − ${fmt(contribTotal(m.id))}</div>
+      </div>`).join('')}
+      <div class="card tile">
+        <div class="nm">Review</div>
+        <div class="lv num ${queue.length?'fire':''}">${queue.length}</div>
+        <div class="sub">${pendingRows().length} Pending · ${unreviewedRows().length} Unreviewed</div>
+        <span class="bar" style="max-width:none;margin-top:9px"><i style="width:${
+          Math.round((1-unreviewedRows().length/[...INCOME,...EXPENSES,...GOALS].length)*100)}%"></i></span>
+      </div>
+    </div>
+
+    <div class="cols3">
+      <div class="stack">
+        ${panel('Expenses', EXPENSES.map(e=>pRowExp(e)).join(''), {tot:fmt(expTotal), add:'Expense'})}
+      </div>
+      <div class="stack">
+        ${panel('Income', INCOME.map(pRowInc).join(''), {tot:fmt(incTotal), add:'Income'})}
+        ${panel('This Month', `
+          <div class="prow"><div class="nm"><div class="n">Copied from</div></div><div class="v">June 2026</div></div>
+          <div class="prow"><div class="nm"><div class="n">One-Off rows</div>
+            <div class="sp">will not be inherited</div></div>
+            <div class="v num">${[...INCOME,...EXPENSES].filter(r=>r.oneOff).length}</div></div>
+          <div class="prow"><div class="nm"><div class="n">August 2026</div>
+            <div class="sp">already open · 3 rows Drift</div></div><div class="v"><span class="chip">review diff</span></div></div>`,
+          {foot:`<button class="add">Export Household as JSON</button>`})}
+      </div>
+      <div class="stack">
+        ${panel('Savings goals', GOALS.map(pRowGoal).join(''), {tot:fmt(goalTotal), add:'Savings goal'})}
+        ${panel('Needs you', queue.length
+          ? queue.map(r=>`<div class="prow ${isPending(r)?'pend':''} ${isUnreviewed(r)?'unrev':''}">
+              ${revBox(r)}
+              <div class="nm"><div class="n">${r.source||r.name}${chips(r)}</div></div>
+              <div class="v num ${isPending(r)?'none':''}">${isPending(r)?'Enter amount':fmt(r.cents ?? accumulated(r))}</div></div>`).join('')
+          : `<div class="prow"><div class="nm"><div class="n fire">Review complete</div>
+              <div class="sp">every row entered or confirmed</div></div></div>`)}
+      </div>
+    </div>
+  </div>`;
+}
+VariantD.title = 'Deck — tiles + three panel columns';
+
+/* ══ VARIANT F — Left rail pinned · expenses centre · income + goals right ══
+   Goals list every member, each row collapsible for the full breakdown.       */
+function VariantF(){
+  const expTotal = EXPENSES.reduce((a,e)=>a+(e.cents||0),0);
+  const incTotal = MEMBERS.reduce((a,m)=>a+totalIncome(m.id),0);
+  const goalTotal = GOALS.reduce((a,g)=>a+accumulated(g),0);
+  const lv = leftover(state.viewer);
+
+  const goalRow = g => {
+    const open = state.openGoals.has(g.id), acc = accumulated(g);
+    const monthTotal = Object.values(g.contrib).reduce((a,b)=>a+b,0);
+    const pct = g.target ? Math.round(acc/g.target*100) : null;
+    return `<div class="prow clk" data-act="goal" data-id="${g.id}">
+        <span class="chev ${open?'open':''}">▶</span>
+        ${ringSVG(g, 30)}
+        <div class="nm"><div class="n">${g.name}</div>
+          <div class="sp num">${pct!=null?pct+'% · '+fmt(acc)+' of '+fmt(g.target):fmt(acc)+' · no target'}</div></div>
+        <div class="v num">${fmt(monthTotal)}</div>
+      </div>
+      ${open?`<div class="gdet">
+        ${MEMBERS.map(m=>`<div class="gline"><span>${m.name}${g.parts.includes(m.id)?'':' <span class="t3">not a Participant</span>'}</span>
+          <span class="num ${g.parts.includes(m.id)?'':'t3'}">${g.parts.includes(m.id)?fmt(g.contrib[m.id]||0):'—'}</span></div>`).join('')}
+        <div class="gline tot"><span>This Month</span><span class="num">${fmt(monthTotal)}</span></div>
+        <div class="gline"><span>Start amount</span><span class="num">${fmt(g.start)}</span></div>
+        <div class="gline"><span>Accumulated Progress${g.target?' · target '+fmt(g.target):''}</span>
+          <span class="num" style="color:var(--ice)">${fmt(acc)}</span></div>
+        <div style="padding-top:7px;display:flex;gap:14px">
+          <button class="add">Edit contributions</button><button class="add">Mark One-Off</button></div>
+      </div>`:''}`;
+  };
+
+  return `
+  <div class="top f">
+    ${brand()}
+    <div class="top-c"><h2>${HH.month}</h2></div>
+    ${monthNav()}${viewerPick()}
+  </div>
+  <div class="ewrap">
+    <div class="cols3r">
+      <aside class="stack rail">
+        <div class="card" style="padding:17px">
+          <div class="t2" style="font-size:12.5px">${memberName(state.viewer)} · ${HH.month}</div>
+          <div class="num ${lv<0?'neg':'fire'}" style="font-size:30px;font-weight:500;letter-spacing:-.02em;margin:6px 0 1px">${fmtS(lv)}</div>
+          <div class="slab" style="margin-bottom:11px">Leftover Balance</div>
+          <div class="c-line"><span class="t2">${state.countRestricted?'Income':'Spendable Income'}</span>
+            <span class="num">${fmt(state.countRestricted?totalIncome(state.viewer):spendable(state.viewer))}</span></div>
+          <div class="c-line"><span class="t2">Expense Shares</span><span class="num">− ${fmt(sharesTotal(state.viewer))}</span></div>
+          <div class="c-line"><span class="t2">Contributions</span><span class="num">− ${fmt(contribTotal(state.viewer))}</span></div>
+          <div style="padding-top:12px">${restrictedToggle()}</div>
+        </div>
+
+        ${panel('Everyone else', MEMBERS.filter(m=>m.id!==state.viewer).map(m=>`
+          <div class="prow"><div class="nm"><div class="n">${m.name}</div>
+            <div class="sp num">${fmt(sharesTotal(m.id))} shares · ${fmt(contribTotal(m.id))} saved</div></div>
+            <div class="v num ${leftover(m.id)<0?'neg':''}">${fmtS(leftover(m.id))}</div></div>`).join(''))}
+
+        ${panel('Monthly review', `<div class="prow">${reviewMeter()}</div>`,
+          {foot:`<button class="add">Jump to next unreviewed row</button>`})}
+
+        ${panel('This Month', `
+          <div class="prow"><div class="nm"><div class="n">Copied from</div></div><div class="v">June 2026</div></div>
+          <div class="prow"><div class="nm"><div class="n">August 2026</div>
+            <div class="sp">already open · 3 rows Drift</div></div>
+            <div class="v"><span class="chip">diff</span></div></div>`,
+          {foot:`<button class="add">Export as JSON</button>`})}
+      </aside>
+
+      <div class="stack">
+        ${panel('Expenses', EXPENSES.map(e=>pRowExp(e)).join(''), {tot:fmt(expTotal), add:'Expense'})}
+      </div>
+
+      <div class="stack">
+        ${panel('Income', INCOME.map(pRowInc).join(''), {tot:fmt(incTotal), add:'Income'})}
+        ${panel('Savings goals', GOALS.map(goalRow).join(''), {tot:fmt(goalTotal), add:'Savings goal'})}
+      </div>
+    </div>
+  </div>`;
+}
+VariantF.title = 'Left rail · expenses centre · income + collapsible goals right';
+
+/* ══ VARIANT E — Rail: viewer summary pinned right, panels nested left ═════ */
+function VariantE(){
+  const expTotal = EXPENSES.reduce((a,e)=>a+(e.cents||0),0);
+  const incTotal = MEMBERS.reduce((a,m)=>a+totalIncome(m.id),0);
+  const lv = leftover(state.viewer);
+
+  return `
+  <div class="top">${brand()}${monthNav()}${viewerPick()}</div>
+  <div class="ewrap">
+    <div class="cols2">
+      <div class="stack">
+        <div class="dhead" style="margin:0">
+          <h2 style="font-size:19px;letter-spacing:-.01em">${HH.month}</h2>
+          <span class="chip">Opened · copied from June 2026</span>
+        </div>
+        ${panel('Expenses', EXPENSES.map(e=>pRowExp(e)).join(''), {tot:fmt(expTotal), add:'Expense'})}
+        <div class="sub2">
+          ${panel('Income', INCOME.map(i=>pRowInc(i)).join(''), {tot:fmt(incTotal), add:'Income'})}
+          ${panel('Savings goals', GOALS.map(g=>`<div class="prow">
+              ${ringSVG(g, 30)}
+              <div class="nm"><div class="n">${g.name}</div>
+                <div class="sp num">${g.target?fmt(accumulated(g))+' of '+fmt(g.target):fmt(accumulated(g))+' · no target'}</div></div>
+              <div class="v num">${g.parts.includes(state.viewer)?fmt(g.contrib[state.viewer]||0):'—'}</div></div>`).join(''),
+            {add:'Savings goal'})}
+        </div>
+      </div>
+
+      <aside class="stack rail">
+        <div class="card" style="padding:18px">
+          <div class="t2" style="font-size:12.5px">${memberName(state.viewer)} · ${HH.month}</div>
+          <div class="num ${lv<0?'neg':'fire'}" style="font-size:32px;font-weight:500;letter-spacing:-.02em;margin:6px 0 1px">${fmtS(lv)}</div>
+          <div class="slab" style="margin-bottom:11px">Leftover Balance</div>
+          <div class="c-line"><span class="t2">${state.countRestricted?'Income':'Spendable Income'}</span>
+            <span class="num">${fmt(state.countRestricted?totalIncome(state.viewer):spendable(state.viewer))}</span></div>
+          <div class="c-line"><span class="t2">Expense Shares</span><span class="num">− ${fmt(sharesTotal(state.viewer))}</span></div>
+          <div class="c-line"><span class="t2">Contributions</span><span class="num">− ${fmt(contribTotal(state.viewer))}</span></div>
+          <div style="padding-top:12px">${restrictedToggle()}</div>
+        </div>
+
+        ${panel('Everyone else', MEMBERS.filter(m=>m.id!==state.viewer).map(m=>`
+          <div class="prow"><div class="nm"><div class="n">${m.name}</div>
+            <div class="sp num">${fmt(sharesTotal(m.id))} shares · ${fmt(contribTotal(m.id))} saved</div></div>
+            <div class="v num ${leftover(m.id)<0?'neg':''}">${fmtS(leftover(m.id))}</div></div>`).join(''))}
+
+        ${panel('Monthly review', `<div class="prow">${reviewMeter()}</div>`,
+          {foot:`<button class="add">Jump to next unreviewed row</button>`})}
+      </aside>
+    </div>
+  </div>`;
+}
+VariantE.title = 'Rail — panels left, viewer summary pinned right';
+
+/* ══ VARIANT C — Review queue: only what needs you, viewer hero on the left ══ */
+function VariantC(){
+  const ring = g => {
+    const acc = accumulated(g), pct = g.target ? Math.min(1, acc/g.target) : 0;
+    const R = 15, C = 2*Math.PI*R;
+    return `<div class="ring">
+      <svg width="38" height="38" viewBox="0 0 38 38">
+        <circle cx="19" cy="19" r="${R}" fill="none" stroke="#262A38" stroke-width="3"/>
+        ${g.target?`<circle cx="19" cy="19" r="${R}" fill="none" stroke="#7DC9E8" stroke-width="3"
+          stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-pct)}"
+          transform="rotate(-90 19 19)"/>`:''}
+      </svg>
+      <div class="g"><div class="n">${g.name}</div>
+        <div class="s num">${g.target?fmt(acc)+' of '+fmt(g.target)+' · as of '+HH.month:fmt(acc)+' · no target'}</div></div>
+      <div class="num med ${g.parts.includes(state.viewer)?'':'t3'}">${
+        g.parts.includes(state.viewer) ? fmt(g.contrib[state.viewer]||0) : '—'}</div>
+    </div>`;
+  };
+
+  const queue = [...pendingRows(), ...unreviewedRows().filter(r=>!isPending(r))];
+
+  const qcard = r => {
+    const isExp = 'parts' in r && 'rule' in r;
+    const isInc = 'source' in r;
+    const pending = isPending(r) && isExp;
+    const name = isInc ? r.source : r.name;
+    const why = pending
+      ? 'New expense — its first Month, so there was nothing to inherit.'
+      : `Arrived from June 2026 when this Month was opened. Nobody has looked at it yet.`;
+    const val = pending ? 'Enter amount' : fmt(r.cents ?? accumulated(r));
+    const brk = isExp && !pending
+      ? `<div class="brk">${r.parts.map(p=>`<span class="pill">${memberName(p)} <b class="num">${fmt(shares(r).shares[p])}</b></span>`).join('')}</div>`
+      : isInc ? `<div class="brk"><span class="pill">${memberName(r.member)}</span>${r.restricted?'<span class="pill">restricted-use</span>':''}</div>` : '';
+    return `<div class="card qcard ${pending?'pending':''}">
+      <div class="body">
+        <div class="ttl"><span class="n">${name}</span>
+          ${isExp?`<span class="chip">${ruleLabel(r)}</span>`:''}${chips(r)}</div>
+        <div class="why">${why}</div>
+        ${brk}
+      </div>
+      <div class="right">
+        <div class="v num ${pending?'none':''}">${val}</div>
+        <div class="acts">
+          <button class="btn">Edit</button>
+          ${pending?'':`<button class="btn p" data-act="review" data-id="${r.id}">Confirm</button>`}
+        </div>
+      </div>
+    </div>`;
+  };
+
+  const settled = [...INCOME,...EXPENSES,...GOALS].filter(r=>!isPending(r) && !isUnreviewed(r));
+  const lv = leftover(state.viewer);
+
+  return `
+  <div class="top">${brand()}${monthNav()}${viewerPick()}</div>
+  <div class="c">
+    <div>
+      <div class="card c-hero">
+        <div class="who">${memberName(state.viewer)} · ${HH.month}</div>
+        <div class="big num ${lv<0?'neg':''}">${fmtS(lv)}</div>
+        <div class="slab" style="margin-bottom:12px">Leftover Balance</div>
+        <div class="c-line"><span class="t2">${state.countRestricted?'Income':'Spendable Income'}</span>
+          <span class="num">${fmt(state.countRestricted?totalIncome(state.viewer):spendable(state.viewer))}</span></div>
+        <div class="c-line"><span class="t2">Expense Shares</span><span class="num">− ${fmt(sharesTotal(state.viewer))}</span></div>
+        <div class="c-line"><span class="t2">Contributions</span><span class="num">− ${fmt(contribTotal(state.viewer))}</span></div>
+        <div style="padding-top:12px">${restrictedToggle()}</div>
+      </div>
+
+      <div class="card" style="margin-top:14px;padding:16px 18px">
+        <div class="slab" style="margin-bottom:6px">Everyone else</div>
+        <div class="c-others">${MEMBERS.filter(m=>m.id!==state.viewer).map(m=>`
+          <div class="c-oth"><span>${m.name}</span>
+            <span class="v num ${leftover(m.id)<0?'neg':''}">${fmtS(leftover(m.id))}</span></div>`).join('')}</div>
+      </div>
+
+      <div class="card" style="margin-top:14px;padding:16px 18px">
+        <div class="slab" style="margin-bottom:4px">Savings goals</div>
+        ${GOALS.map(ring).join('')}
+      </div>
+    </div>
+
+    <div class="c-q">
+      <div class="c-q-h">
+        <h2 style="font-size:19px;letter-spacing:-.01em">Needs you</h2>
+        <span class="cnt num">${queue.length===0?'nothing left':queue.length+' of '+([...INCOME,...EXPENSES,...GOALS].length)+' rows'}</span>
+      </div>
+      ${queue.length ? queue.map(qcard).join('') : `<div class="card c-empty">
+        <span class="k">Review complete</span>
+        Every row in ${HH.month} has been entered or confirmed. Nothing is unreviewed.</div>`}
+
+      <div class="c-done">
+        <div class="c-done-h" data-act="showdone">
+          <span class="slab">Reviewed · ${settled.length}</span>
+          <span class="t3" style="font-size:12px">${state.showDone?'hide':'show'}</span>
+        </div>
+        ${state.showDone ? `<div class="card">${settled.map(r=>`
+          <div class="c-done-r"><span>${r.source||r.name}</span>
+            ${r.oneOff?'<span class="chip">One-Off</span>':''}
+            <span class="v num">${fmt(r.cents ?? accumulated(r))}</span></div>`).join('')}</div>` : ''}
+      </div>
+      <div style="height:50px"></div>
+    </div>
+  </div>`;
+}
+VariantC.title = 'Review queue — only what needs you';
+
+/* ══ switcher + render ═════════════════════════════════════════════════════ */
+const VARIANTS = { F:VariantF, D:VariantD, E:VariantE, A:VariantA, C:VariantC };
+const KEYS = Object.keys(VARIANTS);
+let current = (new URLSearchParams(location.search).get('variant') || 'F').toUpperCase();
+if (!KEYS.includes(current)) current = 'F';
+
+function render(){
+  const V = VARIANTS[current];
+  document.getElementById('app').innerHTML = V();
+  document.getElementById('sw').innerHTML =
+    `<button data-step="-1" aria-label="previous variant">‹</button>
+     <span class="lbl">${current} <span>— ${V.title}</span></span>
+     <button data-step="1" aria-label="next variant">›</button>`;
+  document.title = `PROTOTYPE ${current} — ${V.title}`;
+}
+
+function go(step){
+  current = KEYS[(KEYS.indexOf(current) + step + KEYS.length) % KEYS.length];
+  const u = new URL(location); u.searchParams.set('variant', current);
+  history.replaceState(null,'',u);
+  render();
+}
+
+document.getElementById('sw').addEventListener('click', e => {
+  const b = e.target.closest('[data-step]'); if (b) go(+b.dataset.step);
+});
+
+document.addEventListener('keydown', e => {
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
+  if (e.key === 'ArrowLeft')  go(-1);
+  if (e.key === 'ArrowRight') go(1);
+});
+
+document.getElementById('app').addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const act = el.dataset.act;
+  if (act === 'review'){ state.reviewed.has(el.dataset.id) ? state.reviewed.delete(el.dataset.id) : state.reviewed.add(el.dataset.id); render(); }
+  if (act === 'showdone'){ state.showDone = !state.showDone; render(); }
+  if (act === 'goal'){ state.openGoals.has(el.dataset.id) ? state.openGoals.delete(el.dataset.id) : state.openGoals.add(el.dataset.id); render(); }
+});
+document.getElementById('app').addEventListener('change', e => {
+  const el = e.target.closest('[data-act]') || e.target.parentElement?.closest('[data-act]');
+  if (!el) return;
+  if (el.dataset.act === 'restricted'){ state.countRestricted = e.target.checked; render(); }
+  if (el.dataset.act === 'viewer' || e.target.dataset.act === 'viewer'){ state.viewer = e.target.value; render(); }
+});
+
+render();
+</script>
+</body>
+</html>
