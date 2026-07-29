@@ -6,8 +6,4 @@ dist/
 *.db-shm
 .scratch/
 docs/agents/
-docs/adr/
-prometheus-system-plan.md
-prometheus-redesign-brief.md
 AGENTS.md
-CONTEXT.md
