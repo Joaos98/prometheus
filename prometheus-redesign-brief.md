@@ -22,6 +22,10 @@ Prometheus is a household finance tracker. The name references Prometheus, Titan
 | Accent — primary ("fire") | `#E8935C` / `#F0A868` | primary actions, key totals (e.g. leftover), "+Add" links, active nav item |
 | Accent — secondary ("moon/ice") | `#7DC9E8` | used sparingly — goal progress rings, subtle highlights only. Not a general-purpose color. |
 
+## Layout
+
+The Month dashboard's layout is settled in [ADR-0010](./docs/adr/0010-month-dashboard-layout.md): a pinned left rail (Leftover Balances, review meter, Month facts), Expenses in the centre, Income and Savings Goals on the right, with the Month's name centred in the header. Panels are flat surfaces separated by hairlines, and a Month fits one desktop window.
+
 ## Typography & components
 
 - Clean sans-serif. Two weights only: regular for body/labels, medium (500) for headings and key numbers.
