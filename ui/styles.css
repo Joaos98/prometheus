@@ -1,0 +1,136 @@
+/* The visual language of the design brief: dark only, flat surfaces, hairlines
+   instead of shadows, one warm accent for fire, two font weights. */
+
+:root {
+  --page: #12141c;
+  --surface: #1a1d28;
+  --hairline: #262a38;
+  --text: #f0f1f5;
+  --text-secondary: #8b92a5;
+  --text-muted: #6b7280;
+  --fire: #e8935c;
+  --fire-bright: #f0a868;
+  --ice: #7dc9e8;
+
+  --radius-card: 12px;
+  --radius-control: 8px;
+
+  --gap: 20px;
+  --pad: 20px;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--page);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 500;
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.card {
+  background: var(--surface);
+  border: 0.5px solid var(--hairline);
+  border-radius: var(--radius-card);
+  padding: var(--pad);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.secondary {
+  color: var(--text-secondary);
+}
+
+.figure {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+input,
+select,
+button {
+  font: inherit;
+  color: inherit;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 9px 11px;
+  background: var(--page);
+  border: 0.5px solid var(--hairline);
+  border-radius: var(--radius-control);
+}
+
+input::placeholder {
+  color: var(--text-muted);
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--fire);
+}
+
+button {
+  cursor: pointer;
+  border-radius: var(--radius-control);
+}
+
+.button-primary {
+  padding: 10px 18px;
+  font-weight: 500;
+  color: var(--page);
+  background: var(--fire);
+  border: none;
+}
+
+.button-primary:hover:not(:disabled) {
+  background: var(--fire-bright);
+}
+
+.button-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.button-quiet {
+  padding: 6px 10px;
+  color: var(--fire);
+  background: none;
+  border: 0.5px solid var(--hairline);
+}
+
+.button-quiet:hover {
+  border-color: var(--fire);
+}

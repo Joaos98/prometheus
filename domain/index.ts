@@ -1,0 +1,24 @@
+/**
+ * The domain engine: every rule Prometheus computes, as pure functions over a
+ * Household value. It imports no framework and does no I/O, so it is testable with no
+ * browser, no adapter and no Vue.
+ */
+export { DomainError } from './errors.js'
+export { relabelCurrency, setUpHousehold, type Setup } from './household.js'
+export { assertMonthKey, monthKey, monthName } from './month-key.js'
+export { isOpened, monthAt, openedMonthKeys, openMonth, previousMonthKey } from './month.js'
+export { formatAmount, toMinor } from './money.js'
+export type {
+  Currency,
+  ExpenseSnapshot,
+  Household,
+  IncomeSnapshot,
+  Member,
+  MemberId,
+  Minor,
+  Month,
+  MonthKey,
+  MonthRow,
+  RowId,
+  SavingsGoal,
+} from './types.js'
