@@ -46,6 +46,33 @@ export function openMonth(household: Household, key: MonthKey): Household {
   return { ...household, months: { ...household.months, [month]: opened } }
 }
 
+/** How many rows a Month holds, of every kind — what discarding it would remove. */
+export function entryCount(month: Month): number {
+  return month.income.length + month.expenses.length + month.goals.length
+}
+
+/**
+ * Undoes an open: the Month's key goes away entirely, taking every row with it, and the
+ * Month is unopened again — not opened and empty, which is a different thing the model
+ * relies on telling apart. Opening it afresh afterwards copies the Previous Month as it
+ * now stands.
+ *
+ * This is the Household's one destructive operation, which is why the count of what will
+ * be lost is a separate query: whoever calls this is expected to have said the number
+ * out loud first. Every other Month is left exactly as it was, including the Months
+ * after this one — they keep what they inherited, and simply inherit across the gap the
+ * next time one of them is opened.
+ */
+export function discardMonth(household: Household, key: MonthKey): Household {
+  const month = assertMonthKey(key)
+  if (!isOpened(household, month)) {
+    throw new DomainError(`${monthName(month)} has not been opened, so there is nothing to discard`)
+  }
+
+  const { [month]: discarded, ...kept } = household.months
+  return { ...household, months: kept }
+}
+
 /** The Household's earliest Month: the active Roster, and nothing to inherit. */
 function firstMonth(household: Household, key: MonthKey): Month {
   const members = household.roster.filter((member) => member.active).map((member) => member.id)

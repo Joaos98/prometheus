@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { monthAt, monthName, type Household, type MonthKey } from '../../domain/index.js'
+import { monthAt, type Household, type MonthKey } from '../../domain/index.js'
 import ExpensesPanel from '../components/ExpensesPanel.vue'
 import GoalsPanel from '../components/GoalsPanel.vue'
 import IncomePanel from '../components/IncomePanel.vue'
+import MonthNavigator from '../components/MonthNavigator.vue'
 import MonthRail from '../components/MonthRail.vue'
 import RosterPanel from '../components/RosterPanel.vue'
+import UnopenedMonth from '../components/UnopenedMonth.vue'
 import { useChanges } from '../changes.js'
 import { CURRENCIES } from '../currencies.js'
 import { useHousehold } from '../household.js'
@@ -39,7 +41,7 @@ async function saveCurrency(): Promise<void> {
         <span class="secondary">Prometheus</span>
       </div>
 
-      <h1>{{ monthName(viewing) }}</h1>
+      <MonthNavigator :household="household" :viewing="viewing" />
 
       <div class="side right">
         <button class="button-quiet" type="button" @click="managingRoster = !managingRoster">
@@ -71,9 +73,7 @@ async function saveCurrency(): Promise<void> {
       <p v-if="failure" class="failure note">{{ failure }}</p>
     </div>
 
-    <p v-if="!month" class="unopened card">
-      {{ monthName(viewing) }} has not been opened. Looking at it does not open it.
-    </p>
+    <UnopenedMonth v-if="!month" :household="household" :viewing="viewing" />
 
     <div v-else class="columns">
       <MonthRail :household="household" :month="month" />
@@ -105,11 +105,6 @@ async function saveCurrency(): Promise<void> {
   align-items: center;
   padding-bottom: 16px;
   border-bottom: 0.5px solid var(--hairline);
-}
-
-.masthead h1 {
-  font-size: 20px;
-  text-align: center;
 }
 
 .side {
@@ -149,11 +144,6 @@ async function saveCurrency(): Promise<void> {
 
 .failure {
   color: var(--fire-bright);
-}
-
-.unopened {
-  margin: 0;
-  color: var(--text-secondary);
 }
 
 /* ADR-0010: a pinned rail, Expenses widest in the centre, Income and goals sharing

@@ -56,6 +56,13 @@ export function localStorageStore(storage: Storage): HouseholdStore {
       write({ ...household, months: { ...household.months, [month.key]: month } })
     },
 
+    async discardMonth(key: MonthKey): Promise<void> {
+      const household = readOrFail()
+      monthOrFail(household, key)
+      const { [key]: discarded, ...kept } = household.months
+      write({ ...household, months: kept })
+    },
+
     async writeRow(key: MonthKey, kind: RowKind, row: MonthRow): Promise<void> {
       const household = readOrFail()
       const month = monthOrFail(household, key)

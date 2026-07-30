@@ -51,8 +51,24 @@ export { isReviewed, unreviewedCount } from './review.js'
 export { isOneOff, isPending, type RowChange } from './rows.js'
 export { sharesOf, splitOf, type Share, type Split } from './shares.js'
 export { requireConsistentRule } from './split-rules.js'
-export { assertMonthKey, monthKey, monthName } from './month-key.js'
-export { isOpened, monthAt, openedMonthKeys, openMonth, previousMonthKey } from './month.js'
+export {
+  assertMonthKey,
+  monthAfter,
+  monthBefore,
+  monthKey,
+  monthName,
+  monthOfYear,
+  yearOf,
+} from './month-key.js'
+export {
+  discardMonth,
+  entryCount,
+  isOpened,
+  monthAt,
+  openedMonthKeys,
+  openMonth,
+  previousMonthKey,
+} from './month.js'
 export { formatAmount, toMinor } from './money.js'
 export type {
   Currency,

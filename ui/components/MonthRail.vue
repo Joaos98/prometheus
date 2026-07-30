@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import {
+  entryCount,
   formatAmount,
   leftoverBalancesOf,
   monthName,
@@ -11,6 +12,7 @@ import {
   type Month,
 } from '../../domain/index.js'
 import { nameOf } from '../members.js'
+import DiscardMonth from './DiscardMonth.vue'
 
 const props = defineProps<{ household: Household; month: Month }>()
 
@@ -30,9 +32,7 @@ const others = computed(() => balances.value.slice(1))
 
 const copiedFrom = computed(() => previousMonthKey(props.household, props.month.key))
 
-const rowCount = computed(
-  () => props.month.income.length + props.month.expenses.length + props.month.goals.length,
-)
+const rowCount = computed(() => entryCount(props.month))
 
 const unreviewed = computed(() => unreviewedCount(props.month))
 
@@ -96,7 +96,11 @@ const money = (amount: Minor): string => formatAmount(amount, props.household.cu
         <dd v-else class="secondary">Nothing — no Month precedes it</dd>
         <dt class="muted">Members</dt>
         <dd>{{ month.members.length }}</dd>
+        <dt class="muted">Entries</dt>
+        <dd>{{ rowCount }}</dd>
       </dl>
+
+      <DiscardMonth :month="month" />
     </section>
   </aside>
 </template>

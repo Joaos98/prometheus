@@ -8,6 +8,7 @@ import {
   confirmIncomeSnapshot,
   confirmSavingsGoal,
   deactivateMember,
+  discardMonth,
   editExpenseSnapshot,
   editIncomeSnapshot,
   editSavingsGoal,
@@ -19,6 +20,7 @@ import {
   removeExpenseSnapshot,
   removeSavingsGoal,
   openedMonthKeys,
+  openMonth,
   relabelCurrency,
   removeIncomeSnapshot,
   repurposeExpenseSnapshot,
@@ -40,6 +42,7 @@ import {
 import { localStorageStore } from '../storage/local-storage-store.js'
 import type { HouseholdStore } from '../storage/port.js'
 import { messageOf } from './changes.js'
+import { thisMonth } from './months.js'
 
 /**
  * The Household the app is showing, and the one Month it is looking at. The engine
@@ -58,7 +61,9 @@ async function load(): Promise<void> {
   try {
     const loaded = await store.loadHousehold()
     household.value = loaded
-    viewing.value = loaded ? openedMonthKeys(loaded).at(-1) : undefined
+    // The latest Month with anything in it, or — every Month having been discarded —
+    // the one the calendar is on, which is a Month like any other and offers to open.
+    viewing.value = loaded ? (openedMonthKeys(loaded).at(-1) ?? thisMonth()) : undefined
   } catch (cause) {
     failure.value = messageOf(cause)
   } finally {
@@ -71,6 +76,37 @@ async function setUp(setup: Setup): Promise<void> {
   await store.createHousehold(created)
   household.value = created
   viewing.value = setup.startingMonth
+}
+
+/**
+ * Moving around the record, which changes nothing: looking at a Month the Household has
+ * not opened is a read, and leaves it unopened.
+ */
+function view(month: MonthKey): void {
+  viewing.value = month
+}
+
+/** Opening a Month, which is the explicit act that brings its data into existence. */
+async function open(month: MonthKey): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const after = openMonth(current, month)
+  await store.openMonth(after.months[month]!)
+  household.value = after
+  viewing.value = month
+}
+
+/**
+ * Discarding a Month: the whole Month goes, so the port is handed the Month rather than
+ * a row. What is being looked at stays where it is — the Month is still the one the
+ * member is on, now unopened and offering to be opened afresh.
+ */
+async function discard(month: MonthKey): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const after = discardMonth(current, month)
+  await store.discardMonth(month)
+  household.value = after
 }
 
 /**
@@ -280,6 +316,9 @@ export function useHousehold() {
     failure,
     load,
     setUp,
+    view,
+    open,
+    discard,
     relabel,
     addRosterMember,
     deactivateRosterMember,

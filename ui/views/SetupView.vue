@@ -4,6 +4,7 @@ import { monthKey, monthName } from '../../domain/index.js'
 import { useChanges } from '../changes.js'
 import { CURRENCIES } from '../currencies.js'
 import { useHousehold } from '../household.js'
+import { MONTH_NAMES } from '../months.js'
 
 const { setUp } = useHousehold()
 const { failure, report } = useChanges()
@@ -15,7 +16,7 @@ const year = ref(now.getFullYear())
 const month = ref(now.getMonth() + 1)
 const working = ref(false)
 
-const MONTHS = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, name: monthName(monthKey(2000, i + 1)).split(' ')[0] }))
+const MONTHS = MONTH_NAMES.map((name, index) => ({ value: index + 1, name }))
 const years = Array.from({ length: 11 }, (_, i) => now.getFullYear() - 5 + i)
 
 const named = computed(() => memberNames.value.map((name) => name.trim()).filter(Boolean))

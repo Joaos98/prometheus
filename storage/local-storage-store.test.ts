@@ -199,6 +199,35 @@ describe('the localStorage adapter', () => {
     )
   })
 
+  it('discards a Month, leaving no trace of it', async () => {
+    const created = household()
+    await store.createHousehold(created)
+    await store.openMonth(openMonth(created, '2026-08').months['2026-08']!)
+    await store.writeRow('2026-08', 'expenses', expense('rent', 120000))
+
+    await store.discardMonth('2026-08')
+
+    const loaded = await store.loadHousehold()
+    expect(loaded!.months['2026-08']).toBeUndefined()
+    expect(Object.keys(loaded!.months)).toEqual(['2026-07'])
+  })
+
+  it('leaves the other Months alone when one is discarded', async () => {
+    await store.createHousehold(household())
+    await store.writeRow('2026-07', 'expenses', expense('rent', 120000))
+    await store.openMonth(openMonth(household(), '2026-08').months['2026-08']!)
+
+    await store.discardMonth('2026-08')
+
+    expect((await store.loadHousehold())!.months['2026-07']!.expenses).toHaveLength(1)
+  })
+
+  it('refuses to discard a Month that has not been opened', async () => {
+    await store.createHousehold(household())
+
+    await expect(store.discardMonth('2026-08')).rejects.toBeInstanceOf(StorageError)
+  })
+
   it('replaces the whole Household', async () => {
     await store.createHousehold(household())
     const other = setUpHousehold({

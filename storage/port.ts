@@ -30,6 +30,13 @@ export interface HouseholdStore {
   /** Records a Month that has been opened, with the rows it opened holding. */
   openMonth(month: Month): Promise<void>
 
+  /**
+   * Removes a Month and every row of it, returning it to unopened. The one destructive
+   * operation the port carries, and the only one that is not row-scoped — an unopened
+   * Month is absent rather than empty, so it cannot be said one row at a time.
+   */
+  discardMonth(month: MonthKey): Promise<void>
+
   /** Writes one row of one Month, leaving every other row alone. */
   writeRow(month: MonthKey, kind: RowKind, row: MonthRow): Promise<void>
 
