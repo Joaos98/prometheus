@@ -86,10 +86,17 @@ describe('whether renaming asks', () => {
     expect(renamingAsks(household, '2026-09', netflix, 'Gym')).toBe(false)
   })
 
-  it('does not ask about a row the Previous Month no longer shares an identity with', () => {
+  it('does not ask once no earlier Month shares the identity, leaving nothing behind it', () => {
     const dropped = removeExpenseSnapshot(household, '2026-07', netflix)
 
     expect(renamingAsks(dropped, '2026-08', netflix, 'Gym')).toBe(false)
+  })
+
+  it('asks past a Month that dropped the row, since the history before it stands', () => {
+    const september = openMonth(household, '2026-09')
+    const withoutNetflix = removeExpenseSnapshot(september, '2026-08', netflix)
+
+    expect(renamingAsks(withoutNetflix, '2026-09', netflix, 'Gym')).toBe(true)
   })
 })
 
@@ -148,7 +155,7 @@ describe('repurposing the Expense', () => {
     expect(expensesIn(after, '2026-09')[0]).toMatchObject({ name: 'Netflix', amount: 1200 })
   })
 
-  it('stops where the thread had already ended, leaving a later unrelated row alone', () => {
+  it('leaves alone the later Months where the cost had already ended', () => {
     const september = openMonth(household, '2026-09')
     const withoutNetflix = removeExpenseSnapshot(september, '2026-09', netflix)
     const october = openMonth(withoutNetflix, '2026-10')
@@ -160,6 +167,33 @@ describe('repurposing the Expense', () => {
 
     expect(idsIn(after, '2026-09')).toEqual([])
     expect(idsIn(after, '2026-10')).toEqual([])
+  })
+
+  it('carries the mint past a Month that dropped the row, so nothing revives the old thread', () => {
+    const october = openMonth(openMonth(household, '2026-09'), '2026-10')
+    const withoutNetflix = removeExpenseSnapshot(october, '2026-09', netflix)
+
+    const { household: after, row } = repurposeExpenseSnapshot(withoutNetflix, '2026-08', netflix, {
+      name: 'Gym',
+      amount: 4000,
+    })
+
+    expect(idsIn(after, '2026-09')).toEqual([])
+    expect(idsIn(after, '2026-10')).toEqual([row.id])
+  })
+
+  it('repurposes a row whose Previous Month dropped it, the history before it standing', () => {
+    const september = openMonth(household, '2026-09')
+    const withoutNetflix = removeExpenseSnapshot(september, '2026-08', netflix)
+
+    const { household: after, row } = repurposeExpenseSnapshot(withoutNetflix, '2026-09', netflix, {
+      name: 'Gym',
+      amount: 4000,
+    })
+
+    expect(row.id).not.toBe(netflix)
+    expect(idsIn(after, '2026-07')).toEqual([netflix])
+    expect(idsIn(after, '2026-09')).toEqual([row.id])
   })
 
   it('refuses a row created in this Month, which has no thread behind it to end', () => {

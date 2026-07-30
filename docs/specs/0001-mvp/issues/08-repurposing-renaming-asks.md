@@ -17,3 +17,23 @@ Continuing keeps the Expense's identity and its history, so trends and propagati
 - [x] Whether a row is eligible for the question is decided by the engine, not by the UI
 - [x] A name may legitimately differ between Months without the identity changing
 - [x] Category may also be edited per Month, and does not trigger the question
+
+## Comments
+
+**Eligibility is "an earlier Month", not "the Previous Month".** The criterion above says
+an inherited row is one "sharing its identity with the Previous Month". Built literally,
+that reads one Month back — and a Month in between that has since dropped the row then
+hides a history that plainly still stands in the Months before it, so the rename goes
+through unasked and merges the two costs after all. The engine therefore asks every
+earlier opened Month. Every criterion above still holds, and no row can be asked about
+in error: an identity travels no way but inheritance, so a row recorded in this Month
+bears one no earlier Month can hold.
+
+The same gap cuts the other way when the mint is carried forward. Repurposing re-threads
+every later opened Month holding the old identity rather than stopping at the first that
+does not — stopping would leave the retired identity alive after the gap, which is the
+old thread resuming rather than ending at the Previous Month.
+
+Both cases are reachable only by opening a Month ahead and later taking the row out of a
+Month in between, which no UI offers yet; they are pinned by tests in
+`domain/repurposing.test.ts`.
