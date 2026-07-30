@@ -19,6 +19,11 @@ export function isPending(row: { amount: Minor | null }): boolean {
   return row.amount === null
 }
 
+/** A row marked as belonging to this Month alone, which the next Month opened will not inherit. */
+export function isOneOff(row: { oneOff: boolean }): boolean {
+  return row.oneOff
+}
+
 /** The Month a row is being recorded on. Nothing can be recorded on an unopened Month. */
 export function openedMonth(household: Household, key: MonthKey): Month {
   const month = monthAt(household, key)

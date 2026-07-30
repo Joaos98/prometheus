@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { addExpenseSnapshot, editExpenseSnapshot } from './expenses.js'
-import { addSavingsGoal, recordContribution } from './goals.js'
+import {
+  addExpenseSnapshot,
+  editExpenseSnapshot,
+  markExpenseOneOff,
+  removeExpenseSnapshot,
+} from './expenses.js'
+import { addSavingsGoal, markGoalOneOff, recordContribution } from './goals.js'
 import { setUpHousehold } from './household.js'
-import { addIncomeSnapshot } from './income.js'
+import { addIncomeSnapshot, markIncomeOneOff } from './income.js'
 import { monthAt, openMonth } from './month.js'
-import { isPending } from './rows.js'
+import { isOneOff, isPending } from './rows.js'
 import type { Household, MemberId, MonthKey } from './types.js'
 
 const euro = { code: 'EUR', symbol: '€', decimals: 2 }
@@ -24,6 +29,7 @@ beforeEach(() => {
 
 const incomeIn = (of: Household, month: MonthKey) => monthAt(of, month)!.income
 const expensesIn = (of: Household, month: MonthKey) => monthAt(of, month)!.expenses
+const goalsIn = (of: Household, month: MonthKey) => monthAt(of, month)!.goals
 
 describe('opening a Month inherits the Previous Month’s income', () => {
   it('copies every income row, field for field', () => {
@@ -236,5 +242,112 @@ describe('a Pending row', () => {
 
     expect(inherited.amount).toBe(0)
     expect(isPending(inherited)).toBe(false)
+  })
+})
+
+describe('a row marked One-Off', () => {
+  it('is not inherited when the next Month opens', () => {
+    const july = addExpenseSnapshot(household, '2026-07', {
+      name: 'Repair',
+      category: 'Home',
+      amount: 40000,
+      participants: [ana],
+    })
+    const marked = markExpenseOneOff(july.household, '2026-07', july.row.id).household
+
+    const august = openMonth(marked, '2026-08')
+
+    expect(expensesIn(august, '2026-08')).toEqual([])
+    expect(expensesIn(august, '2026-07')).toHaveLength(1)
+  })
+
+  it('leaves every other row of the Month inherited as usual', () => {
+    const rent = addExpenseSnapshot(household, '2026-07', {
+      name: 'Rent',
+      category: 'Home',
+      amount: 120000,
+      participants: [ana],
+    })
+    const repair = addExpenseSnapshot(rent.household, '2026-07', {
+      name: 'Repair',
+      category: 'Home',
+      amount: 40000,
+      participants: [ana],
+    })
+    const marked = markExpenseOneOff(repair.household, '2026-07', repair.row.id).household
+
+    const august = openMonth(marked, '2026-08')
+
+    expect(expensesIn(august, '2026-08').map((row) => row.name)).toEqual(['Rent'])
+  })
+
+  it('is how a long-running income row stops recurring while keeping its final Month intact', () => {
+    const salary = addIncomeSnapshot(household, '2026-07', {
+      name: 'Salary',
+      member: ana,
+      amount: 320000,
+    })
+    const marked = markIncomeOneOff(salary.household, '2026-07', salary.row.id).household
+
+    const august = openMonth(marked, '2026-08')
+
+    expect(incomeIn(marked, '2026-07')).toHaveLength(1)
+    expect(incomeIn(august, '2026-08')).toEqual([])
+  })
+
+  it('applies the same way to a Savings Goal', () => {
+    const goal = addSavingsGoal(household, '2026-07', {
+      name: 'Holiday',
+      target: 200000,
+      participants: [ana],
+    })
+    const marked = markGoalOneOff(goal.household, '2026-07', goal.row.id).household
+
+    const august = openMonth(marked, '2026-08')
+
+    expect(goalsIn(august, '2026-08')).toEqual([])
+  })
+
+  it('does not carry the One-Off mark itself onto anything', () => {
+    const july = addExpenseSnapshot(household, '2026-07', {
+      name: 'Rent',
+      category: 'Home',
+      amount: 120000,
+      participants: [ana],
+    }).household
+
+    const inherited = expensesIn(openMonth(july, '2026-08'), '2026-08')[0]!
+
+    expect(isOneOff(inherited)).toBe(false)
+  })
+})
+
+describe('a row removed from a Month', () => {
+  it('means later Months opened afterwards inherit its absence', () => {
+    const july = addExpenseSnapshot(household, '2026-07', {
+      name: 'Rent',
+      category: 'Home',
+      amount: 120000,
+      participants: [ana],
+    })
+    const removed = removeExpenseSnapshot(july.household, '2026-07', july.row.id)
+
+    const august = openMonth(removed, '2026-08')
+
+    expect(expensesIn(august, '2026-08')).toEqual([])
+  })
+
+  it('leaves earlier Months untouched', () => {
+    const july = addExpenseSnapshot(household, '2026-07', {
+      name: 'Rent',
+      category: 'Home',
+      amount: 120000,
+      participants: [ana],
+    })
+    const august = openMonth(july.household, '2026-08')
+
+    const removed = removeExpenseSnapshot(august, '2026-08', july.row.id)
+
+    expect(expensesIn(removed, '2026-07')).toHaveLength(1)
   })
 })

@@ -1,9 +1,15 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { DomainError } from './errors.js'
-import { addExpenseSnapshot, editExpenseSnapshot, removeExpenseSnapshot } from './expenses.js'
+import {
+  addExpenseSnapshot,
+  editExpenseSnapshot,
+  markExpenseOneOff,
+  removeExpenseSnapshot,
+  unmarkExpenseOneOff,
+} from './expenses.js'
 import { setUpHousehold } from './household.js'
 import { monthAt, openMonth } from './month.js'
-import { isPending } from './rows.js'
+import { isOneOff, isPending } from './rows.js'
 import type { Household, MemberId } from './types.js'
 
 const euro = { code: 'EUR', symbol: '€', decimals: 2 }
@@ -45,6 +51,7 @@ describe('recording an Expense', () => {
       participants: [ana, bruno],
       splitRule: { kind: 'even' },
       reviewed: true,
+      oneOff: false,
     })
   })
 
@@ -279,6 +286,50 @@ describe('editing an Expense', () => {
     expect(() => editExpenseSnapshot(household, '2026-07', 'no-such-row', { amount: 1 })).toThrow(
       DomainError,
     )
+  })
+})
+
+describe('marking an Expense One-Off', () => {
+  it('is not One-Off when recorded fresh', () => {
+    const { row } = addExpenseSnapshot(household, '2026-07', {
+      name: 'Rent',
+      category: 'Home',
+      amount: 120000,
+      participants: [ana],
+    })
+
+    expect(isOneOff(row)).toBe(false)
+  })
+
+  it('marks an Expense One-Off without changing any other field', () => {
+    const { household: after, row } = addExpenseSnapshot(household, '2026-07', {
+      name: 'Repair',
+      category: 'Home',
+      amount: 40000,
+      participants: [ana],
+    })
+
+    const marked = markExpenseOneOff(after, '2026-07', row.id)
+
+    expect(marked.row).toEqual({ ...row, oneOff: true })
+  })
+
+  it('clears the One-Off mark, so the Expense recurs again', () => {
+    const { household: after, row } = addExpenseSnapshot(household, '2026-07', {
+      name: 'Repair',
+      category: 'Home',
+      amount: 40000,
+      participants: [ana],
+    })
+    const marked = markExpenseOneOff(after, '2026-07', row.id)
+
+    const unmarked = unmarkExpenseOneOff(marked.household, '2026-07', row.id)
+
+    expect(isOneOff(unmarked.row)).toBe(false)
+  })
+
+  it('refuses a row that is not in that Month', () => {
+    expect(() => markExpenseOneOff(household, '2026-07', 'no-such-row')).toThrow(DomainError)
   })
 })
 

@@ -11,6 +11,9 @@ import {
   editExpenseSnapshot,
   editIncomeSnapshot,
   editSavingsGoal,
+  markExpenseOneOff,
+  markGoalOneOff,
+  markIncomeOneOff,
   reactivateMember,
   recordContribution,
   removeExpenseSnapshot,
@@ -20,6 +23,9 @@ import {
   removeIncomeSnapshot,
   repurposeExpenseSnapshot,
   setUpHousehold,
+  unmarkExpenseOneOff,
+  unmarkGoalOneOff,
+  unmarkIncomeOneOff,
   type Currency,
   type ExpenseDraft,
   type ExpenseEdits,
@@ -147,6 +153,17 @@ async function confirmIncome(month: MonthKey, id: RowId): Promise<void> {
   household.value = after
 }
 
+/** Marks a row One-Off, or takes the mark back off, one row at a time. */
+async function setIncomeOneOff(month: MonthKey, id: RowId, oneOff: boolean): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const { household: after, row } = oneOff
+    ? markIncomeOneOff(current, month, id)
+    : unmarkIncomeOneOff(current, month, id)
+  await store.writeRow(month, 'income', row)
+  household.value = after
+}
+
 /** Expenses, one row at a time, on the same terms as income. */
 async function addExpense(month: MonthKey, draft: ExpenseDraft): Promise<void> {
   const current = household.value
@@ -194,6 +211,17 @@ async function confirmExpense(month: MonthKey, id: RowId): Promise<void> {
   household.value = after
 }
 
+/** Marks an Expense One-Off, or takes the mark back off, one row at a time. */
+async function setExpenseOneOff(month: MonthKey, id: RowId, oneOff: boolean): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const { household: after, row } = oneOff
+    ? markExpenseOneOff(current, month, id)
+    : unmarkExpenseOneOff(current, month, id)
+  await store.writeRow(month, 'expenses', row)
+  household.value = after
+}
+
 /** Savings Goals, one row at a time, on the same terms as income and Expenses. */
 async function addGoal(month: MonthKey, draft: GoalDraft): Promise<void> {
   const current = household.value
@@ -228,6 +256,17 @@ async function confirmGoal(month: MonthKey, id: RowId): Promise<void> {
   household.value = after
 }
 
+/** Marks a goal One-Off, or takes the mark back off, one row at a time. */
+async function setGoalOneOff(month: MonthKey, id: RowId, oneOff: boolean): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const { household: after, row } = oneOff
+    ? markGoalOneOff(current, month, id)
+    : unmarkGoalOneOff(current, month, id)
+  await store.writeRow(month, 'goals', row)
+  household.value = after
+}
+
 /** What one Participant puts toward one goal this Month, entered directly. */
 async function contribute(
   month: MonthKey,
@@ -258,15 +297,18 @@ export function useHousehold() {
     editIncome,
     removeIncome,
     confirmIncome,
+    setIncomeOneOff,
     addExpense,
     editExpense,
     repurposeExpense,
     removeExpense,
     confirmExpense,
+    setExpenseOneOff,
     addGoal,
     editGoal,
     removeGoal,
     confirmGoal,
+    setGoalOneOff,
     contribute,
   }
 }

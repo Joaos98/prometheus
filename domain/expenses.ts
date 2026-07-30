@@ -55,6 +55,7 @@ export function addExpenseSnapshot(
     participants: requireParticipants(month, draft.participants),
     splitRule: draft.splitRule ?? { kind: 'even' },
     reviewed: true,
+    oneOff: false,
   })
   return { household: withExpenses(household, month, [...month.expenses, row]), row }
 }
@@ -99,6 +100,32 @@ export function confirmExpenseSnapshot(
 ): RowChange<ExpenseSnapshot> {
   const month = openedMonth(household, key)
   const row: ExpenseSnapshot = { ...expenseRow(month, id), reviewed: true }
+  return { household: withExpenses(household, month, replaceRow(month.expenses, id, row)), row }
+}
+
+/**
+ * Marks an Expense as belonging to this Month alone: opening the next Month will not
+ * inherit it. This is also how a long-running Expense stops recurring while keeping
+ * this Month's record intact.
+ */
+export function markExpenseOneOff(
+  household: Household,
+  key: MonthKey,
+  id: RowId,
+): RowChange<ExpenseSnapshot> {
+  const month = openedMonth(household, key)
+  const row: ExpenseSnapshot = { ...expenseRow(month, id), oneOff: true, reviewed: true }
+  return { household: withExpenses(household, month, replaceRow(month.expenses, id, row)), row }
+}
+
+/** Takes the One-Off mark back off an Expense, so it recurs as it did before. */
+export function unmarkExpenseOneOff(
+  household: Household,
+  key: MonthKey,
+  id: RowId,
+): RowChange<ExpenseSnapshot> {
+  const month = openedMonth(household, key)
+  const row: ExpenseSnapshot = { ...expenseRow(month, id), oneOff: false, reviewed: true }
   return { household: withExpenses(household, month, replaceRow(month.expenses, id, row)), row }
 }
 

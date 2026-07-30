@@ -41,6 +41,7 @@ const salary = (amount: Minor | null): IncomeSnapshot => ({
   amount,
   restrictedUse: false,
   reviewed: true,
+  oneOff: false,
 })
 
 const expense = (id: string, amount: Minor | null): ExpenseSnapshot => ({
@@ -51,6 +52,7 @@ const expense = (id: string, amount: Minor | null): ExpenseSnapshot => ({
   participants: ['ana', 'bruno'],
   splitRule: { kind: 'even' },
   reviewed: true,
+  oneOff: false,
 })
 
 const goal = (id: string): SavingsGoal => ({
@@ -61,6 +63,7 @@ const goal = (id: string): SavingsGoal => ({
   participants: ['ana'],
   contributions: {},
   reviewed: true,
+  oneOff: false,
 })
 
 describe('the localStorage adapter', () => {

@@ -4,11 +4,13 @@ import { setUpHousehold } from './household.js'
 import {
   addIncomeSnapshot,
   editIncomeSnapshot,
+  markIncomeOneOff,
   removeIncomeSnapshot,
   spendableIncome,
+  unmarkIncomeOneOff,
 } from './income.js'
 import { monthAt, openMonth } from './month.js'
-import { isPending } from './rows.js'
+import { isOneOff, isPending } from './rows.js'
 import type { Household, MemberId } from './types.js'
 
 const euro = { code: 'EUR', symbol: '€', decimals: 2 }
@@ -46,6 +48,7 @@ describe('recording income', () => {
         amount: 320000,
         restrictedUse: false,
         reviewed: true,
+        oneOff: false,
       },
     ])
   })
@@ -295,6 +298,47 @@ describe('editing income', () => {
     })
 
     expect(() => editIncomeSnapshot(after, '2026-07', row.id, { name: '' })).toThrow(DomainError)
+  })
+})
+
+describe('marking income One-Off', () => {
+  it('is not One-Off when recorded fresh', () => {
+    const { row } = addIncomeSnapshot(household, '2026-07', {
+      name: 'Salary',
+      member: ana,
+      amount: 320000,
+    })
+
+    expect(isOneOff(row)).toBe(false)
+  })
+
+  it('marks a row One-Off without changing any other field', () => {
+    const { household: after, row } = addIncomeSnapshot(household, '2026-07', {
+      name: 'Bonus',
+      member: ana,
+      amount: 50000,
+    })
+
+    const marked = markIncomeOneOff(after, '2026-07', row.id)
+
+    expect(marked.row).toEqual({ ...row, oneOff: true })
+  })
+
+  it('clears the One-Off mark, so the row recurs again', () => {
+    const { household: after, row } = addIncomeSnapshot(household, '2026-07', {
+      name: 'Bonus',
+      member: ana,
+      amount: 50000,
+    })
+    const marked = markIncomeOneOff(after, '2026-07', row.id)
+
+    const unmarked = unmarkIncomeOneOff(marked.household, '2026-07', row.id)
+
+    expect(isOneOff(unmarked.row)).toBe(false)
+  })
+
+  it('refuses a row that is not in that Month', () => {
+    expect(() => markIncomeOneOff(household, '2026-07', 'no-such-row')).toThrow(DomainError)
   })
 })
 

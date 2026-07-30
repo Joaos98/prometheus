@@ -42,6 +42,7 @@ export function addIncomeSnapshot(
     amount: requireAmount(draft.amount),
     restrictedUse: draft.restrictedUse ?? false,
     reviewed: true,
+    oneOff: false,
   }
   return { household: withIncome(household, month, [...month.income, row]), row }
 }
@@ -82,6 +83,32 @@ export function confirmIncomeSnapshot(
 ): RowChange<IncomeSnapshot> {
   const month = openedMonth(household, key)
   const row: IncomeSnapshot = { ...incomeRow(month, id), reviewed: true }
+  return { household: withIncome(household, month, replaceRow(month.income, id, row)), row }
+}
+
+/**
+ * Marks an income source as belonging to this Month alone: opening the next Month will
+ * not inherit it. This is also how a long-running source stops recurring while keeping
+ * this Month's record intact.
+ */
+export function markIncomeOneOff(
+  household: Household,
+  key: MonthKey,
+  id: RowId,
+): RowChange<IncomeSnapshot> {
+  const month = openedMonth(household, key)
+  const row: IncomeSnapshot = { ...incomeRow(month, id), oneOff: true, reviewed: true }
+  return { household: withIncome(household, month, replaceRow(month.income, id, row)), row }
+}
+
+/** Takes the One-Off mark back off an income source, so it recurs as it did before. */
+export function unmarkIncomeOneOff(
+  household: Household,
+  key: MonthKey,
+  id: RowId,
+): RowChange<IncomeSnapshot> {
+  const month = openedMonth(household, key)
+  const row: IncomeSnapshot = { ...incomeRow(month, id), oneOff: false, reviewed: true }
   return { household: withIncome(household, month, replaceRow(month.income, id, row)), row }
 }
 

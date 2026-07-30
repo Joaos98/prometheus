@@ -25,15 +25,23 @@ import type {
  * reach into another, however many Months a row has been carried through. What is
  * shared is the row's identity, and only that: it is the thread that lets propagation
  * and history follow the same cost across the Months.
+ *
+ * A row marked One-Off in the Previous Month is left out entirely rather than copied and
+ * un-marked: it belonged to that Month alone, so there is nothing here for the new Month
+ * to inherit.
  */
 export function inheritMonth(previous: Month, key: MonthKey, roster: Member[]): Month {
   return {
     key,
     members: inheritMembers(previous.members, roster),
-    income: previous.income.map(inheritIncome),
-    expenses: previous.expenses.map(inheritExpense),
-    goals: previous.goals.map(inheritGoal),
+    income: previous.income.filter(notOneOff).map(inheritIncome),
+    expenses: previous.expenses.filter(notOneOff).map(inheritExpense),
+    goals: previous.goals.filter(notOneOff).map(inheritGoal),
   }
+}
+
+function notOneOff(row: { oneOff: boolean }): boolean {
+  return !row.oneOff
 }
 
 function inheritMembers(previous: Month['members'], roster: Member[]): Month['members'] {
@@ -45,9 +53,13 @@ function inheritMembers(previous: Month['members'], roster: Member[]): Month['me
   return [...carried, ...joined]
 }
 
-/** Every row that arrives by inheritance is Unreviewed until edited or confirmed. */
+/**
+ * Every row that arrives by inheritance is Unreviewed until edited or confirmed, and
+ * never carries the One-Off mark — that belongs to the Month it was set in, not to this
+ * one.
+ */
 function inheritIncome(row: IncomeSnapshot): IncomeSnapshot {
-  return { ...row, reviewed: false }
+  return { ...row, reviewed: false, oneOff: false }
 }
 
 function inheritExpense(row: ExpenseSnapshot): ExpenseSnapshot {
@@ -56,6 +68,7 @@ function inheritExpense(row: ExpenseSnapshot): ExpenseSnapshot {
     participants: [...row.participants],
     splitRule: inheritSplitRule(row.splitRule),
     reviewed: false,
+    oneOff: false,
   }
 }
 
@@ -72,6 +85,7 @@ function inheritGoal(goal: SavingsGoal): SavingsGoal {
     participants: [...goal.participants],
     contributions: {},
     reviewed: false,
+    oneOff: false,
   }
 }
 

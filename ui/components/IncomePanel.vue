@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import {
   formatAmount,
+  isOneOff,
   isPending,
   isReviewed,
   spendableIncome,
@@ -19,7 +20,7 @@ import MonthPanel from './MonthPanel.vue'
 
 const props = defineProps<{ household: Household; month: Month }>()
 
-const { addIncome, editIncome, removeIncome, confirmIncome } = useHousehold()
+const { addIncome, editIncome, removeIncome, confirmIncome, setIncomeOneOff } = useHousehold()
 
 const { failure, report } = useChanges()
 
@@ -83,6 +84,7 @@ async function attempt(change: Promise<void>): Promise<void> {
               <span class="name">
                 {{ source.name }}
                 <span v-if="source.restrictedUse" class="tag">Restricted-Use</span>
+                <span v-if="isOneOff(source)" class="tag one-off">One-Off</span>
                 <span v-if="!isReviewed(source)" class="tag unreviewed">Unreviewed</span>
               </span>
               <span v-if="isPending(source)" class="pending">Pending</span>
@@ -98,6 +100,14 @@ async function attempt(change: Promise<void>): Promise<void> {
               @click="report(confirmIncome(month.key, source.id))"
             >
               Confirm
+            </button>
+            <button
+              class="one-off-toggle"
+              type="button"
+              :aria-label="`${isOneOff(source) ? 'Unmark' : 'Mark'} ${source.name} One-Off`"
+              @click="report(setIncomeOneOff(month.key, source.id, !isOneOff(source)))"
+            >
+              {{ isOneOff(source) ? 'Recurring' : 'One-Off' }}
             </button>
             <button
               class="remove"
@@ -210,6 +220,10 @@ h3 {
   border-color: var(--fire);
 }
 
+.one-off {
+  color: var(--text-secondary);
+}
+
 .pending {
   color: var(--fire-bright);
   font-size: 12px;
@@ -225,6 +239,19 @@ h3 {
 
 .confirm:hover {
   border-color: var(--fire);
+}
+
+.one-off-toggle {
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: none;
+  border: 0.5px solid transparent;
+}
+
+.one-off-toggle:hover {
+  color: var(--text);
+  border-color: var(--hairline);
 }
 
 .remove {

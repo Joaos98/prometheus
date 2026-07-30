@@ -6,12 +6,15 @@ import {
   contributionTo,
   contributionsOf,
   editSavingsGoal,
+  markGoalOneOff,
   recordContribution,
   removeSavingsGoal,
   totalContributedTo,
+  unmarkGoalOneOff,
 } from './goals.js'
 import { setUpHousehold } from './household.js'
 import { monthAt, openMonth } from './month.js'
+import { isOneOff } from './rows.js'
 import type { Household, MemberId, Month, RowId, SavingsGoal } from './types.js'
 
 const euro = { code: 'EUR', symbol: '€', decimals: 2 }
@@ -175,6 +178,35 @@ describe('confirming a Savings Goal', () => {
     const { row: confirmed } = confirmSavingsGoal(opened, '2026-08', row.id)
 
     expect(confirmed).toEqual({ ...goalIn(opened, row.id, '2026-08'), reviewed: true })
+  })
+})
+
+describe('marking a Savings Goal One-Off', () => {
+  it('is not One-Off when recorded fresh', () => {
+    const { row } = addSavingsGoal(household, '2026-07', holiday([ana]))
+
+    expect(isOneOff(row)).toBe(false)
+  })
+
+  it('marks a goal One-Off without changing any other field', () => {
+    const { household: after, row } = addSavingsGoal(household, '2026-07', holiday([ana]))
+
+    const marked = markGoalOneOff(after, '2026-07', row.id)
+
+    expect(marked.row).toEqual({ ...row, oneOff: true })
+  })
+
+  it('clears the One-Off mark, so the goal recurs again', () => {
+    const { household: after, row } = addSavingsGoal(household, '2026-07', holiday([ana]))
+    const marked = markGoalOneOff(after, '2026-07', row.id)
+
+    const unmarked = unmarkGoalOneOff(marked.household, '2026-07', row.id)
+
+    expect(isOneOff(unmarked.row)).toBe(false)
+  })
+
+  it('refuses a row that is not in that Month', () => {
+    expect(() => markGoalOneOff(household, '2026-07', 'no-such-row')).toThrow(DomainError)
   })
 })
 

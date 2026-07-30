@@ -37,6 +37,10 @@ export interface Member {
  * `reviewed` is Unreviewed's opposite: false the moment a row arrives by inheritance,
  * cleared to true by an edit or by an explicit confirmation. A row recorded fresh in
  * this Month starts true — there is nothing copied for a member to have missed.
+ *
+ * `oneOff` marks a row as belonging to this Month alone: opening the next Month does
+ * not inherit it. The flag itself is never carried anywhere — a row that does arrive by
+ * inheritance always arrives with it false.
  */
 export interface IncomeSnapshot {
   id: RowId
@@ -45,6 +49,7 @@ export interface IncomeSnapshot {
   amount: Minor | null
   restrictedUse: boolean
   reviewed: boolean
+  oneOff: boolean
 }
 
 /**
@@ -75,6 +80,7 @@ export interface ExpenseSnapshot {
   participants: MemberId[]
   splitRule: SplitRule
   reviewed: boolean
+  oneOff: boolean
 }
 
 /**
@@ -96,6 +102,7 @@ export interface SavingsGoal {
   participants: MemberId[]
   contributions: Record<MemberId, Minor>
   reviewed: boolean
+  oneOff: boolean
 }
 
 /** Any row a Month holds. */

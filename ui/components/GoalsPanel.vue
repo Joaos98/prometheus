@@ -4,6 +4,7 @@ import {
   accumulatedProgress,
   contributionTo,
   formatAmount,
+  isOneOff,
   isReviewed,
   type Household,
   type MemberId,
@@ -21,7 +22,7 @@ import MonthPanel from './MonthPanel.vue'
 
 const props = defineProps<{ household: Household; month: Month }>()
 
-const { addGoal, editGoal, removeGoal, confirmGoal, contribute } = useHousehold()
+const { addGoal, editGoal, removeGoal, confirmGoal, setGoalOneOff, contribute } = useHousehold()
 
 const { failure, report } = useChanges()
 
@@ -125,6 +126,7 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
         >
           <div class="line">
             <span class="name">{{ goal.name }}</span>
+            <span v-if="isOneOff(goal)" class="tag one-off">One-Off</span>
             <span v-if="!isReviewed(goal)" class="tag unreviewed">Unreviewed</span>
             <span class="figure progress">
               {{ money(progress.accumulated) }}
@@ -163,6 +165,14 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
           @click="report(confirmGoal(month.key, goal.id))"
         >
           Confirm
+        </button>
+        <button
+          class="one-off-toggle"
+          type="button"
+          :aria-label="`${isOneOff(goal) ? 'Unmark' : 'Mark'} ${goal.name} One-Off`"
+          @click="report(setGoalOneOff(month.key, goal.id, !isOneOff(goal)))"
+        >
+          {{ isOneOff(goal) ? 'Recurring' : 'One-Off' }}
         </button>
         <button
           class="remove"
@@ -305,6 +315,10 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
   border-color: var(--fire);
 }
 
+.one-off {
+  color: var(--text-secondary);
+}
+
 .expansion {
   display: flex;
   flex-direction: column;
@@ -368,6 +382,21 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
 
 .confirm:hover {
   border-color: var(--fire);
+}
+
+.one-off-toggle {
+  align-self: flex-start;
+  margin-top: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: none;
+  border: 0.5px solid transparent;
+}
+
+.one-off-toggle:hover {
+  color: var(--text);
+  border-color: var(--hairline);
 }
 
 .remove {

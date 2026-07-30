@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import {
   formatAmount,
+  isOneOff,
   isPending,
   isReviewed,
   renamingAsks,
@@ -23,7 +24,7 @@ import RepurposeQuestion from './RepurposeQuestion.vue'
 
 const props = defineProps<{ household: Household; month: Month }>()
 
-const { addExpense, editExpense, repurposeExpense, removeExpense, confirmExpense } =
+const { addExpense, editExpense, repurposeExpense, removeExpense, confirmExpense, setExpenseOneOff } =
   useHousehold()
 
 const { failure, report } = useChanges()
@@ -158,6 +159,7 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
           <div class="line">
             <span class="name">{{ expense.name }}</span>
             <span v-if="expense.category" class="tag">{{ expense.category }}</span>
+            <span v-if="isOneOff(expense)" class="tag one-off">One-Off</span>
             <span v-if="!isReviewed(expense)" class="tag unreviewed">Unreviewed</span>
             <span v-if="isPending(expense)" class="pending">Pending — no amount entered</span>
             <span v-else class="figure total">{{ money(expense.amount!) }}</span>
@@ -188,6 +190,14 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
           @click="report(confirmExpense(month.key, expense.id))"
         >
           Confirm
+        </button>
+        <button
+          class="one-off-toggle"
+          type="button"
+          :aria-label="`${isOneOff(expense) ? 'Unmark' : 'Mark'} ${expense.name} One-Off`"
+          @click="report(setExpenseOneOff(month.key, expense.id, !isOneOff(expense)))"
+        >
+          {{ isOneOff(expense) ? 'Recurring' : 'One-Off' }}
         </button>
         <button
           class="remove"
@@ -253,6 +263,10 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
   border-color: var(--fire);
 }
 
+.one-off {
+  color: var(--text-secondary);
+}
+
 .rule {
   font-size: 12px;
 }
@@ -294,6 +308,21 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
 
 .confirm:hover {
   border-color: var(--fire);
+}
+
+.one-off-toggle {
+  align-self: flex-start;
+  margin-top: 10px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: none;
+  border: 0.5px solid transparent;
+}
+
+.one-off-toggle:hover {
+  color: var(--text);
+  border-color: var(--hairline);
 }
 
 .remove {

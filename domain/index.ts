@@ -8,7 +8,9 @@ export {
   addExpenseSnapshot,
   confirmExpenseSnapshot,
   editExpenseSnapshot,
+  markExpenseOneOff,
   removeExpenseSnapshot,
+  unmarkExpenseOneOff,
   type ExpenseDraft,
   type ExpenseEdits,
 } from './expenses.js'
@@ -18,9 +20,11 @@ export {
   contributionTo,
   contributionsOf,
   editSavingsGoal,
+  markGoalOneOff,
   recordContribution,
   removeSavingsGoal,
   totalContributedTo,
+  unmarkGoalOneOff,
   type GoalDraft,
   type GoalEdits,
 } from './goals.js'
@@ -37,15 +41,17 @@ export {
   addIncomeSnapshot,
   confirmIncomeSnapshot,
   editIncomeSnapshot,
+  markIncomeOneOff,
   removeIncomeSnapshot,
   spendableIncome,
+  unmarkIncomeOneOff,
   type IncomeDraft,
   type IncomeEdits,
 } from './income.js'
 export { leftoverBalanceOf, leftoverBalancesOf, type LeftoverBalance } from './leftover.js'
 export { renamingAsks, repurposeExpenseSnapshot } from './repurposing.js'
 export { isReviewed, unreviewedCount } from './review.js'
-export { isPending, type RowChange } from './rows.js'
+export { isOneOff, isPending, type RowChange } from './rows.js'
 export { sharesOf, splitOf, type Share, type Split } from './shares.js'
 export { requireConsistentRule } from './split-rules.js'
 export { assertMonthKey, monthKey, monthName } from './month-key.js'
