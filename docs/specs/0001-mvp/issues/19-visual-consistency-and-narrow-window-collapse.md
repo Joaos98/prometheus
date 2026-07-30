@@ -18,3 +18,8 @@ The design brief applies from ticket 01 onward — this is **not** deferred styl
 - [ ] A whole Month fits one ordinary desktop window without scrolling, with the three columns starting level
 - [ ] Below roughly 1240px the three columns collapse to one and the rail stops being pinned, with nothing overlapping, clipped or unreachable
 - [ ] Every user-facing string uses CONTEXT.md's vocabulary and none of its _Avoid_ terms
+- [ ] Amounts group their thousands, so a four-figure salary is scannable at a glance
+
+## Comments
+
+**Thousands separators, deferred here from ticket 02.** `formatAmount` in `domain/money.ts` renders bare digits — `£3200.00`, not `£3,200.00` — because it was written locale-free and deterministic, which is what the engine tests want. It gets harder to scan as figures grow, and the household's largest numbers (Spendable Income, Leftover Balance, goal targets) are exactly the ones that suffer. Decide the separator here, once, for every figure on the dashboard. Note that the Household has one currency and no locale setting anywhere, so this is a display decision the app makes, not one it reads from the browser.
