@@ -1,0 +1,35 @@
+import { ref, type Ref } from 'vue'
+
+/** What a panel holds while it carries changes out: what went wrong, and how to try. */
+export interface Changes {
+  /** What the engine or the store said when it last refused a change, if it did. */
+  failure: Ref<string | undefined>
+  /** Carries a change out, saying so if it is refused, and answering whether it was accepted. */
+  report: (change: Promise<void>) => Promise<boolean>
+}
+
+/**
+ * How every panel carries out a change: the engine and the store are the only judges of
+ * whether one is allowed, so a panel's whole job is to say what they said.
+ *
+ * A change answers whether it was accepted rather than the caller reading it back off
+ * `failure`, which any other change in flight is free to have overwritten by the time
+ * this one lands. That matters the moment a store awaits real I/O rather than the
+ * browser's own storage, and it is what lets a panel close a form on acceptance alone.
+ */
+export function useChanges(): Changes {
+  const failure = ref<string | undefined>(undefined)
+
+  async function report(change: Promise<void>): Promise<boolean> {
+    failure.value = undefined
+    try {
+      await change
+      return true
+    } catch (cause) {
+      failure.value = cause instanceof Error ? cause.message : String(cause)
+      return false
+    }
+  }
+
+  return { failure, report }
+}

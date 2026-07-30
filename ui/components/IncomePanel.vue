@@ -11,6 +11,7 @@ import {
   type Month,
   type RowId,
 } from '../../domain/index.js'
+import { useChanges } from '../changes.js'
 import { useHousehold } from '../household.js'
 import { nameOf } from '../members.js'
 import IncomeForm from './IncomeForm.vue'
@@ -20,9 +21,10 @@ const props = defineProps<{ household: Household; month: Month }>()
 
 const { addIncome, editIncome, removeIncome, confirmIncome } = useHousehold()
 
+const { failure, report } = useChanges()
+
 const adding = ref<MemberId | undefined>(undefined)
 const editing = ref<RowId | undefined>(undefined)
-const failure = ref<string | undefined>(undefined)
 
 const members = computed(() =>
   props.month.members.map((id) => ({
@@ -35,15 +37,15 @@ const members = computed(() =>
 
 const money = (amount: Minor): string => formatAmount(amount, props.household.currency)
 
+/**
+ * A change made from a form, which closes once it is accepted and stays open if it is
+ * not. A change made from a row uses `report` instead, so that confirming or removing
+ * one source never throws away another the member is halfway through typing.
+ */
 async function attempt(change: Promise<void>): Promise<void> {
-  failure.value = undefined
-  try {
-    await change
-    adding.value = undefined
-    editing.value = undefined
-  } catch (cause) {
-    failure.value = cause instanceof Error ? cause.message : String(cause)
-  }
+  if (!(await report(change))) return
+  adding.value = undefined
+  editing.value = undefined
 }
 </script>
 
@@ -93,7 +95,7 @@ async function attempt(change: Promise<void>): Promise<void> {
               class="confirm"
               type="button"
               :aria-label="`Confirm ${source.name}`"
-              @click="attempt(confirmIncome(month.key, source.id))"
+              @click="report(confirmIncome(month.key, source.id))"
             >
               Confirm
             </button>
@@ -101,7 +103,7 @@ async function attempt(change: Promise<void>): Promise<void> {
               class="remove"
               type="button"
               :aria-label="`Remove ${source.name}`"
-              @click="attempt(removeIncome(month.key, source.id))"
+              @click="report(removeIncome(month.key, source.id))"
             >
               ×
             </button>

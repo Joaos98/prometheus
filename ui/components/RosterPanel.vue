@@ -1,26 +1,19 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { Household } from '../../domain/index.js'
+import { useChanges } from '../changes.js'
 import { useHousehold } from '../household.js'
 
 defineProps<{ household: Household }>()
 
 const { addRosterMember, deactivateRosterMember, reactivateRosterMember } = useHousehold()
+const { failure, report } = useChanges()
 
 const name = ref('')
-const failure = ref<string | undefined>(undefined)
 
-async function attempt(change: Promise<void>): Promise<void> {
-  failure.value = undefined
-  try {
-    await change
-  } catch (cause) {
-    failure.value = cause instanceof Error ? cause.message : String(cause)
-  }
-}
-
+/** The field is emptied only once somebody is on the Roster under that name. */
 async function add(): Promise<void> {
-  await attempt(addRosterMember(name.value))
+  if (!(await report(addRosterMember(name.value)))) return
   name.value = ''
 }
 </script>
@@ -40,7 +33,7 @@ async function add(): Promise<void> {
           v-if="member.active"
           class="button-quiet"
           type="button"
-          @click="attempt(deactivateRosterMember(member.id))"
+          @click="report(deactivateRosterMember(member.id))"
         >
           Deactivate
         </button>
@@ -48,7 +41,7 @@ async function add(): Promise<void> {
           v-else
           class="button-quiet"
           type="button"
-          @click="attempt(reactivateRosterMember(member.id))"
+          @click="report(reactivateRosterMember(member.id))"
         >
           Reactivate
         </button>

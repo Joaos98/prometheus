@@ -13,6 +13,7 @@ import {
   type SavingsGoal,
 } from '../../domain/index.js'
 import { editableAmount, readAmount } from '../amount.js'
+import { useChanges } from '../changes.js'
 import { useHousehold } from '../household.js'
 import { membersOf } from '../members.js'
 import GoalForm from './GoalForm.vue'
@@ -22,10 +23,11 @@ const props = defineProps<{ household: Household; month: Month }>()
 
 const { addGoal, editGoal, removeGoal, confirmGoal, contribute } = useHousehold()
 
+const { failure, report } = useChanges()
+
 const adding = ref(false)
 const editing = ref<RowId | undefined>(undefined)
 const expanded = ref<RowId | undefined>(undefined)
-const failure = ref<string | undefined>(undefined)
 
 const members = computed(() => membersOf(props.household, props.month))
 
@@ -66,26 +68,11 @@ function edit(goal: SavingsGoal): void {
 }
 
 /**
- * Carries out a change, saying so if the engine or the store refuses it, and answering
- * whether it was accepted. A change made from a row leaves the panel's forms exactly as
- * it found them: entering a Contribution is the routine monthly action, and it must not
- * throw away a goal somebody is halfway through typing.
- *
- * The answer is returned rather than read back off `failure`, which any other change in
- * flight is free to have overwritten by the time this one lands.
+ * A change made from a form, which closes once it is accepted and stays open if it is
+ * not. A change made from a row uses `report` instead and leaves the panel's forms
+ * exactly as it found them: entering a Contribution is the routine monthly action, and
+ * it must not throw away a goal somebody is halfway through typing.
  */
-async function report(change: Promise<void>): Promise<boolean> {
-  failure.value = undefined
-  try {
-    await change
-    return true
-  } catch (cause) {
-    failure.value = cause instanceof Error ? cause.message : String(cause)
-    return false
-  }
-}
-
-/** A change made from a form, which closes once it is accepted and stays open if it is not. */
 async function attempt(change: Promise<void>): Promise<void> {
   if (!(await report(change))) return
   adding.value = false
@@ -94,7 +81,6 @@ async function attempt(change: Promise<void>): Promise<void> {
 
 /** A Contribution as typed: an empty field takes it back to nothing entered at all. */
 function enterContribution(goal: SavingsGoal, member: MemberId, typed: string): void {
-  failure.value = undefined
   try {
     const amount = readAmount(typed, props.household.currency)
     void report(contribute(props.month.key, goal.id, member, amount))

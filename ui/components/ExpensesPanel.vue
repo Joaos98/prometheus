@@ -13,6 +13,7 @@ import {
   type Month,
   type RowId,
 } from '../../domain/index.js'
+import { useChanges } from '../changes.js'
 import { useHousehold } from '../household.js'
 import { membersOf, nameOf } from '../members.js'
 import { ruleName } from '../split-rules.js'
@@ -25,9 +26,10 @@ const props = defineProps<{ household: Household; month: Month }>()
 const { addExpense, editExpense, repurposeExpense, removeExpense, confirmExpense } =
   useHousehold()
 
+const { failure, report } = useChanges()
+
 const adding = ref(false)
 const editing = ref<RowId | undefined>(undefined)
-const failure = ref<string | undefined>(undefined)
 
 /**
  * An edit held back while the member says whether this is still the same Expense. It
@@ -58,15 +60,16 @@ const money = (amount: Minor): string => formatAmount(amount, props.household.cu
 const participantCount = (expense: ExpenseSnapshot): string =>
   expense.participants.length === 1 ? '1 Participant' : `${expense.participants.length} Participants`
 
+/**
+ * A change made from a form — or from the question a rename asks — which closes once it
+ * is accepted and stays open if it is not. A change made from a row uses `report`
+ * instead, so that confirming or removing one Expense never throws away another the
+ * member is halfway through editing.
+ */
 async function attempt(change: Promise<void>): Promise<void> {
-  failure.value = undefined
-  try {
-    await change
-    adding.value = false
-    close()
-  } catch (cause) {
-    failure.value = cause instanceof Error ? cause.message : String(cause)
-  }
+  if (!(await report(change))) return
+  adding.value = false
+  close()
 }
 
 function edit(expense: ExpenseSnapshot): void {
@@ -182,7 +185,7 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
           class="confirm"
           type="button"
           :aria-label="`Confirm ${expense.name}`"
-          @click="attempt(confirmExpense(month.key, expense.id))"
+          @click="report(confirmExpense(month.key, expense.id))"
         >
           Confirm
         </button>
@@ -190,7 +193,7 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
           class="remove"
           type="button"
           :aria-label="`Remove ${expense.name}`"
-          @click="attempt(removeExpense(month.key, expense.id))"
+          @click="report(removeExpense(month.key, expense.id))"
         >
           ×
         </button>
