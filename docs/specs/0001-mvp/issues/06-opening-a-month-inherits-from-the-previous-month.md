@@ -8,6 +8,8 @@ Nothing is defined outside a Month. There are no templates, no profiles, no stan
 
 **Status:** ready-for-agent
 
+**Suggested model:** Opus, high thinking — the model's centre of gravity. Every ticket from 09 onward inherits whatever this one gets right or wrong. Worth running in the same session as 13 and 14, which are the same idea twice more.
+
 - [ ] Opening a Month copies every field of the Previous Month's rows: amount, name, category, Participants, Split Rule, and the Restricted-Use flag
 - [ ] Each copied row keeps the stable identity of the row it came from
 - [ ] The new Month's member list is copied from the Previous Month's member list, not re-derived from the current Roster

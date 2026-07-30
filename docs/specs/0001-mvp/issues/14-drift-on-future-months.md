@@ -8,6 +8,8 @@ Rather than forbid opening future Months, the failure is made visible: a future 
 
 **Status:** ready-for-agent
 
+**Suggested model:** Opus, high thinking — recomputes a hypothetical open and diffs it against what the Month holds, across every field including membership. Cheaper if 06 and 13 are still in context.
+
 - [ ] A future Month reports the difference between what it holds and what opening it now from its Previous Month would produce
 - [ ] The diff covers every field the copy covers — amounts, names, categories, Participants, Split Rules, Restricted-Use flags, goal targets and start amounts — and membership
 - [ ] Drift is presented neutrally, never as an error or a warning

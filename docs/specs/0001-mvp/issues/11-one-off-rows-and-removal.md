@@ -10,6 +10,8 @@ Or a member simply removes a row from a Month, and later Months inherit its abse
 
 **Status:** ready-for-agent
 
+**Suggested model:** Sonnet, medium thinking — mostly falls out of ticket 06, which already drops One-Off rows on open.
+
 - [ ] An income row, an Expense Snapshot or a Savings Goal can be marked One-Off
 - [ ] Opening the next Month does not inherit any row marked One-Off in the Previous Month
 - [ ] The One-Off flag itself is not inherited onto anything

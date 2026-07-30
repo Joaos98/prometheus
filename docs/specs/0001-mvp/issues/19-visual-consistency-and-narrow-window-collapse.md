@@ -8,6 +8,8 @@ The design brief applies from ticket 01 onward — this is **not** deferred styl
 
 **Status:** ready-for-agent
 
+**Suggested model:** Opus, medium thinking — judgment across every panel at once. The cost here is browser round-trips rather than reasoning, so expect a long session whichever model runs it.
+
 - [ ] The palette is applied consistently: page background, card surfaces, hairline borders, and the three text weights of the brief
 - [ ] Elements are separated by 0.5px hairlines rather than shadows, with no gradients anywhere
 - [ ] The fire accent is used for primary actions, key totals and active navigation, and the moon/ice accent only for goal progress and subtle highlights — never as a general-purpose colour

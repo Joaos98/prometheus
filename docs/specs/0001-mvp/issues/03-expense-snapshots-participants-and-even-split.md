@@ -8,6 +8,8 @@ Even splitting only in this ticket. The other Split Rules arrive in 04, but the 
 
 **Status:** ready-for-agent
 
+**Suggested model:** Opus, high thinking — the first Shares code. Both the exact-sum rounding and the test voice that ticket 04 copies are set here.
+
 - [ ] An Expense Snapshot records a name, category, amount, Participants and Split Rule, and can be added, edited and removed within its Month
 - [ ] Participants are a subset of the Month's members, stored on the Snapshot
 - [ ] A single-Participant Expense yields one Share equal to the full amount

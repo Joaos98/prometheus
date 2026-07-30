@@ -10,6 +10,8 @@ And a toggle beside the Leftover Balance for whether Restricted-Use Income count
 
 **Status:** ready-for-agent
 
+**Suggested model:** Sonnet, medium thinking — small, with one rule to hold: the toggle is a display parameter at the call site and never reaches Share computation.
+
 - [ ] A Roster dropdown in the header sets which member this device treats as the Viewer
 - [ ] The Viewer's figures are highlighted and sorted first
 - [ ] The Viewer defaults to nobody, and the dashboard is fully usable with no Viewer set

@@ -8,6 +8,8 @@ Contributions read as zero until Savings Goals exist in 10; the subtraction is b
 
 **Status:** ready-for-agent
 
+**Suggested model:** Sonnet, medium thinking — a subtraction over engine parts that already exist, and the rail's layout is settled by ADR-0010.
+
 - [ ] Leftover Balance for a member is Spendable Income minus the sum of their Shares across the Month's Expenses minus the sum of their Contributions
 - [ ] A negative Leftover Balance is a legitimate result and renders as one
 - [ ] A Leftover Balance never carries into a later Month

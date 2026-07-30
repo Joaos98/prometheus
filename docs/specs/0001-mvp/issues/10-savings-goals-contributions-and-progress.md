@@ -10,6 +10,8 @@ Goal rows list **every member of the Month**, not only Participants, with non-Pa
 
 **Status:** ready-for-agent
 
+**Suggested model:** Opus, medium thinking — Accumulated Progress reads across Months, and the collapsing goal row is the fiddliest piece of UI in the MVP.
+
 - [ ] A Savings Goal records a name, an optional target, a start amount and Participants, with a stable identity carried between Months
 - [ ] Each Participant's Contribution for the Month is entered directly, per member
 - [ ] Goals have no Split Rule and no division of any kind

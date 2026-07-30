@@ -8,6 +8,8 @@ This is where the snapshot model earns its keep, and where the design decision i
 
 **Status:** ready-for-agent
 
+**Suggested model:** Sonnet, medium thinking — small, and the guarantee that past Months keep rendering is already carried by ticket 06's member copying.
+
 - [ ] A member can be added to the Roster after setup, and appears in Months opened afterwards
 - [ ] A member can be deactivated, and is absent from Months opened afterwards
 - [ ] Deactivating a member changes nothing about any already-opened Month: its member list, its Shares, its Leftover Balances and its Contributions are all unchanged

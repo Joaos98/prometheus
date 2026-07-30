@@ -10,6 +10,8 @@ Two members are likely to be editing at the same time, so writes are row-scoped:
 
 **Status:** ready-for-agent
 
+**Suggested model:** Opus, medium thinking — the contract suite is a design job and both adapters answer to it afterwards. The Docker half is routine; the suite is not.
+
 - [ ] A Node server serves the static build and row-level CRUD over SQLite
 - [ ] The server imports no domain code and enforces no domain invariants
 - [ ] There is no login, no password storage, no session and no permission check anywhere

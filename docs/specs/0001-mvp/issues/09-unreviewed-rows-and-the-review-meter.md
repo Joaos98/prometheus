@@ -8,6 +8,8 @@ Every row that arrives by inheritance is Unreviewed until a member edits it or e
 
 **Status:** ready-for-agent
 
+**Suggested model:** Sonnet, medium thinking — a flag set on inheritance and cleared by edit or confirmation, once ticket 06 exists.
+
 - [ ] Opening a Month marks every copied row Unreviewed
 - [ ] Editing a row clears its Unreviewed mark
 - [ ] A member can confirm a row that is correct as inherited without editing it, and that clears the mark too

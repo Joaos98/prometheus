@@ -8,6 +8,8 @@ Import replaces the current Household wholesale, so it says what it will replace
 
 **Status:** ready-for-agent
 
+**Suggested model:** Opus, medium thinking — validation has to be all-or-nothing, and null-vs-zero has to survive the JSON in both directions.
+
 - [ ] The whole Household exports to a single JSON file — currency, Roster, and every opened Month with all its rows
 - [ ] Importing that file reproduces the Household exactly, and every figure recomputes to the same values
 - [ ] A null amount round-trips as null, an explicit zero as zero, and an absent row as absent — the three stay distinct through export and import

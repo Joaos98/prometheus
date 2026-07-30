@@ -8,6 +8,8 @@ Propagation means "carry this into the Months still holding the old copied value
 
 **Status:** ready-for-agent
 
+**Suggested model:** Opus, high thinking — walks every later opened Month, decides row by row on review state, and has to report what it skipped and why. Cheaper if ticket 06 is still in context.
+
 - [ ] Propagating an edit walks every opened Month after the source, in order
 - [ ] A matching value that is still Unreviewed is replaced
 - [ ] A matching value a member has edited or confirmed is left alone

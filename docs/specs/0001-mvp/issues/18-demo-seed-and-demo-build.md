@@ -10,6 +10,8 @@ Which makes it an integration test that happens to double as the shop window, so
 
 **Status:** ready-for-agent
 
+**Suggested model:** Opus, medium thinking — the seed is the end-to-end integration test rather than sample data, so it has to drive the engine the way a member would.
+
 - [ ] The demo is a static build with the localStorage adapter and no backend
 - [ ] The demo is fully functional — every MVP behaviour works, not a subset
 - [ ] The sample Household is produced by a program that drives the domain through the same operations a member uses, not by hand-written fixture rows

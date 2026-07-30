@@ -8,6 +8,8 @@ And undoing an open: discarding a Month removes every row of it and returns it t
 
 **Status:** ready-for-agent
 
+**Suggested model:** Opus, medium thinking — the only destructive operation in the Household, and it has to name what it will destroy before it proceeds.
+
 - [ ] A member can move to the next and previous Month directly
 - [ ] A member can jump to any Month by year and month
 - [ ] Opened and unopened Months are distinguished in navigation

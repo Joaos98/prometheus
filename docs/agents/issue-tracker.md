@@ -11,6 +11,7 @@ This deviates from the skills' stock local-markdown convention, which uses `.scr
 - Implementation issues are one file per ticket at `docs/specs/<NN>-<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` in dependency order — never a single combined tickets file
 - Triage state is recorded as a `Status:` line near the top of each spec and issue file (see `triage-labels.md` for the role strings)
 - Blocking edges are a `Blocked by:` line near the top, listing the numbers/titles of the gating tickets, or `None — can start immediately`
+- A `**Suggested model:**` line may follow `Status:`, naming the model and thinking effort the ticket is judged to want, and why. It is advice to whoever picks the ticket up, not a constraint — override it freely
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading
 
 `.scratch/` stays gitignored and stays available for genuinely throwaway work — prototypes, scratch notes, experiments nobody needs to keep.

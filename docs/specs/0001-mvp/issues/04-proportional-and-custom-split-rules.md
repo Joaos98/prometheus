@@ -18,6 +18,8 @@ type SplitRule =
 
 **Status:** ready-for-agent
 
+**Suggested model:** Opus, high thinking — the hardest domain ticket. A `fixed` rule against a changing amount is the second risk the spec names by hand.
+
 - [ ] All four rules compute Shares that sum to exactly the Expense amount, under the largest-remainder rules established in 03
 - [ ] A proportional split weights by Spendable Income, so Restricted-Use Income never influences it
 - [ ] Correcting a member's income changes every proportional Share in that Month with no edit to any Expense

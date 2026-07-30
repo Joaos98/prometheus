@@ -8,6 +8,8 @@ Continuing keeps the Expense's identity and its history, so trends and propagati
 
 **Status:** ready-for-agent
 
+**Suggested model:** Opus, high thinking — identity semantics, where a mistake silently merges two costs' histories rather than failing.
+
 - [ ] Editing the name of an inherited Expense Snapshot asks whether the Expense continues or a different one begins
 - [ ] Choosing to continue keeps the stable identity, and the row remains part of the same thread across Months
 - [ ] Choosing to repurpose mints a new identity for this Month onward, and the old thread ends at the previous Month
