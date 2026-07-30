@@ -65,15 +65,27 @@ function edit(goal: SavingsGoal): void {
   expanded.value = goal.id
 }
 
-async function attempt(change: Promise<void>): Promise<void> {
+/**
+ * Carries out a change, saying so if the engine or the store refuses it. A change made
+ * from a row leaves the panel's forms exactly as it found them: entering a Contribution
+ * is the routine monthly action, and it must not throw away a goal somebody is halfway
+ * through typing.
+ */
+async function report(change: Promise<void>): Promise<void> {
   failure.value = undefined
   try {
     await change
-    adding.value = false
-    editing.value = undefined
   } catch (cause) {
     failure.value = cause instanceof Error ? cause.message : String(cause)
   }
+}
+
+/** A change made from a form, which closes once it is accepted and stays open if it is not. */
+async function attempt(change: Promise<void>): Promise<void> {
+  await report(change)
+  if (failure.value !== undefined) return
+  adding.value = false
+  editing.value = undefined
 }
 
 /** A Contribution as typed: an empty field takes it back to nothing entered at all. */
@@ -81,7 +93,7 @@ function enterContribution(goal: SavingsGoal, member: MemberId, typed: string): 
   failure.value = undefined
   try {
     const amount = readAmount(typed, props.household.currency)
-    void attempt(contribute(props.month.key, goal.id, member, amount))
+    void report(contribute(props.month.key, goal.id, member, amount))
   } catch (cause) {
     failure.value = cause instanceof Error ? cause.message : String(cause)
   }
@@ -158,7 +170,7 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
           class="confirm"
           type="button"
           :aria-label="`Confirm ${goal.name}`"
-          @click="attempt(confirmGoal(month.key, goal.id))"
+          @click="report(confirmGoal(month.key, goal.id))"
         >
           Confirm
         </button>
@@ -166,7 +178,7 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
           class="remove"
           type="button"
           :aria-label="`Remove ${goal.name}`"
-          @click="attempt(removeGoal(month.key, goal.id))"
+          @click="report(removeGoal(month.key, goal.id))"
         >
           ×
         </button>
