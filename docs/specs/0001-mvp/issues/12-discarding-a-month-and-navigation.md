@@ -46,3 +46,16 @@ already fixes it as of the Month being viewed.
 
 Ticket 19 owns the narrow-window collapse; the masthead still overflows below about
 440px, which navigation did not introduce and does not worsen.
+
+Navigation turned out to make a whole class of latent panel state reachable for the
+first time. Every panel keeps what a member is halfway through — the row being edited,
+an amount typed but not saved, a rename waiting to be answered — and none of it was
+scoped to a Month, because until now there was no way to leave one. Stepping to the next
+Month left the form open over the new Month's row, and the next save wrote there: an
+edit meant for July landed on August. The dashboard now keys the panels on the Month, so
+moving builds them afresh.
+
+The discard question is guarded twice on purpose. The key already rebuilds it, but an
+armed destructive action should not rest on where a component happens to sit in the
+tree, so it also clears itself when the Month changes. Answering yes destroys the Month
+the member was looking at when they were told the number, or nothing.

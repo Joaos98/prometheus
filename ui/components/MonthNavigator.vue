@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import {
   isOpened,
   monthAfter,
@@ -33,6 +33,19 @@ const months = computed(() =>
 )
 
 const openedThisYear = computed(() => months.value.filter((month) => month.opened).length)
+
+/**
+ * The picker stays open while the steppers are used, so it follows the member across the
+ * turn of a year rather than going on showing the year they left. Otherwise stepping
+ * from December into January leaves a grid of the old year with nothing marked as where
+ * they are, and the next Month they pick lands twelve Months from where they meant.
+ */
+watch(
+  () => props.viewing,
+  (month) => {
+    year.value = yearOf(month)
+  },
+)
 
 /** The picker opens on the year being viewed, wherever it was left last time. */
 function togglePicker(): void {

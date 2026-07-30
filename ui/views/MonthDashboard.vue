@@ -75,7 +75,15 @@ async function saveCurrency(): Promise<void> {
 
     <UnopenedMonth v-if="!month" :household="household" :viewing="viewing" />
 
-    <div v-else class="columns">
+    <!--
+      Keyed on the Month, so moving to another one builds the panels afresh rather than
+      reusing them. What a panel holds while a member is halfway through something — the
+      row being edited, an amount typed but not saved, a rename waiting to be answered —
+      is about the Month it was started in and means nothing in another. Without this,
+      stepping to the next Month leaves the form open and its next save lands there,
+      which is how an edit meant for July gets written to August.
+    -->
+    <div v-else :key="viewing" class="columns">
       <MonthRail :household="household" :month="month" />
 
       <main>

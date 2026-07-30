@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { entryCount, monthName, type Month } from '../../domain/index.js'
 import { useChanges } from '../changes.js'
 import { useHousehold } from '../household.js'
@@ -10,6 +10,21 @@ const { discard } = useHousehold()
 const { failure, report } = useChanges()
 
 const asking = ref(false)
+
+/**
+ * The question is asked about one Month and must never come to be asked about another.
+ * The dashboard already rebuilds this panel when the Month changes, but an armed
+ * destructive action is not a thing to leave resting on where a component happens to
+ * sit: answering yes has to destroy the Month the member was looking at when they were
+ * told the number, or nothing at all.
+ */
+watch(
+  () => props.month.key,
+  () => {
+    asking.value = false
+    failure.value = undefined
+  },
+)
 
 /**
  * The one destructive action in the Household, so it says the number before it proceeds
