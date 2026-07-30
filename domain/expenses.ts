@@ -2,6 +2,7 @@ import { DomainError } from './errors.js'
 import { requireConsistentRule } from './split-rules.js'
 import {
   openedMonth,
+  replaceRow,
   requireAmount,
   requireName,
   requireMember,
@@ -84,8 +85,7 @@ export function editExpenseSnapshot(
     reviewed: true,
   })
 
-  const expenses = month.expenses.map((candidate) => (candidate.id === id ? row : candidate))
-  return { household: withExpenses(household, month, expenses), row }
+  return { household: withExpenses(household, month, replaceRow(month.expenses, id, row)), row }
 }
 
 /**
@@ -99,8 +99,7 @@ export function confirmExpenseSnapshot(
 ): RowChange<ExpenseSnapshot> {
   const month = openedMonth(household, key)
   const row: ExpenseSnapshot = { ...expenseRow(month, id), reviewed: true }
-  const expenses = month.expenses.map((candidate) => (candidate.id === id ? row : candidate))
-  return { household: withExpenses(household, month, expenses), row }
+  return { household: withExpenses(household, month, replaceRow(month.expenses, id, row)), row }
 }
 
 /**

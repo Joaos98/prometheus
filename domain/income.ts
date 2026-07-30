@@ -1,6 +1,7 @@
 import { DomainError } from './errors.js'
 import {
   openedMonth,
+  replaceRow,
   requireAmount,
   requireMember,
   requireName,
@@ -67,8 +68,7 @@ export function editIncomeSnapshot(
     reviewed: true,
   }
 
-  const income = month.income.map((candidate) => (candidate.id === id ? row : candidate))
-  return { household: withIncome(household, month, income), row }
+  return { household: withIncome(household, month, replaceRow(month.income, id, row)), row }
 }
 
 /**
@@ -82,8 +82,7 @@ export function confirmIncomeSnapshot(
 ): RowChange<IncomeSnapshot> {
   const month = openedMonth(household, key)
   const row: IncomeSnapshot = { ...incomeRow(month, id), reviewed: true }
-  const income = month.income.map((candidate) => (candidate.id === id ? row : candidate))
-  return { household: withIncome(household, month, income), row }
+  return { household: withIncome(household, month, replaceRow(month.income, id, row)), row }
 }
 
 /** Takes an income source out of a Month. */

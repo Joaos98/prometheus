@@ -1,6 +1,6 @@
 import { DomainError } from './errors.js'
 import { monthAt } from './month.js'
-import type { Household, MemberId, Minor, Month, MonthKey } from './types.js'
+import type { Household, MemberId, Minor, Month, MonthKey, RowId } from './types.js'
 
 /**
  * What an operation on a single row returns: the Household as it now stands, and the
@@ -51,4 +51,9 @@ export function requireMember(month: Month, member: MemberId): MemberId {
 /** The Household with one of its Months replaced. */
 export function withMonth(household: Household, month: Month): Household {
   return { ...household, months: { ...household.months, [month.key]: month } }
+}
+
+/** A Month's rows with the one of the given identity replaced, and every other left as is. */
+export function replaceRow<Row extends { id: RowId }>(rows: Row[], id: RowId, row: Row): Row[] {
+  return rows.map((candidate) => (candidate.id === id ? row : candidate))
 }
