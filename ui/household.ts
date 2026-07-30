@@ -3,13 +3,18 @@ import {
   addExpenseSnapshot,
   addIncomeSnapshot,
   addMember,
+  addSavingsGoal,
   confirmExpenseSnapshot,
   confirmIncomeSnapshot,
+  confirmSavingsGoal,
   deactivateMember,
   editExpenseSnapshot,
   editIncomeSnapshot,
+  editSavingsGoal,
   reactivateMember,
+  recordContribution,
   removeExpenseSnapshot,
+  removeSavingsGoal,
   openedMonthKeys,
   relabelCurrency,
   removeIncomeSnapshot,
@@ -18,10 +23,13 @@ import {
   type Currency,
   type ExpenseDraft,
   type ExpenseEdits,
+  type GoalDraft,
+  type GoalEdits,
   type Household,
   type IncomeDraft,
   type IncomeEdits,
   type MemberId,
+  type Minor,
   type MonthKey,
   type RowId,
   type Setup,
@@ -185,6 +193,54 @@ async function confirmExpense(month: MonthKey, id: RowId): Promise<void> {
   household.value = after
 }
 
+/** Savings Goals, one row at a time, on the same terms as income and Expenses. */
+async function addGoal(month: MonthKey, draft: GoalDraft): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const { household: after, row } = addSavingsGoal(current, month, draft)
+  await store.writeRow(month, 'goals', row)
+  household.value = after
+}
+
+async function editGoal(month: MonthKey, id: RowId, edits: GoalEdits): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const { household: after, row } = editSavingsGoal(current, month, id, edits)
+  await store.writeRow(month, 'goals', row)
+  household.value = after
+}
+
+async function removeGoal(month: MonthKey, id: RowId): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const after = removeSavingsGoal(current, month, id)
+  await store.deleteRow(month, 'goals', id)
+  household.value = after
+}
+
+/** Confirms a goal that is correct as inherited, without editing it. */
+async function confirmGoal(month: MonthKey, id: RowId): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const { household: after, row } = confirmSavingsGoal(current, month, id)
+  await store.writeRow(month, 'goals', row)
+  household.value = after
+}
+
+/** What one Participant puts toward one goal this Month, entered directly. */
+async function contribute(
+  month: MonthKey,
+  id: RowId,
+  member: MemberId,
+  amount: Minor | null,
+): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const { household: after, row } = recordContribution(current, month, id, member, amount)
+  await store.writeRow(month, 'goals', row)
+  household.value = after
+}
+
 export function useHousehold() {
   return {
     household,
@@ -206,5 +262,10 @@ export function useHousehold() {
     repurposeExpense,
     removeExpense,
     confirmExpense,
+    addGoal,
+    editGoal,
+    removeGoal,
+    confirmGoal,
+    contribute,
   }
 }

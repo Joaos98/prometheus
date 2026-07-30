@@ -7,6 +7,7 @@ import {
   type Household,
   type IncomeSnapshot,
   type Minor,
+  type SavingsGoal,
 } from '../domain/index.js'
 import { localStorageStore } from './local-storage-store.js'
 import { StorageError, type HouseholdStore } from './port.js'
@@ -49,6 +50,16 @@ const expense = (id: string, amount: Minor | null): ExpenseSnapshot => ({
   amount,
   participants: ['ana', 'bruno'],
   splitRule: { kind: 'even' },
+  reviewed: true,
+})
+
+const goal = (id: string): SavingsGoal => ({
+  id,
+  name: id,
+  target: 200000,
+  startAmount: 0,
+  participants: ['ana'],
+  contributions: {},
   reviewed: true,
 })
 
@@ -168,7 +179,7 @@ describe('the localStorage adapter', () => {
 
   it('removes a row', async () => {
     await store.createHousehold(household())
-    await store.writeRow('2026-07', 'goals', { id: 'holiday', reviewed: true })
+    await store.writeRow('2026-07', 'goals', goal('holiday'))
 
     await store.deleteRow('2026-07', 'goals', 'holiday')
 
@@ -179,7 +190,7 @@ describe('the localStorage adapter', () => {
     await store.createHousehold(household())
 
     await expect(
-      store.writeRow('2026-08', 'expenses', { id: 'rent', reviewed: true }),
+      store.writeRow('2026-08', 'expenses', expense('rent', 120000)),
     ).rejects.toBeInstanceOf(
       StorageError,
     )

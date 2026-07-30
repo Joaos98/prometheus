@@ -12,15 +12,15 @@ Goal rows list **every member of the Month**, not only Participants, with non-Pa
 
 **Suggested model:** Opus, medium thinking — Accumulated Progress reads across Months, and the collapsing goal row is the fiddliest piece of UI in the MVP.
 
-- [ ] A Savings Goal records a name, an optional target, a start amount and Participants, with a stable identity carried between Months
-- [ ] Each Participant's Contribution for the Month is entered directly, per member
-- [ ] Goals have no Split Rule and no division of any kind
-- [ ] Accumulated Progress as of a Month is that Month's start amount plus every Contribution to that goal identity in that Month or any earlier Month
-- [ ] Progress is measured against that Month's target, so changing the target later does not rewrite an earlier Month's progress
-- [ ] Contributions made in later Months do not affect an earlier Month's reported progress
-- [ ] Contributions are subtracted in each member's Leftover Balance
-- [ ] Opening a Month inherits each goal's name, target, start amount and Participants
-- [ ] A goal row lists every member of the Month, with non-Participants greyed and named as non-Participants
-- [ ] Collapsed, a goal row shows Accumulated Progress against target and the Month's total contribution
-- [ ] Expanded, it shows every member's Contribution, the start amount, and Accumulated Progress as of this Month
-- [ ] Goals render in the right column alongside income
+- [x] A Savings Goal records a name, an optional target, a start amount and Participants, with a stable identity carried between Months
+- [x] Each Participant's Contribution for the Month is entered directly, per member
+- [x] Goals have no Split Rule and no division of any kind
+- [x] Accumulated Progress as of a Month is that Month's start amount plus every Contribution to that goal identity in that Month or any earlier Month
+- [x] Progress is measured against that Month's target, so changing the target later does not rewrite an earlier Month's progress
+- [x] Contributions made in later Months do not affect an earlier Month's reported progress
+- [x] Contributions are subtracted in each member's Leftover Balance
+- [x] Opening a Month inherits each goal's name, target, start amount and Participants
+- [x] A goal row lists every member of the Month, with non-Participants greyed and named as non-Participants
+- [x] Collapsed, a goal row shows Accumulated Progress against target and the Month's total contribution
+- [x] Expanded, it shows every member's Contribution, the start amount, and Accumulated Progress as of this Month
+- [x] Goals render in the right column alongside income

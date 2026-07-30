@@ -13,6 +13,19 @@ export {
   type ExpenseEdits,
 } from './expenses.js'
 export {
+  addSavingsGoal,
+  confirmSavingsGoal,
+  contributionTo,
+  contributionsOf,
+  editSavingsGoal,
+  recordContribution,
+  removeSavingsGoal,
+  totalContributedTo,
+  type GoalDraft,
+  type GoalEdits,
+} from './goals.js'
+export { accumulatedProgress, type AccumulatedProgress } from './progress.js'
+export {
   addMember,
   deactivateMember,
   reactivateMember,

@@ -1,3 +1,4 @@
+import { contributionsOf } from './goals.js'
 import { spendableIncome } from './income.js'
 import { isPending } from './rows.js'
 import { sharesOf } from './shares.js'
@@ -29,8 +30,7 @@ export function leftoverBalanceOf(month: Month, member: MemberId): LeftoverBalan
       total + (sharesOf(month, expense).find((share) => share.member === member)?.amount ?? 0),
     0,
   )
-  /** Savings Goals carry no Contributions until ticket 10 — this term reads zero until then. */
-  const contributions = 0
+  const contributions = contributionsOf(month, member)
 
   const pendingIncome = month.income.some(
     (row) => row.member === member && !row.restrictedUse && isPending(row),

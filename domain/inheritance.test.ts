@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { addExpenseSnapshot, editExpenseSnapshot } from './expenses.js'
+import { addSavingsGoal, recordContribution } from './goals.js'
 import { setUpHousehold } from './household.js'
 import { addIncomeSnapshot } from './income.js'
 import { monthAt, openMonth } from './month.js'
@@ -125,15 +126,33 @@ describe('an inherited row', () => {
   })
 
   it('carries a Savings Goal across, identity intact', () => {
-    const july = monthAt(household, '2026-07')!
-    const withGoal: Household = {
-      ...household,
-      months: { '2026-07': { ...july, goals: [{ id: 'holiday', reviewed: true }] } },
-    }
+    const withGoal = addSavingsGoal(household, '2026-07', {
+      name: 'Holiday',
+      target: 200000,
+      startAmount: 50000,
+      participants: [ana],
+    }).household
+    const july = monthAt(withGoal, '2026-07')!.goals[0]!
 
     const august = openMonth(withGoal, '2026-08')
 
-    expect(monthAt(august, '2026-08')!.goals).toEqual([{ id: 'holiday', reviewed: false }])
+    expect(monthAt(august, '2026-08')!.goals).toEqual([
+      { ...july, contributions: {}, reviewed: false },
+    ])
+  })
+
+  it('leaves a goal’s Contributions behind — what was put in was put in that Month', () => {
+    let withGoal = addSavingsGoal(household, '2026-07', {
+      name: 'Holiday',
+      participants: [ana],
+    }).household
+    const id = monthAt(withGoal, '2026-07')!.goals[0]!.id
+    withGoal = recordContribution(withGoal, '2026-07', id, ana, 25000).household
+
+    const august = openMonth(withGoal, '2026-08')
+
+    expect(monthAt(august, '2026-08')!.goals[0]!.contributions).toEqual({})
+    expect(monthAt(august, '2026-07')!.goals[0]!.contributions).toEqual({ [ana]: 25000 })
   })
 })
 

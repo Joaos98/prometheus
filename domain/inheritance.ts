@@ -59,9 +59,20 @@ function inheritExpense(row: ExpenseSnapshot): ExpenseSnapshot {
   }
 }
 
-/** Ticket 10 gives a Goal its Contributions, which start the Month at nothing. */
+/**
+ * A goal carries its name, target, start amount and Participants into the new Month, and
+ * its Contributions start at nothing: what anybody put in last Month was put in last
+ * Month, and Accumulated Progress finds it there rather than by carrying it along. The
+ * start amount is likewise inherited unchanged — it is the baseline from before
+ * Prometheus, not a running total.
+ */
 function inheritGoal(goal: SavingsGoal): SavingsGoal {
-  return { ...goal, reviewed: false }
+  return {
+    ...goal,
+    participants: [...goal.participants],
+    contributions: {},
+    reviewed: false,
+  }
 }
 
 function inheritSplitRule(rule: SplitRule): SplitRule {

@@ -77,8 +77,24 @@ export interface ExpenseSnapshot {
   reviewed: boolean
 }
 
+/**
+ * One Savings Goal in one Month: what it is called, what it is saving toward, what it
+ * had already reached before Prometheus, and who is saving for it. `id` is the stable
+ * identity that carries the same goal from Month to Month, which is what lets
+ * Accumulated Progress read Contributions across the record.
+ *
+ * `target` of `null` is a goal with nothing fixed to reach. `startAmount` is the Month's
+ * own baseline, inherited unchanged, so it never absorbs what has since been contributed.
+ * `contributions` holds only the Participants who have entered one — an absent member has
+ * put in nothing this Month, and nothing here is ever divided by a rule.
+ */
 export interface SavingsGoal {
   id: RowId
+  name: string
+  target: Minor | null
+  startAmount: Minor
+  participants: MemberId[]
+  contributions: Record<MemberId, Minor>
   reviewed: boolean
 }
 

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { addExpenseSnapshot } from './expenses.js'
+import { addSavingsGoal, recordContribution } from './goals.js'
 import { addIncomeSnapshot } from './income.js'
 import { setUpHousehold } from './household.js'
 import { leftoverBalanceOf, leftoverBalancesOf } from './leftover.js'
@@ -110,8 +111,42 @@ describe('a Leftover Balance', () => {
     expect(leftoverBalanceOf(monthOf(after), ana).shares).toBe(0)
   })
 
-  it('reads Contributions as zero — Savings Goals carry none until ticket 10', () => {
-    expect(leftoverBalanceOf(monthOf(household), ana).contributions).toBe(0)
+  it('subtracts what the member contributed to the Month’s Savings Goals', () => {
+    let after = addIncomeSnapshot(household, '2026-07', {
+      name: 'Salary',
+      member: ana,
+      amount: 100000,
+    }).household
+    const { household: withGoal, row } = addSavingsGoal(after, '2026-07', {
+      name: 'Holiday',
+      target: 200000,
+      participants: [ana, bruno],
+    })
+    after = recordContribution(withGoal, '2026-07', row.id, ana, 15000).household
+
+    const balance = leftoverBalanceOf(monthOf(after), ana)
+
+    expect(balance.contributions).toBe(15000)
+    expect(balance.balance).toBe(85000)
+  })
+
+  it('counts nothing for a goal the member has contributed nothing to', () => {
+    const after = addSavingsGoal(household, '2026-07', {
+      name: 'Holiday',
+      participants: [ana, bruno],
+    }).household
+
+    expect(leftoverBalanceOf(monthOf(after), ana).contributions).toBe(0)
+  })
+
+  it('counts nothing for another member’s Contribution', () => {
+    const { household: withGoal, row } = addSavingsGoal(household, '2026-07', {
+      name: 'Holiday',
+      participants: [ana, bruno],
+    })
+    const after = recordContribution(withGoal, '2026-07', row.id, bruno, 15000).household
+
+    expect(leftoverBalanceOf(monthOf(after), ana).contributions).toBe(0)
   })
 
   it('never carries into a later Month — it is computed fresh from that Month’s own rows', () => {
