@@ -5,6 +5,7 @@ import ExpensesPanel from '../components/ExpensesPanel.vue'
 import IncomePanel from '../components/IncomePanel.vue'
 import MonthPanel from '../components/MonthPanel.vue'
 import MonthRail from '../components/MonthRail.vue'
+import RosterPanel from '../components/RosterPanel.vue'
 import { CURRENCIES } from '../currencies.js'
 import { useHousehold } from '../household.js'
 import logo from '../../prometheus-logo.svg'
@@ -15,6 +16,7 @@ const { relabel } = useHousehold()
 
 const month = computed(() => monthAt(props.household, props.viewing))
 
+const managingRoster = ref(false)
 const relabelling = ref(false)
 const chosen = ref(props.household.currency.code)
 const failure = ref<string | undefined>(undefined)
@@ -43,11 +45,18 @@ async function saveCurrency(): Promise<void> {
       <h1>{{ monthName(viewing) }}</h1>
 
       <div class="side right">
+        <button class="button-quiet" type="button" @click="managingRoster = !managingRoster">
+          Roster
+        </button>
         <button class="button-quiet" type="button" @click="relabelling = !relabelling">
           {{ household.currency.code }} {{ household.currency.symbol.trim() }}
         </button>
       </div>
     </header>
+
+    <div v-if="managingRoster" class="card">
+      <RosterPanel :household="household" />
+    </div>
 
     <div v-if="relabelling" class="card relabel">
       <p class="muted note">

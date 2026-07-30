@@ -10,10 +10,30 @@ This is where the snapshot model earns its keep, and where the design decision i
 
 **Suggested model:** Sonnet, medium thinking — small, and the guarantee that past Months keep rendering is already carried by ticket 06's member copying.
 
-- [ ] A member can be added to the Roster after setup, and appears in Months opened afterwards
-- [ ] A member can be deactivated, and is absent from Months opened afterwards
-- [ ] Deactivating a member changes nothing about any already-opened Month: its member list, its Shares, its Leftover Balances and its Contributions are all unchanged
-- [ ] A deactivated member is never deleted, and a past Month still names them
-- [ ] A deactivated member can be reactivated and appears in Months opened afterwards, with no record of the absence anywhere
-- [ ] The Roster is visibly distinct from a Month's list of members, and changing it never alters what any Month says
-- [ ] Opening a Month with no Previous Month takes the active Roster; opening one with a Previous Month takes that Month's members
+- [x] A member can be added to the Roster after setup, and appears in Months opened afterwards
+- [x] A member can be deactivated, and is absent from Months opened afterwards
+- [x] Deactivating a member changes nothing about any already-opened Month: its member list, its Shares, its Leftover Balances and its Contributions are all unchanged
+- [x] A deactivated member is never deleted, and a past Month still names them
+- [x] A deactivated member can be reactivated and appears in Months opened afterwards, with no record of the absence anywhere
+- [x] The Roster is visibly distinct from a Month's list of members, and changing it never alters what any Month says
+- [x] Opening a Month with no Previous Month takes the active Roster; opening one with a Previous Month takes that Month's members
+
+## Comments
+
+`addMember`/`deactivateMember`/`reactivateMember` (domain/household.ts) mutate only the
+Roster. `inheritMonth` (domain/inheritance.ts) now takes the Roster and reconciles the
+Previous Month's member list against it when a Month is opened — carrying over anyone
+still active, dropping anyone since deactivated, and appending anyone added or
+reactivated since, in Roster order. This only runs at the moment of opening, so no
+already-opened Month is ever touched by a Roster change.
+
+This changes ticket 06's `takes its members from the Previous Month rather than from
+the Roster` test in `domain/month.test.ts`: that test asserted a Month opened after an
+out-of-band Roster deactivation would still carry the deactivated member, which is
+exactly what this ticket asks to stop happening. Updated it to assert the member is now
+dropped, and added a companion test confirming the already-opened Month is untouched.
+
+UI: a "Roster" toggle in the dashboard masthead (`ui/views/MonthDashboard.vue`) opens
+`ui/components/RosterPanel.vue` — add, deactivate, reactivate — writing the whole
+Household back via `store.replaceHousehold`, the same path `relabelCurrency` uses, since
+the Roster isn't a Month row.

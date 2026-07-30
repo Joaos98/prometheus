@@ -78,7 +78,7 @@ describe('opening a Month', () => {
     expect(() => openMonth(householdOf(['Ana']), 'August')).toThrow(DomainError)
   })
 
-  it('takes its members from the Previous Month rather than from the Roster', () => {
+  it('starts from the Previous Month’s members, dropping anyone now inactive', () => {
     const household = householdOf(['Ana', 'Bruno'])
     const withoutBruno: Household = {
       ...household,
@@ -89,7 +89,16 @@ describe('opening a Month', () => {
 
     const august = monthAt(openMonth(withoutBruno, '2026-08'), '2026-08')!
 
-    expect(august.members.map((id) => nameOf(household, id))).toEqual(['Ana', 'Bruno'])
+    expect(august.members.map((id) => nameOf(household, id))).toEqual(['Ana'])
+  })
+
+  it('leaves an already-opened Month naming a since-deactivated member untouched', () => {
+    const household = householdOf(['Ana', 'Bruno'])
+
+    expect(monthAt(household, '2026-07')!.members.map((id) => nameOf(household, id))).toEqual([
+      'Ana',
+      'Bruno',
+    ])
   })
 })
 

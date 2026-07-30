@@ -11,7 +11,14 @@ export {
   type ExpenseDraft,
   type ExpenseEdits,
 } from './expenses.js'
-export { relabelCurrency, setUpHousehold, type Setup } from './household.js'
+export {
+  addMember,
+  deactivateMember,
+  reactivateMember,
+  relabelCurrency,
+  setUpHousehold,
+  type Setup,
+} from './household.js'
 export {
   addIncomeSnapshot,
   editIncomeSnapshot,

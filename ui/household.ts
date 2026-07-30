@@ -2,8 +2,11 @@ import { ref, shallowRef } from 'vue'
 import {
   addExpenseSnapshot,
   addIncomeSnapshot,
+  addMember,
+  deactivateMember,
   editExpenseSnapshot,
   editIncomeSnapshot,
+  reactivateMember,
   removeExpenseSnapshot,
   openedMonthKeys,
   relabelCurrency,
@@ -15,6 +18,7 @@ import {
   type Household,
   type IncomeDraft,
   type IncomeEdits,
+  type MemberId,
   type MonthKey,
   type RowId,
   type Setup,
@@ -63,6 +67,34 @@ async function relabel(currency: Currency): Promise<void> {
   const relabelled = relabelCurrency(household.value, currency)
   await store.replaceHousehold(relabelled)
   household.value = relabelled
+}
+
+/**
+ * The Roster, which is not a Month's row and so is written back whole, on the same
+ * terms as relabelling the currency.
+ */
+async function addRosterMember(name: string): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const after = addMember(current, name)
+  await store.replaceHousehold(after)
+  household.value = after
+}
+
+async function deactivateRosterMember(member: MemberId): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const after = deactivateMember(current, member)
+  await store.replaceHousehold(after)
+  household.value = after
+}
+
+async function reactivateRosterMember(member: MemberId): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const after = reactivateMember(current, member)
+  await store.replaceHousehold(after)
+  household.value = after
 }
 
 /**
@@ -128,6 +160,9 @@ export function useHousehold() {
     load,
     setUp,
     relabel,
+    addRosterMember,
+    deactivateRosterMember,
+    reactivateRosterMember,
     addIncome,
     editIncome,
     removeIncome,

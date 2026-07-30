@@ -40,7 +40,7 @@ export function openMonth(household: Household, key: MonthKey): Household {
 
   const previous = previousMonthKey(household, month)
   const opened: Month = previous
-    ? inheritMonth(household.months[previous]!, month)
+    ? inheritMonth(household.months[previous]!, month, household.roster)
     : firstMonth(household, month)
 
   return { ...household, months: { ...household.months, [month]: opened } }

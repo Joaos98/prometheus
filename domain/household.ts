@@ -1,7 +1,8 @@
 import { DomainError } from './errors.js'
 import { assertMonthKey } from './month-key.js'
 import { openMonth } from './month.js'
-import type { Currency, Household, Member, MonthKey } from './types.js'
+import { requireName } from './rows.js'
+import type { Currency, Household, Member, MemberId, MonthKey } from './types.js'
 
 export interface Setup {
   currency: Currency
@@ -39,6 +40,46 @@ export function relabelCurrency(household: Household, currency: Currency): House
     )
   }
   return { ...household, currency: relabelled }
+}
+
+/**
+ * Adds someone to the Roster, active from now on. They join whichever Month is opened
+ * next — no already-opened Month is touched, since a Month's member list is its own,
+ * copied at the moment it was opened.
+ */
+export function addMember(household: Household, name: string): Household {
+  const member: Member = {
+    id: crypto.randomUUID(),
+    name: requireName(name, 'A member'),
+    active: true,
+  }
+  return { ...household, roster: [...household.roster, member] }
+}
+
+/**
+ * Marks a Roster member inactive. They are dropped from Months opened afterwards, but
+ * nothing about an already-opened Month changes — it keeps its own copy of who was a
+ * member when it was opened. Nobody is ever deleted from the Roster.
+ */
+export function deactivateMember(household: Household, member: MemberId): Household {
+  return { ...household, roster: setActive(household, member, false) }
+}
+
+/**
+ * Brings a deactivated Roster member back, active from now on. They appear in Months
+ * opened afterwards with no record of the absence; no already-opened Month is touched.
+ */
+export function reactivateMember(household: Household, member: MemberId): Household {
+  return { ...household, roster: setActive(household, member, true) }
+}
+
+function setActive(household: Household, member: MemberId, active: boolean): Member[] {
+  if (!household.roster.some((candidate) => candidate.id === member)) {
+    throw new DomainError(`${member} is not on the Roster`)
+  }
+  return household.roster.map((candidate) =>
+    candidate.id === member ? { ...candidate, active } : candidate,
+  )
 }
 
 function validCurrency(currency: Currency): Currency {
