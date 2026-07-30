@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import {
   formatAmount,
   isPending,
+  isReviewed,
   spendableIncome,
   type Household,
   type MemberId,
@@ -17,7 +18,7 @@ import MonthPanel from './MonthPanel.vue'
 
 const props = defineProps<{ household: Household; month: Month }>()
 
-const { addIncome, editIncome, removeIncome } = useHousehold()
+const { addIncome, editIncome, removeIncome, confirmIncome } = useHousehold()
 
 const adding = ref<MemberId | undefined>(undefined)
 const editing = ref<RowId | undefined>(undefined)
@@ -80,11 +81,21 @@ async function attempt(change: Promise<void>): Promise<void> {
               <span class="name">
                 {{ source.name }}
                 <span v-if="source.restrictedUse" class="tag">Restricted-Use</span>
+                <span v-if="!isReviewed(source)" class="tag unreviewed">Unreviewed</span>
               </span>
               <span v-if="isPending(source)" class="pending">Pending</span>
               <span v-else class="figure" :class="{ restricted: source.restrictedUse }">
                 {{ money(source.amount!) }}
               </span>
+            </button>
+            <button
+              v-if="!isReviewed(source)"
+              class="confirm"
+              type="button"
+              :aria-label="`Confirm ${source.name}`"
+              @click="attempt(confirmIncome(month.key, source.id))"
+            >
+              Confirm
             </button>
             <button
               class="remove"
@@ -192,9 +203,26 @@ h3 {
   color: var(--text-muted);
 }
 
+.unreviewed {
+  color: var(--fire);
+  border-color: var(--fire);
+}
+
 .pending {
   color: var(--fire-bright);
   font-size: 12px;
+}
+
+.confirm {
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--fire);
+  background: none;
+  border: 0.5px solid var(--hairline);
+}
+
+.confirm:hover {
+  border-color: var(--fire);
 }
 
 .remove {

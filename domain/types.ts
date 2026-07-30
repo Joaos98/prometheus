@@ -33,6 +33,10 @@ export interface Member {
  * One named income source for one member in one Month. There is no standing record of
  * what anyone earns — income exists only as these rows. `amount` of `null` is Pending:
  * no amount entered at all, which is not the same as an amount of zero.
+ *
+ * `reviewed` is Unreviewed's opposite: false the moment a row arrives by inheritance,
+ * cleared to true by an edit or by an explicit confirmation. A row recorded fresh in
+ * this Month starts true — there is nothing copied for a member to have missed.
  */
 export interface IncomeSnapshot {
   id: RowId
@@ -40,6 +44,7 @@ export interface IncomeSnapshot {
   member: MemberId
   amount: Minor | null
   restrictedUse: boolean
+  reviewed: boolean
 }
 
 /**
@@ -69,10 +74,12 @@ export interface ExpenseSnapshot {
   amount: Minor | null
   participants: MemberId[]
   splitRule: SplitRule
+  reviewed: boolean
 }
 
 export interface SavingsGoal {
   id: RowId
+  reviewed: boolean
 }
 
 /** Any row a Month holds. */

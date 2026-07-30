@@ -6,6 +6,7 @@
 export { DomainError } from './errors.js'
 export {
   addExpenseSnapshot,
+  confirmExpenseSnapshot,
   editExpenseSnapshot,
   removeExpenseSnapshot,
   type ExpenseDraft,
@@ -21,6 +22,7 @@ export {
 } from './household.js'
 export {
   addIncomeSnapshot,
+  confirmIncomeSnapshot,
   editIncomeSnapshot,
   removeIncomeSnapshot,
   spendableIncome,
@@ -29,6 +31,7 @@ export {
 } from './income.js'
 export { leftoverBalanceOf, leftoverBalancesOf, type LeftoverBalance } from './leftover.js'
 export { renamingAsks, repurposeExpenseSnapshot } from './repurposing.js'
+export { isReviewed, unreviewedCount } from './review.js'
 export { isPending, type RowChange } from './rows.js'
 export { sharesOf, splitOf, type Share, type Split } from './shares.js'
 export { requireConsistentRule } from './split-rules.js'

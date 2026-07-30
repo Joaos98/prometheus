@@ -45,8 +45,9 @@ function inheritMembers(previous: Month['members'], roster: Member[]): Month['me
   return [...carried, ...joined]
 }
 
+/** Every row that arrives by inheritance is Unreviewed until edited or confirmed. */
 function inheritIncome(row: IncomeSnapshot): IncomeSnapshot {
-  return { ...row }
+  return { ...row, reviewed: false }
 }
 
 function inheritExpense(row: ExpenseSnapshot): ExpenseSnapshot {
@@ -54,12 +55,13 @@ function inheritExpense(row: ExpenseSnapshot): ExpenseSnapshot {
     ...row,
     participants: [...row.participants],
     splitRule: inheritSplitRule(row.splitRule),
+    reviewed: false,
   }
 }
 
 /** Ticket 10 gives a Goal its Contributions, which start the Month at nothing. */
 function inheritGoal(goal: SavingsGoal): SavingsGoal {
-  return { ...goal }
+  return { ...goal, reviewed: false }
 }
 
 function inheritSplitRule(rule: SplitRule): SplitRule {

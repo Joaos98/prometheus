@@ -53,13 +53,15 @@ export function addExpenseSnapshot(
     amount: requireAmount(draft.amount),
     participants: requireParticipants(month, draft.participants),
     splitRule: draft.splitRule ?? { kind: 'even' },
+    reviewed: true,
   })
   return { household: withExpenses(household, month, [...month.expenses, row]), row }
 }
 
 /**
  * Changes the fields an edit names on one Expense of one Month, and nothing else. The
- * Expense keeps its identity, so its thread across the Months is unbroken.
+ * Expense keeps its identity, so its thread across the Months is unbroken. An edit
+ * always clears the Unreviewed mark, whether or not the row carried it.
  */
 export function editExpenseSnapshot(
   household: Household,
@@ -79,8 +81,24 @@ export function editExpenseSnapshot(
       participants: requireParticipants(month, edits.participants),
     }),
     ...(edits.splitRule !== undefined && { splitRule: edits.splitRule }),
+    reviewed: true,
   })
 
+  const expenses = month.expenses.map((candidate) => (candidate.id === id ? row : candidate))
+  return { household: withExpenses(household, month, expenses), row }
+}
+
+/**
+ * Confirms an Expense that is correct as inherited, without editing it: the one way to
+ * clear the Unreviewed mark that changes no other field.
+ */
+export function confirmExpenseSnapshot(
+  household: Household,
+  key: MonthKey,
+  id: RowId,
+): RowChange<ExpenseSnapshot> {
+  const month = openedMonth(household, key)
+  const row: ExpenseSnapshot = { ...expenseRow(month, id), reviewed: true }
   const expenses = month.expenses.map((candidate) => (candidate.id === id ? row : candidate))
   return { household: withExpenses(household, month, expenses), row }
 }

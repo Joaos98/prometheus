@@ -40,11 +40,15 @@ export function addIncomeSnapshot(
     member: requireMember(month, draft.member),
     amount: requireAmount(draft.amount),
     restrictedUse: draft.restrictedUse ?? false,
+    reviewed: true,
   }
   return { household: withIncome(household, month, [...month.income, row]), row }
 }
 
-/** Changes the fields an edit names on one row of one Month, and nothing else. */
+/**
+ * Changes the fields an edit names on one row of one Month, and nothing else. An edit
+ * always clears the Unreviewed mark, whether or not the row carried it.
+ */
 export function editIncomeSnapshot(
   household: Household,
   key: MonthKey,
@@ -60,8 +64,24 @@ export function editIncomeSnapshot(
     ...(edits.member !== undefined && { member: requireMember(month, edits.member) }),
     ...(edits.amount !== undefined && { amount: requireAmount(edits.amount) }),
     ...(edits.restrictedUse !== undefined && { restrictedUse: edits.restrictedUse }),
+    reviewed: true,
   }
 
+  const income = month.income.map((candidate) => (candidate.id === id ? row : candidate))
+  return { household: withIncome(household, month, income), row }
+}
+
+/**
+ * Confirms a row that is correct as inherited, without editing it: the one way to clear
+ * the Unreviewed mark that changes no other field.
+ */
+export function confirmIncomeSnapshot(
+  household: Household,
+  key: MonthKey,
+  id: RowId,
+): RowChange<IncomeSnapshot> {
+  const month = openedMonth(household, key)
+  const row: IncomeSnapshot = { ...incomeRow(month, id), reviewed: true }
   const income = month.income.map((candidate) => (candidate.id === id ? row : candidate))
   return { household: withIncome(household, month, income), row }
 }

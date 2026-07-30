@@ -5,6 +5,7 @@ import {
   leftoverBalancesOf,
   monthName,
   previousMonthKey,
+  unreviewedCount,
   type Household,
   type Minor,
   type Month,
@@ -32,6 +33,8 @@ const copiedFrom = computed(() => previousMonthKey(props.household, props.month.
 const rowCount = computed(
   () => props.month.income.length + props.month.expenses.length + props.month.goals.length,
 )
+
+const unreviewed = computed(() => unreviewedCount(props.month))
 
 const money = (amount: Minor): string => formatAmount(amount, props.household.currency)
 </script>
@@ -77,7 +80,12 @@ const money = (amount: Minor): string => formatAmount(amount, props.household.cu
 
     <section class="card">
       <h2 class="section-label">Review</h2>
-      <p class="secondary note">{{ rowCount }} rows in this Month.</p>
+      <p v-if="unreviewed === 0" class="secondary note">
+        Every row reviewed — {{ rowCount }} in this Month.
+      </p>
+      <p v-else class="pending note">
+        {{ unreviewed }} of {{ rowCount }} rows still Unreviewed.
+      </p>
     </section>
 
     <section class="card">

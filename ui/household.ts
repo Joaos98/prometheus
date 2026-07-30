@@ -3,6 +3,8 @@ import {
   addExpenseSnapshot,
   addIncomeSnapshot,
   addMember,
+  confirmExpenseSnapshot,
+  confirmIncomeSnapshot,
   deactivateMember,
   editExpenseSnapshot,
   editIncomeSnapshot,
@@ -127,6 +129,15 @@ async function removeIncome(month: MonthKey, id: RowId): Promise<void> {
   household.value = after
 }
 
+/** Confirms a row that is correct as inherited, without editing it. */
+async function confirmIncome(month: MonthKey, id: RowId): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const { household: after, row } = confirmIncomeSnapshot(current, month, id)
+  await store.writeRow(month, 'income', row)
+  household.value = after
+}
+
 /** Expenses, one row at a time, on the same terms as income. */
 async function addExpense(month: MonthKey, draft: ExpenseDraft): Promise<void> {
   const current = household.value
@@ -165,6 +176,15 @@ async function removeExpense(month: MonthKey, id: RowId): Promise<void> {
   household.value = after
 }
 
+/** Confirms an Expense that is correct as inherited, without editing it. */
+async function confirmExpense(month: MonthKey, id: RowId): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const { household: after, row } = confirmExpenseSnapshot(current, month, id)
+  await store.writeRow(month, 'expenses', row)
+  household.value = after
+}
+
 export function useHousehold() {
   return {
     household,
@@ -180,9 +200,11 @@ export function useHousehold() {
     addIncome,
     editIncome,
     removeIncome,
+    confirmIncome,
     addExpense,
     editExpense,
     repurposeExpense,
     removeExpense,
+    confirmExpense,
   }
 }

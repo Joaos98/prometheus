@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import {
   formatAmount,
   isPending,
+  isReviewed,
   renamingAsks,
   splitOf,
   type ExpenseEdits,
@@ -21,7 +22,8 @@ import RepurposeQuestion from './RepurposeQuestion.vue'
 
 const props = defineProps<{ household: Household; month: Month }>()
 
-const { addExpense, editExpense, repurposeExpense, removeExpense } = useHousehold()
+const { addExpense, editExpense, repurposeExpense, removeExpense, confirmExpense } =
+  useHousehold()
 
 const adding = ref(false)
 const editing = ref<RowId | undefined>(undefined)
@@ -153,6 +155,7 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
           <div class="line">
             <span class="name">{{ expense.name }}</span>
             <span v-if="expense.category" class="tag">{{ expense.category }}</span>
+            <span v-if="!isReviewed(expense)" class="tag unreviewed">Unreviewed</span>
             <span v-if="isPending(expense)" class="pending">Pending — no amount entered</span>
             <span v-else class="figure total">{{ money(expense.amount!) }}</span>
           </div>
@@ -174,6 +177,15 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
           </ul>
         </button>
 
+        <button
+          v-if="!isReviewed(expense)"
+          class="confirm"
+          type="button"
+          :aria-label="`Confirm ${expense.name}`"
+          @click="attempt(confirmExpense(month.key, expense.id))"
+        >
+          Confirm
+        </button>
         <button
           class="remove"
           type="button"
@@ -233,6 +245,11 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
   border-radius: 999px;
 }
 
+.unreviewed {
+  color: var(--fire);
+  border-color: var(--fire);
+}
+
 .rule {
   font-size: 12px;
 }
@@ -260,6 +277,20 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
 .shares li {
   display: flex;
   gap: 6px;
+}
+
+.confirm {
+  align-self: flex-start;
+  margin-top: 10px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--fire);
+  background: none;
+  border: 0.5px solid var(--hairline);
+}
+
+.confirm:hover {
+  border-color: var(--fire);
 }
 
 .remove {

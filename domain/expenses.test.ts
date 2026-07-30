@@ -44,6 +44,7 @@ describe('recording an Expense', () => {
       amount: 120000,
       participants: [ana, bruno],
       splitRule: { kind: 'even' },
+      reviewed: true,
     })
   })
 

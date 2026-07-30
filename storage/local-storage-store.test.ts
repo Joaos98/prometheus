@@ -39,6 +39,7 @@ const salary = (amount: Minor | null): IncomeSnapshot => ({
   member: 'ana',
   amount,
   restrictedUse: false,
+  reviewed: true,
 })
 
 const expense = (id: string, amount: Minor | null): ExpenseSnapshot => ({
@@ -48,6 +49,7 @@ const expense = (id: string, amount: Minor | null): ExpenseSnapshot => ({
   amount,
   participants: ['ana', 'bruno'],
   splitRule: { kind: 'even' },
+  reviewed: true,
 })
 
 describe('the localStorage adapter', () => {
@@ -166,7 +168,7 @@ describe('the localStorage adapter', () => {
 
   it('removes a row', async () => {
     await store.createHousehold(household())
-    await store.writeRow('2026-07', 'goals', { id: 'holiday' })
+    await store.writeRow('2026-07', 'goals', { id: 'holiday', reviewed: true })
 
     await store.deleteRow('2026-07', 'goals', 'holiday')
 
@@ -176,7 +178,9 @@ describe('the localStorage adapter', () => {
   it('refuses a row written to a Month that has not been opened', async () => {
     await store.createHousehold(household())
 
-    await expect(store.writeRow('2026-08', 'expenses', { id: 'rent' })).rejects.toBeInstanceOf(
+    await expect(
+      store.writeRow('2026-08', 'expenses', { id: 'rent', reviewed: true }),
+    ).rejects.toBeInstanceOf(
       StorageError,
     )
   })

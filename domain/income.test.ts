@@ -39,7 +39,14 @@ describe('recording income', () => {
     })
 
     expect(incomeIn(after)).toEqual([
-      { id: expect.any(String), name: 'Salary', member: ana, amount: 320000, restrictedUse: false },
+      {
+        id: expect.any(String),
+        name: 'Salary',
+        member: ana,
+        amount: 320000,
+        restrictedUse: false,
+        reviewed: true,
+      },
     ])
   })
 

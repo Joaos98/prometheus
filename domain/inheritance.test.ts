@@ -35,7 +35,9 @@ describe('opening a Month inherits the Previous Month’s income', () => {
 
     const august = openMonth(july, '2026-08')
 
-    expect(incomeIn(august, '2026-08')).toEqual(incomeIn(july, '2026-07'))
+    expect(incomeIn(august, '2026-08')).toEqual(
+      incomeIn(july, '2026-07').map((row) => ({ ...row, reviewed: false })),
+    )
   })
 
   it('carries the Restricted-Use flag across, so vouchers stay restricted', () => {
@@ -64,7 +66,9 @@ describe('opening a Month inherits the Previous Month’s Expenses', () => {
 
     const august = openMonth(july, '2026-08')
 
-    expect(expensesIn(august, '2026-08')).toEqual(expensesIn(july, '2026-07'))
+    expect(expensesIn(august, '2026-08')).toEqual(
+      expensesIn(july, '2026-07').map((row) => ({ ...row, reviewed: false })),
+    )
   })
 
   it('brings the Participants and the Split Rule with it', () => {
@@ -124,12 +128,12 @@ describe('an inherited row', () => {
     const july = monthAt(household, '2026-07')!
     const withGoal: Household = {
       ...household,
-      months: { '2026-07': { ...july, goals: [{ id: 'holiday' }] } },
+      months: { '2026-07': { ...july, goals: [{ id: 'holiday', reviewed: true }] } },
     }
 
     const august = openMonth(withGoal, '2026-08')
 
-    expect(monthAt(august, '2026-08')!.goals).toEqual([{ id: 'holiday' }])
+    expect(monthAt(august, '2026-08')!.goals).toEqual([{ id: 'holiday', reviewed: false }])
   })
 })
 
