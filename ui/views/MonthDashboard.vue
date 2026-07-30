@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { monthAt, monthName, type Household, type MonthKey } from '../../domain/index.js'
+import ExpensesPanel from '../components/ExpensesPanel.vue'
 import IncomePanel from '../components/IncomePanel.vue'
 import MonthPanel from '../components/MonthPanel.vue'
 import MonthRail from '../components/MonthRail.vue'
@@ -72,7 +73,7 @@ async function saveCurrency(): Promise<void> {
       <MonthRail :household="household" :month="month" />
 
       <main>
-        <MonthPanel title="Expenses" empty="No Expense Snapshots in this Month yet." />
+        <ExpensesPanel :household="household" :month="month" />
       </main>
 
       <div class="right-column">

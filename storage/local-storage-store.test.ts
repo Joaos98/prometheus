@@ -3,6 +3,7 @@ import {
   isPending,
   openMonth,
   setUpHousehold,
+  type ExpenseSnapshot,
   type Household,
   type IncomeSnapshot,
   type Minor,
@@ -38,6 +39,15 @@ const salary = (amount: Minor | null): IncomeSnapshot => ({
   member: 'ana',
   amount,
   restrictedUse: false,
+})
+
+const expense = (id: string, amount: Minor | null): ExpenseSnapshot => ({
+  id,
+  name: id,
+  category: 'Home',
+  amount,
+  participants: ['ana', 'bruno'],
+  splitRule: { kind: 'even' },
 })
 
 describe('the localStorage adapter', () => {
@@ -94,11 +104,31 @@ describe('the localStorage adapter', () => {
   it('writes a row without disturbing the other rows of the Month', async () => {
     await store.createHousehold(household())
 
-    await store.writeRow('2026-07', 'expenses', { id: 'rent' })
-    await store.writeRow('2026-07', 'expenses', { id: 'groceries' })
+    await store.writeRow('2026-07', 'expenses', expense('rent', 120000))
+    await store.writeRow('2026-07', 'expenses', expense('groceries', 30000))
 
     const loaded = await store.loadHousehold()
     expect(loaded!.months['2026-07']!.expenses.map((row) => row.id)).toEqual(['rent', 'groceries'])
+  })
+
+  it('brings an Expense back with its Participants and Split Rule intact', async () => {
+    await store.createHousehold(household())
+    const rent = expense('rent', 120000)
+
+    await store.writeRow('2026-07', 'expenses', rent)
+
+    expect((await store.loadHousehold())!.months['2026-07']!.expenses[0]).toEqual(rent)
+  })
+
+  it('tells a Pending Expense from one that cost nothing', async () => {
+    await store.createHousehold(household())
+
+    await store.writeRow('2026-07', 'expenses', expense('water', null))
+    await store.writeRow('2026-07', 'expenses', expense('heating', 0))
+
+    const expenses = (await store.loadHousehold())!.months['2026-07']!.expenses
+    expect(expenses.map((row) => row.amount)).toEqual([null, 0])
+    expect(expenses.map(isPending)).toEqual([true, false])
   })
 
   it('takes the last write to a row', async () => {

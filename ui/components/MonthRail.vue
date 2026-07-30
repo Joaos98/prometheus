@@ -1,14 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { monthName, previousMonthKey, type Household, type Month } from '../../domain/index.js'
+import { nameOf } from '../members.js'
 
 const props = defineProps<{ household: Household; month: Month }>()
 
-const members = computed(() =>
-  props.month.members.map(
-    (id) => props.household.roster.find((member) => member.id === id)?.name ?? 'Unknown member',
-  ),
-)
+const members = computed(() => props.month.members.map((id) => nameOf(props.household, id)))
 
 const copiedFrom = computed(() => previousMonthKey(props.household, props.month.key))
 

@@ -11,6 +11,7 @@ import {
   type RowId,
 } from '../../domain/index.js'
 import { useHousehold } from '../household.js'
+import { nameOf } from '../members.js'
 import IncomeForm from './IncomeForm.vue'
 import MonthPanel from './MonthPanel.vue'
 
@@ -25,7 +26,7 @@ const failure = ref<string | undefined>(undefined)
 const members = computed(() =>
   props.month.members.map((id) => ({
     id,
-    name: props.household.roster.find((member) => member.id === id)?.name ?? 'Unknown member',
+    name: nameOf(props.household, id),
     sources: props.month.income.filter((row) => row.member === id),
     spendable: spendableIncome(props.month, id),
   })),

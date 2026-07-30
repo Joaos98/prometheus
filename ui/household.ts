@@ -1,12 +1,17 @@
 import { ref, shallowRef } from 'vue'
 import {
+  addExpenseSnapshot,
   addIncomeSnapshot,
+  editExpenseSnapshot,
   editIncomeSnapshot,
+  removeExpenseSnapshot,
   openedMonthKeys,
   relabelCurrency,
   removeIncomeSnapshot,
   setUpHousehold,
   type Currency,
+  type ExpenseDraft,
+  type ExpenseEdits,
   type Household,
   type IncomeDraft,
   type IncomeEdits,
@@ -89,6 +94,31 @@ async function removeIncome(month: MonthKey, id: RowId): Promise<void> {
   household.value = after
 }
 
+/** Expenses, one row at a time, on the same terms as income. */
+async function addExpense(month: MonthKey, draft: ExpenseDraft): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const { household: after, row } = addExpenseSnapshot(current, month, draft)
+  await store.writeRow(month, 'expenses', row)
+  household.value = after
+}
+
+async function editExpense(month: MonthKey, id: RowId, edits: ExpenseEdits): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const { household: after, row } = editExpenseSnapshot(current, month, id, edits)
+  await store.writeRow(month, 'expenses', row)
+  household.value = after
+}
+
+async function removeExpense(month: MonthKey, id: RowId): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const after = removeExpenseSnapshot(current, month, id)
+  await store.deleteRow(month, 'expenses', id)
+  household.value = after
+}
+
 export function useHousehold() {
   return {
     household,
@@ -101,5 +131,8 @@ export function useHousehold() {
     addIncome,
     editIncome,
     removeIncome,
+    addExpense,
+    editExpense,
+    removeExpense,
   }
 }

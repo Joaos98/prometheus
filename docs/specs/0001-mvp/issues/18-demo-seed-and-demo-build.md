@@ -17,6 +17,11 @@ Which makes it an integration test that happens to double as the shop window, so
 - [ ] The sample Household is produced by a program that drives the domain through the same operations a member uses, not by hand-written fixture rows
 - [ ] The seed exercises opening a Month, inheritance, Forward Propagation and Drift end to end
 - [ ] The seeded Household shows at least two different Split Rules in use, a non-zero Leftover Balance per member, and a Savings Goal partway to its target
+- [ ] Members' incomes differ, so that a proportional split and an even split produce visibly different Shares
+- [ ] The seed includes a Restricted-Use income source, so that its exclusion from Spendable Income and the per-viewer toggle both have something to act on
+- [ ] At least one Expense does not divide cleanly among its Participants, so that largest-remainder distribution is visible
+- [ ] At least one Expense changed its Split Rule between two Months, so that the snapshot model's payoff is visible by navigating back
+- [ ] The Month a visitor arrives in has rows still Unreviewed and at least one Pending row, so that the review checklist is on the first screen rather than something to reach for
 - [ ] The seed runs in CI as an integration test and fails loudly when a domain change breaks it
 - [ ] A visitor's changes persist in their browser
 - [ ] Resetting the demo re-runs the seed and restores the sample Household

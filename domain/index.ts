@@ -4,6 +4,13 @@
  * browser, no adapter and no Vue.
  */
 export { DomainError } from './errors.js'
+export {
+  addExpenseSnapshot,
+  editExpenseSnapshot,
+  removeExpenseSnapshot,
+  type ExpenseDraft,
+  type ExpenseEdits,
+} from './expenses.js'
 export { relabelCurrency, setUpHousehold, type Setup } from './household.js'
 export {
   addIncomeSnapshot,
@@ -14,6 +21,7 @@ export {
   type IncomeEdits,
 } from './income.js'
 export { isPending, type RowChange } from './rows.js'
+export { sharesOf, type Share } from './shares.js'
 export { assertMonthKey, monthKey, monthName } from './month-key.js'
 export { isOpened, monthAt, openedMonthKeys, openMonth, previousMonthKey } from './month.js'
 export { formatAmount, toMinor } from './money.js'
@@ -30,4 +38,5 @@ export type {
   MonthRow,
   RowId,
   SavingsGoal,
+  SplitRule,
 } from './types.js'

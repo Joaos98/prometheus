@@ -1,6 +1,12 @@
 import { DomainError } from './errors.js'
-import { monthAt } from './month.js'
-import type { RowChange } from './rows.js'
+import {
+  openedMonth,
+  requireAmount,
+  requireMember,
+  requireName,
+  withMonth,
+  type RowChange,
+} from './rows.js'
 import type { Household, IncomeSnapshot, MemberId, Minor, Month, MonthKey, RowId } from './types.js'
 
 export interface IncomeDraft {
@@ -30,9 +36,9 @@ export function addIncomeSnapshot(
   const month = openedMonth(household, key)
   const row: IncomeSnapshot = {
     id: crypto.randomUUID(),
-    name: validName(draft.name),
-    member: memberOf(month, draft.member),
-    amount: validAmount(draft.amount),
+    name: requireName(draft.name, 'An income source'),
+    member: requireMember(month, draft.member),
+    amount: requireAmount(draft.amount),
     restrictedUse: draft.restrictedUse ?? false,
   }
   return { household: withIncome(household, month, [...month.income, row]), row }
@@ -50,9 +56,9 @@ export function editIncomeSnapshot(
 
   const row: IncomeSnapshot = {
     ...existing,
-    ...(edits.name !== undefined && { name: validName(edits.name) }),
-    ...(edits.member !== undefined && { member: memberOf(month, edits.member) }),
-    ...(edits.amount !== undefined && { amount: validAmount(edits.amount) }),
+    ...(edits.name !== undefined && { name: requireName(edits.name, 'An income source') }),
+    ...(edits.member !== undefined && { member: requireMember(month, edits.member) }),
+    ...(edits.amount !== undefined && { amount: requireAmount(edits.amount) }),
     ...(edits.restrictedUse !== undefined && { restrictedUse: edits.restrictedUse }),
   }
 
@@ -86,39 +92,12 @@ export function spendableIncome(month: Month, member: MemberId): Minor {
     .reduce((total, row) => total + (row.amount ?? 0), 0)
 }
 
-function openedMonth(household: Household, key: MonthKey): Month {
-  const month = monthAt(household, key)
-  if (!month) throw new DomainError(`${key} has not been opened, so it holds no rows`)
-  return month
-}
-
 function incomeRow(month: Month, id: RowId): IncomeSnapshot {
   const row = month.income.find((candidate) => candidate.id === id)
   if (!row) throw new DomainError(`${month.key} holds no income row ${id}`)
   return row
 }
 
-function memberOf(month: Month, member: MemberId): MemberId {
-  if (!month.members.includes(member)) {
-    throw new DomainError(`${member} is not a member of ${month.key}`)
-  }
-  return member
-}
-
-function validName(name: string): string {
-  const named = name.trim()
-  if (named === '') throw new DomainError('An income source needs a name')
-  return named
-}
-
-function validAmount(amount: Minor | null): Minor | null {
-  if (amount === null) return null
-  if (!Number.isSafeInteger(amount)) {
-    throw new DomainError(`${amount} is not a whole number of minor units`)
-  }
-  return amount
-}
-
 function withIncome(household: Household, month: Month, income: IncomeSnapshot[]): Household {
-  return { ...household, months: { ...household.months, [month.key]: { ...month, income } } }
+  return withMonth(household, { ...month, income })
 }

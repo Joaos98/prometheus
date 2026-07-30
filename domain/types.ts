@@ -42,8 +42,25 @@ export interface IncomeSnapshot {
   restrictedUse: boolean
 }
 
+/**
+ * How an Expense divides among its Participants, chosen per Month on the Snapshot.
+ * Even division is the whole of it for now; the other rules arrive with ticket 04.
+ */
+export type SplitRule = { kind: 'even' }
+
+/**
+ * One Expense in one Month: what it is called, what it cost, who it divides among and
+ * how. The Expense itself has no existence outside these rows — `id` is the stable
+ * identity that carries the same cost from one Month to the next, minted when the
+ * Expense first appears. `amount` of `null` is Pending: nothing entered at all.
+ */
 export interface ExpenseSnapshot {
   id: RowId
+  name: string
+  category: string
+  amount: Minor | null
+  participants: MemberId[]
+  splitRule: SplitRule
 }
 
 export interface SavingsGoal {
