@@ -16,7 +16,7 @@ type SplitRule =
 
 **Blocked by:** 02, 03
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Opus, high thinking — the hardest domain ticket. A `fixed` rule against a changing amount is the second risk the spec names by hand.
 

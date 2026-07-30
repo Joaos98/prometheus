@@ -6,7 +6,7 @@ Every row that arrives by inheritance is Unreviewed until a member edits it or e
 
 **Blocked by:** 05, 06
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Sonnet, medium thinking — a flag set on inheritance and cleared by edit or confirmation, once ticket 06 exists.
 

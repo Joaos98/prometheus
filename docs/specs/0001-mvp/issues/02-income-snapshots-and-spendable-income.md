@@ -6,7 +6,7 @@ There is no standing record of what anyone earns: income exists only as rows on 
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] An Income Snapshot records a name, an owning member, an amount and a Restricted-Use flag, and can be added, edited and removed within its Month
 - [x] Spendable Income for a member is the sum of that member's Income Snapshots for the Month excluding Restricted-Use ones

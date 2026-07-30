@@ -6,7 +6,7 @@ Continuing keeps the Expense's identity and its history, so trends and propagati
 
 **Blocked by:** 06
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Opus, high thinking — identity semantics, where a mistake silently merges two costs' histories rather than failing.
 

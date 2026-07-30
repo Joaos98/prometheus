@@ -15,3 +15,9 @@ Since the tracker is local markdown (see `issue-tracker.md`), these are not labe
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), write the corresponding value to the file's `Status:` line.
 
 Edit the right-hand column to match whatever vocabulary you actually use.
+
+## `done`
+
+The five roles above are triage states — they say what a ticket is waiting for. A ticket that is no longer waiting for anything carries `done`, which is not a triage role and has no counterpart in the skills' vocabulary.
+
+Write it once the ticket's work is committed and its acceptance criteria are ticked. The criteria are the record of what was built; `Status:` is only there so that a glance down the directory says which tickets are still open.

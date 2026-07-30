@@ -6,7 +6,7 @@ Even splitting only in this ticket. The other Split Rules arrive in 04, but the 
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Opus, high thinking — the first Shares code. Both the exact-sum rounding and the test voice that ticket 04 copies are set here.
 

@@ -6,7 +6,7 @@ Contributions read as zero until Savings Goals exist in 10; the subtraction is b
 
 **Blocked by:** 02, 03
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Sonnet, medium thinking — a subtraction over engine parts that already exist, and the rail's layout is settled by ADR-0010.
 

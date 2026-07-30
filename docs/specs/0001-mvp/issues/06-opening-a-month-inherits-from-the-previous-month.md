@@ -6,7 +6,7 @@ Nothing is defined outside a Month. There are no templates, no profiles, no stan
 
 **Blocked by:** 02, 03
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Opus, high thinking — the model's centre of gravity. Every ticket from 09 onward inherits whatever this one gets right or wrong. Worth running in the same session as 13 and 14, which are the same idea twice more.
 

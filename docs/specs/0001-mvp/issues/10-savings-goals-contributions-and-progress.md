@@ -8,7 +8,7 @@ Goal rows list **every member of the Month**, not only Participants, with non-Pa
 
 **Blocked by:** 05, 06
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Opus, medium thinking — Accumulated Progress reads across Months, and the collapsing goal row is the fiddliest piece of UI in the MVP.
 

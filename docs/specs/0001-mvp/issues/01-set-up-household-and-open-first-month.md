@@ -6,7 +6,7 @@ This is the walking skeleton: it establishes the domain engine as a pure module 
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Setup asks for a currency, a Roster of members, and a starting Month, and will not proceed without all three
 - [x] The chosen currency's decimal precision is recorded; amounts are stored and computed as integer minor units of it, never floating point

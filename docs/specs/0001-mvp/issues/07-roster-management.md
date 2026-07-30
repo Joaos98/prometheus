@@ -6,7 +6,7 @@ This is where the snapshot model earns its keep, and where the design decision i
 
 **Blocked by:** 06
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Sonnet, medium thinking — small, and the guarantee that past Months keep rendering is already carried by ticket 06's member copying.
 
