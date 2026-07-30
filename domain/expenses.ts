@@ -109,8 +109,13 @@ function consistent(household: Household, row: ExpenseSnapshot): ExpenseSnapshot
   return row
 }
 
+/** The Month's Expense of that identity, or nothing if this Month is not on its thread. */
+export function expenseIn(month: Month, id: RowId): ExpenseSnapshot | undefined {
+  return month.expenses.find((candidate) => candidate.id === id)
+}
+
 function expenseRow(month: Month, id: RowId): ExpenseSnapshot {
-  const row = month.expenses.find((candidate) => candidate.id === id)
+  const row = expenseIn(month, id)
   if (!row) throw new DomainError(`${month.key} holds no Expense ${id}`)
   return row
 }

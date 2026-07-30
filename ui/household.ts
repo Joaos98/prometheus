@@ -11,6 +11,7 @@ import {
   openedMonthKeys,
   relabelCurrency,
   removeIncomeSnapshot,
+  repurposeExpenseSnapshot,
   setUpHousehold,
   type Currency,
   type ExpenseDraft,
@@ -143,6 +144,19 @@ async function editExpense(month: MonthKey, id: RowId, edits: ExpenseEdits): Pro
   household.value = after
 }
 
+/**
+ * Repurposing, which is not a row edit: it retires one identity and mints another, and
+ * re-threads the row in every later Month that inherited it. A row-scoped write cannot
+ * say that, so the Household goes back whole, as the Roster does.
+ */
+async function repurposeExpense(month: MonthKey, id: RowId, edits: ExpenseEdits): Promise<void> {
+  const current = household.value
+  if (!current) return
+  const { household: after } = repurposeExpenseSnapshot(current, month, id, edits)
+  await store.replaceHousehold(after)
+  household.value = after
+}
+
 async function removeExpense(month: MonthKey, id: RowId): Promise<void> {
   const current = household.value
   if (!current) return
@@ -168,6 +182,7 @@ export function useHousehold() {
     removeIncome,
     addExpense,
     editExpense,
+    repurposeExpense,
     removeExpense,
   }
 }

@@ -3,7 +3,9 @@ import { computed, ref } from 'vue'
 import {
   formatAmount,
   isPending,
+  renamingAsks,
   splitOf,
+  type ExpenseEdits,
   type ExpenseSnapshot,
   type Household,
   type Minor,
@@ -15,14 +17,23 @@ import { membersOf, nameOf } from '../members.js'
 import { ruleName } from '../split-rules.js'
 import ExpenseForm from './ExpenseForm.vue'
 import MonthPanel from './MonthPanel.vue'
+import RepurposeQuestion from './RepurposeQuestion.vue'
 
 const props = defineProps<{ household: Household; month: Month }>()
 
-const { addExpense, editExpense, removeExpense } = useHousehold()
+const { addExpense, editExpense, repurposeExpense, removeExpense } = useHousehold()
 
 const adding = ref(false)
 const editing = ref<RowId | undefined>(undefined)
 const failure = ref<string | undefined>(undefined)
+
+/**
+ * An edit held back while the member says whether this is still the same Expense. It
+ * outlives the question so that going back to the form finds what was typed, rather
+ * than the row as it stood before any of this.
+ */
+const held = ref<{ id: RowId; was: string; edits: Required<ExpenseEdits> } | undefined>(undefined)
+const asking = ref(false)
 
 const members = computed(() => membersOf(props.household, props.month))
 
@@ -50,9 +61,46 @@ async function attempt(change: Promise<void>): Promise<void> {
   try {
     await change
     adding.value = false
-    editing.value = undefined
+    close()
   } catch (cause) {
     failure.value = cause instanceof Error ? cause.message : String(cause)
+  }
+}
+
+function edit(expense: ExpenseSnapshot): void {
+  close()
+  editing.value = expense.id
+}
+
+function close(): void {
+  editing.value = undefined
+  asking.value = false
+  held.value = undefined
+}
+
+/**
+ * Saving an edit, except that renaming a row this Month inherited is the one edit the
+ * app cannot carry out on its own: the engine says whether the row could be either, and
+ * only the member knows which was meant.
+ */
+function save(expense: ExpenseSnapshot, edits: Required<ExpenseEdits>): void {
+  held.value = { id: expense.id, was: expense.name, edits }
+  if (renamingAsks(props.household, props.month.key, expense.id, edits.name)) {
+    asking.value = true
+    return
+  }
+  void attempt(editExpense(props.month.key, expense.id, edits))
+}
+
+/** What the edit form opens with: the row, or the edit the question is holding back. */
+function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
+  const pending = held.value?.id === expense.id ? held.value.edits : undefined
+  return pending ?? {
+    name: expense.name,
+    category: expense.category,
+    amount: expense.amount,
+    participants: expense.participants,
+    splitRule: expense.splitRule,
   }
 }
 </script>
@@ -77,17 +125,22 @@ async function attempt(change: Promise<void>): Promise<void> {
     <p v-if="rows.length === 0 && !adding" class="muted note">No Expenses in this Month yet.</p>
 
     <template v-for="{ expense, shares, dividedEvenlyInstead } in rows" :key="expense.id">
+      <RepurposeQuestion
+        v-if="asking && held?.id === expense.id"
+        :was="held.was"
+        :becomes="held.edits.name.trim()"
+        @continued="attempt(editExpense(month.key, expense.id, held!.edits))"
+        @repurposed="attempt(repurposeExpense(month.key, expense.id, held!.edits))"
+        @cancel="asking = false"
+      />
+
       <ExpenseForm
-        v-if="editing === expense.id"
+        v-else-if="editing === expense.id"
         :currency="household.currency"
         :members="members"
-        :name="expense.name"
-        :category="expense.category"
-        :amount="expense.amount"
-        :participants="expense.participants"
-        :split-rule="expense.splitRule"
-        @cancel="editing = undefined"
-        @save="(edits) => attempt(editExpense(month.key, expense.id, edits))"
+        v-bind="editValues(expense)"
+        @cancel="close()"
+        @save="(edits) => save(expense, edits)"
       />
 
       <article v-else class="expense">
@@ -95,7 +148,7 @@ async function attempt(change: Promise<void>): Promise<void> {
           class="body"
           type="button"
           :aria-label="`Edit ${expense.name}`"
-          @click="editing = expense.id"
+          @click="edit(expense)"
         >
           <div class="line">
             <span class="name">{{ expense.name }}</span>

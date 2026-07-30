@@ -10,10 +10,10 @@ Continuing keeps the Expense's identity and its history, so trends and propagati
 
 **Suggested model:** Opus, high thinking — identity semantics, where a mistake silently merges two costs' histories rather than failing.
 
-- [ ] Editing the name of an inherited Expense Snapshot asks whether the Expense continues or a different one begins
-- [ ] Choosing to continue keeps the stable identity, and the row remains part of the same thread across Months
-- [ ] Choosing to repurpose mints a new identity for this Month onward, and the old thread ends at the previous Month
-- [ ] The question is asked only for rows that could be either — an inherited row sharing its identity with the Previous Month — and not for a row created in this Month
-- [ ] Whether a row is eligible for the question is decided by the engine, not by the UI
-- [ ] A name may legitimately differ between Months without the identity changing
-- [ ] Category may also be edited per Month, and does not trigger the question
+- [x] Editing the name of an inherited Expense Snapshot asks whether the Expense continues or a different one begins
+- [x] Choosing to continue keeps the stable identity, and the row remains part of the same thread across Months
+- [x] Choosing to repurpose mints a new identity for this Month onward, and the old thread ends at the previous Month
+- [x] The question is asked only for rows that could be either — an inherited row sharing its identity with the Previous Month — and not for a row created in this Month
+- [x] Whether a row is eligible for the question is decided by the engine, not by the UI
+- [x] A name may legitimately differ between Months without the identity changing
+- [x] Category may also be edited per Month, and does not trigger the question
