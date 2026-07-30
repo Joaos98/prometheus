@@ -1,9 +1,22 @@
+import { spendableIncome } from './income.js'
+import { basisPointsOf } from './split-rules.js'
 import type { ExpenseSnapshot, MemberId, Minor, Month } from './types.js'
 
 /** The portion of an Expense attributed to one Participant. */
 export interface Share {
   member: MemberId
   amount: Minor
+}
+
+/** How an Expense came out, and whether its rule had to give way. */
+export interface Split {
+  shares: Share[]
+  /**
+   * True when a proportional rule found no Spendable Income among its Participants to
+   * weight by and divided evenly instead. The stored rule is unchanged — this is what
+   * happened this Month, and the Expense says so.
+   */
+  dividedEvenlyInstead: boolean
 }
 
 /**
@@ -19,14 +32,52 @@ export interface Share {
  * dashboard rather than treated as costing nothing.
  */
 export function sharesOf(month: Month, expense: ExpenseSnapshot): Share[] {
-  if (expense.amount === null) return []
+  return splitOf(month, expense).shares
+}
 
+/** The Shares, with whatever the Month had to say about how they came out. */
+export function splitOf(month: Month, expense: ExpenseSnapshot): Split {
+  const nothing: Split = { shares: [], dividedEvenlyInstead: false }
+  if (expense.amount === null) return nothing
+
+  const amount = expense.amount
   const participants = inMemberOrder(month, expense.participants)
-  if (participants.length === 0) return []
+  if (participants.length === 0) return nothing
 
-  switch (expense.splitRule.kind) {
+  const evenly = (): Share[] => divide(amount, participants, participants.map(() => 1n))
+  const rule = expense.splitRule
+
+  switch (rule.kind) {
     case 'even':
-      return divide(expense.amount, participants, participants.map(() => 1n))
+      return { shares: evenly(), dividedEvenlyInstead: false }
+
+    case 'proportional': {
+      /** Income that went backwards weighs nothing; it never makes a Share negative. */
+      const weights = participants.map((member) =>
+        BigInt(Math.max(0, spendableIncome(month, member))),
+      )
+      const weighed = weights.reduce((running, weight) => running + weight, 0n)
+      return weighed === 0n
+        ? { shares: evenly(), dividedEvenlyInstead: true }
+        : { shares: divide(amount, participants, weights), dividedEvenlyInstead: false }
+    }
+
+    case 'percentage':
+      return {
+        shares: divide(
+          amount,
+          participants,
+          participants.map((member) => basisPointsOf(rule.byMember[member] ?? 0)),
+        ),
+        dividedEvenlyInstead: false,
+      }
+
+    case 'fixed':
+      /** Fixed amounts already total the Expense — that is the only way one can be stored. */
+      return {
+        shares: participants.map((member) => ({ member, amount: rule.byMember[member] ?? 0 })),
+        dividedEvenlyInstead: false,
+      }
   }
 }
 

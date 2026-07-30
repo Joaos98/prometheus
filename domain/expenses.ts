@@ -1,4 +1,5 @@
 import { DomainError } from './errors.js'
+import { requireConsistentRule } from './split-rules.js'
 import {
   openedMonth,
   requireAmount,
@@ -45,14 +46,14 @@ export function addExpenseSnapshot(
   draft: ExpenseDraft,
 ): RowChange<ExpenseSnapshot> {
   const month = openedMonth(household, key)
-  const row: ExpenseSnapshot = {
+  const row = consistent(household, {
     id: crypto.randomUUID(),
     name: requireName(draft.name, 'An Expense'),
     category: draft.category.trim(),
     amount: requireAmount(draft.amount),
     participants: requireParticipants(month, draft.participants),
     splitRule: draft.splitRule ?? { kind: 'even' },
-  }
+  })
   return { household: withExpenses(household, month, [...month.expenses, row]), row }
 }
 
@@ -69,7 +70,7 @@ export function editExpenseSnapshot(
   const month = openedMonth(household, key)
   const existing = expenseRow(month, id)
 
-  const row: ExpenseSnapshot = {
+  const row = consistent(household, {
     ...existing,
     ...(edits.name !== undefined && { name: requireName(edits.name, 'An Expense') }),
     ...(edits.category !== undefined && { category: edits.category.trim() }),
@@ -78,7 +79,7 @@ export function editExpenseSnapshot(
       participants: requireParticipants(month, edits.participants),
     }),
     ...(edits.splitRule !== undefined && { splitRule: edits.splitRule }),
-  }
+  })
 
   const expenses = month.expenses.map((candidate) => (candidate.id === id ? row : candidate))
   return { household: withExpenses(household, month, expenses), row }
@@ -96,6 +97,16 @@ export function removeExpenseSnapshot(household: Household, key: MonthKey, id: R
     month,
     month.expenses.filter((candidate) => candidate.id !== id),
   )
+}
+
+/**
+ * The Expense as it would stand, judged whole. An amount, its Participants and its
+ * Split Rule are only ever valid with respect to each other, so every write goes
+ * through here and there is no path that stores a rule inconsistent with its Expense.
+ */
+function consistent(household: Household, row: ExpenseSnapshot): ExpenseSnapshot {
+  requireConsistentRule(row.splitRule, row.amount, row.participants, household.currency)
+  return row
 }
 
 function expenseRow(month: Month, id: RowId): ExpenseSnapshot {

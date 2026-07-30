@@ -21,7 +21,8 @@ export {
   type IncomeEdits,
 } from './income.js'
 export { isPending, type RowChange } from './rows.js'
-export { sharesOf, type Share } from './shares.js'
+export { sharesOf, splitOf, type Share, type Split } from './shares.js'
+export { requireConsistentRule } from './split-rules.js'
 export { assertMonthKey, monthKey, monthName } from './month-key.js'
 export { isOpened, monthAt, openedMonthKeys, openMonth, previousMonthKey } from './month.js'
 export { formatAmount, toMinor } from './money.js'

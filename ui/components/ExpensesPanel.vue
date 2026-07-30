@@ -3,16 +3,16 @@ import { computed, ref } from 'vue'
 import {
   formatAmount,
   isPending,
-  sharesOf,
+  splitOf,
   type ExpenseSnapshot,
   type Household,
   type Minor,
   type Month,
   type RowId,
-  type SplitRule,
 } from '../../domain/index.js'
 import { useHousehold } from '../household.js'
 import { membersOf, nameOf } from '../members.js'
+import { ruleName } from '../split-rules.js'
 import ExpenseForm from './ExpenseForm.vue'
 import MonthPanel from './MonthPanel.vue'
 
@@ -27,21 +27,20 @@ const failure = ref<string | undefined>(undefined)
 const members = computed(() => membersOf(props.household, props.month))
 
 const rows = computed(() =>
-  props.month.expenses.map((expense) => ({
-    expense,
-    shares: sharesOf(props.month, expense).map((share) => ({
-      name: nameOf(props.household, share.member),
-      amount: share.amount,
-    })),
-  })),
+  props.month.expenses.map((expense) => {
+    const split = splitOf(props.month, expense)
+    return {
+      expense,
+      dividedEvenlyInstead: split.dividedEvenlyInstead,
+      shares: split.shares.map((share) => ({
+        name: nameOf(props.household, share.member),
+        amount: share.amount,
+      })),
+    }
+  }),
 )
 
 const money = (amount: Minor): string => formatAmount(amount, props.household.currency)
-
-/** How each Split Rule is named on a row. Ticket 04's rules join this list. */
-const RULE_NAMES: Record<SplitRule['kind'], string> = { even: 'Even' }
-
-const ruleName = (rule: SplitRule): string => RULE_NAMES[rule.kind]
 
 const participantCount = (expense: ExpenseSnapshot): string =>
   expense.participants.length === 1 ? '1 Participant' : `${expense.participants.length} Participants`
@@ -77,7 +76,7 @@ async function attempt(change: Promise<void>): Promise<void> {
 
     <p v-if="rows.length === 0 && !adding" class="muted note">No Expenses in this Month yet.</p>
 
-    <template v-for="{ expense, shares } in rows" :key="expense.id">
+    <template v-for="{ expense, shares, dividedEvenlyInstead } in rows" :key="expense.id">
       <ExpenseForm
         v-if="editing === expense.id"
         :currency="household.currency"
@@ -86,6 +85,7 @@ async function attempt(change: Promise<void>): Promise<void> {
         :category="expense.category"
         :amount="expense.amount"
         :participants="expense.participants"
+        :split-rule="expense.splitRule"
         @cancel="editing = undefined"
         @save="(edits) => attempt(editExpense(month.key, expense.id, edits))"
       />
@@ -108,6 +108,9 @@ async function attempt(change: Promise<void>): Promise<void> {
             <span class="muted">{{ ruleName(expense.splitRule) }}</span>
             <span class="muted">·</span>
             <span class="muted">{{ participantCount(expense) }}</span>
+            <span v-if="dividedEvenlyInstead" class="fallback">
+              No Spendable Income this Month — divided evenly
+            </span>
           </div>
 
           <ul v-if="shares.length" class="shares">
@@ -179,6 +182,10 @@ async function attempt(change: Promise<void>): Promise<void> {
 
 .rule {
   font-size: 12px;
+}
+
+.fallback {
+  color: var(--text-secondary);
 }
 
 .pending {

@@ -44,9 +44,17 @@ export interface IncomeSnapshot {
 
 /**
  * How an Expense divides among its Participants, chosen per Month on the Snapshot.
- * Even division is the whole of it for now; the other rules arrive with ticket 04.
+ *
+ * `proportional` deliberately stores no weights: it reads the Month's Spendable Income
+ * when Shares are computed, so correcting an income figure updates every proportional
+ * split without anyone touching an Expense. `percentage` values must total exactly 100
+ * and `fixed` values exactly the Expense amount — neither is storable otherwise.
  */
-export type SplitRule = { kind: 'even' }
+export type SplitRule =
+  | { kind: 'even' }
+  | { kind: 'proportional' }
+  | { kind: 'percentage'; byMember: Record<MemberId, number> }
+  | { kind: 'fixed'; byMember: Record<MemberId, Minor> }
 
 /**
  * One Expense in one Month: what it is called, what it cost, who it divides among and
