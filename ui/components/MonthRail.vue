@@ -1,30 +1,78 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { monthName, previousMonthKey, type Household, type Month } from '../../domain/index.js'
+import {
+  formatAmount,
+  leftoverBalancesOf,
+  monthName,
+  previousMonthKey,
+  type Household,
+  type Minor,
+  type Month,
+} from '../../domain/index.js'
 import { nameOf } from '../members.js'
 
 const props = defineProps<{ household: Household; month: Month }>()
 
-const members = computed(() => props.month.members.map((id) => nameOf(props.household, id)))
+/**
+ * Until ticket 17 adds the Roster dropdown that picks a device's Viewer, the Month's
+ * first member stands in for it, so the rail's top slot has someone to show.
+ */
+const balances = computed(() =>
+  leftoverBalancesOf(props.month).map((balance) => ({
+    ...balance,
+    name: nameOf(props.household, balance.member),
+  })),
+)
+
+const viewer = computed(() => balances.value[0])
+const others = computed(() => balances.value.slice(1))
 
 const copiedFrom = computed(() => previousMonthKey(props.household, props.month.key))
 
 const rowCount = computed(
   () => props.month.income.length + props.month.expenses.length + props.month.goals.length,
 )
+
+const money = (amount: Minor): string => formatAmount(amount, props.household.currency)
 </script>
 
 <template>
   <aside class="rail">
     <section class="card">
       <h2 class="section-label">Leftover Balance</h2>
-      <ul class="members">
-        <li v-for="name in members" :key="name">
-          <span>{{ name }}</span>
-          <span class="figure muted">—</span>
+
+      <div v-if="viewer" class="viewer">
+        <p class="name">{{ viewer.name }}</p>
+        <dl class="subtraction">
+          <dt class="muted">Spendable Income</dt>
+          <dd class="figure">{{ money(viewer.spendableIncome) }}</dd>
+          <dt class="muted">Shares</dt>
+          <dd class="figure">− {{ money(viewer.shares) }}</dd>
+          <dt class="muted">Contributions</dt>
+          <dd class="figure">− {{ money(viewer.contributions) }}</dd>
+        </dl>
+        <div class="balance">
+          <span>Leftover Balance</span>
+          <span class="figure total" :class="{ negative: viewer.balance < 0 }">
+            {{ money(viewer.balance) }}
+          </span>
+        </div>
+        <p v-if="viewer.incomplete" class="pending note">
+          Pending rows are not yet counted — this balance is not final.
+        </p>
+      </div>
+
+      <ul v-if="others.length" class="members">
+        <li v-for="other in others" :key="other.member">
+          <span>{{ other.name }}</span>
+          <span class="figure" :class="{ negative: other.balance < 0 }">
+            {{ money(other.balance) }}
+          </span>
+          <span v-if="other.incomplete" class="pending-mark" title="Pending rows are not counted">
+            Pending
+          </span>
         </li>
       </ul>
-      <p class="muted note">Spendable Income, minus Shares, minus Contributions.</p>
     </section>
 
     <section class="card">
@@ -34,12 +82,12 @@ const rowCount = computed(
 
     <section class="card">
       <h2 class="section-label">This Month</h2>
-      <dl>
+      <dl class="facts">
         <dt class="muted">Copied from</dt>
         <dd v-if="copiedFrom">{{ monthName(copiedFrom) }}</dd>
         <dd v-else class="secondary">Nothing — no Month precedes it</dd>
         <dt class="muted">Members</dt>
-        <dd>{{ members.length }}</dd>
+        <dd>{{ month.members.length }}</dd>
       </dl>
     </section>
   </aside>
@@ -58,6 +106,56 @@ const rowCount = computed(
   gap: 12px;
 }
 
+.viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.viewer .name {
+  margin: 0;
+  font-weight: 500;
+}
+
+.subtraction {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 16px;
+  font-size: 13px;
+}
+
+.subtraction dt,
+.subtraction dd {
+  margin: 0;
+}
+
+.subtraction dd {
+  text-align: right;
+}
+
+.balance {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 0.5px solid var(--hairline);
+}
+
+.balance .total {
+  font-size: 16px;
+}
+
+.negative {
+  color: var(--fire-bright);
+}
+
+.pending {
+  margin: 0;
+  color: var(--fire-bright);
+}
+
 .members {
   margin: 0;
   padding: 0;
@@ -71,7 +169,12 @@ const rowCount = computed(
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
+}
+
+.pending-mark {
+  font-size: 11px;
+  color: var(--fire-bright);
 }
 
 .note {
@@ -79,7 +182,7 @@ const rowCount = computed(
   font-size: 13px;
 }
 
-dl {
+.facts {
   margin: 0;
   display: grid;
   grid-template-columns: auto 1fr;
@@ -87,12 +190,12 @@ dl {
   font-size: 13px;
 }
 
-dt,
-dd {
+.facts dt,
+.facts dd {
   margin: 0;
 }
 
-dd {
+.facts dd {
   text-align: right;
 }
 </style>

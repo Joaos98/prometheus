@@ -10,12 +10,12 @@ Contributions read as zero until Savings Goals exist in 10; the subtraction is b
 
 **Suggested model:** Sonnet, medium thinking — a subtraction over engine parts that already exist, and the rail's layout is settled by ADR-0010.
 
-- [ ] Leftover Balance for a member is Spendable Income minus the sum of their Shares across the Month's Expenses minus the sum of their Contributions
-- [ ] A negative Leftover Balance is a legitimate result and renders as one
-- [ ] A Leftover Balance never carries into a later Month
-- [ ] The Viewer's balance renders with its three terms shown as a subtraction, not just a total
-- [ ] The other members' balances render beneath it
-- [ ] The rail stays on screen while the centre and right columns scroll
-- [ ] The rail shows the Month's own facts, including which Month it was copied from
-- [ ] Editing an income row or an expense updates every affected balance without a reload
-- [ ] A Pending row contributes nothing to any balance and is not silently treated as zero
+- [x] Leftover Balance for a member is Spendable Income minus the sum of their Shares across the Month's Expenses minus the sum of their Contributions
+- [x] A negative Leftover Balance is a legitimate result and renders as one
+- [x] A Leftover Balance never carries into a later Month
+- [x] The Viewer's balance renders with its three terms shown as a subtraction, not just a total
+- [x] The other members' balances render beneath it
+- [x] The rail stays on screen while the centre and right columns scroll
+- [x] The rail shows the Month's own facts, including which Month it was copied from
+- [x] Editing an income row or an expense updates every affected balance without a reload
+- [x] A Pending row contributes nothing to any balance and is not silently treated as zero

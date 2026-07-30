@@ -20,6 +20,7 @@ export {
   type IncomeDraft,
   type IncomeEdits,
 } from './income.js'
+export { leftoverBalanceOf, leftoverBalancesOf, type LeftoverBalance } from './leftover.js'
 export { isPending, type RowChange } from './rows.js'
 export { sharesOf, splitOf, type Share, type Split } from './shares.js'
 export { requireConsistentRule } from './split-rules.js'
