@@ -20,7 +20,7 @@ import MonthPanel from './MonthPanel.vue'
 
 const props = defineProps<{ household: Household; month: Month }>()
 
-const { addIncome, editIncome, removeIncome, confirmIncome, setIncomeOneOff } = useHousehold()
+const { addIncome, editIncome, removeIncome, confirmIncome, markIncomeAsOneOff } = useHousehold()
 
 const { failure, report } = useChanges()
 
@@ -102,12 +102,13 @@ async function attempt(change: Promise<void>): Promise<void> {
               Confirm
             </button>
             <button
-              class="one-off-toggle"
+              v-if="!isOneOff(source)"
+              class="mark-one-off"
               type="button"
-              :aria-label="`${isOneOff(source) ? 'Unmark' : 'Mark'} ${source.name} One-Off`"
-              @click="report(setIncomeOneOff(month.key, source.id, !isOneOff(source)))"
+              :aria-label="`Mark ${source.name} One-Off`"
+              @click="report(markIncomeAsOneOff(month.key, source.id))"
             >
-              {{ isOneOff(source) ? 'Recurring' : 'One-Off' }}
+              One-Off
             </button>
             <button
               class="remove"
@@ -241,7 +242,7 @@ h3 {
   border-color: var(--fire);
 }
 
-.one-off-toggle {
+.mark-one-off {
   padding: 4px 8px;
   font-size: 12px;
   color: var(--text-muted);
@@ -249,7 +250,7 @@ h3 {
   border: 0.5px solid transparent;
 }
 
-.one-off-toggle:hover {
+.mark-one-off:hover {
   color: var(--text);
   border-color: var(--hairline);
 }

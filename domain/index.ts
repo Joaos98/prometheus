@@ -10,7 +10,6 @@ export {
   editExpenseSnapshot,
   markExpenseOneOff,
   removeExpenseSnapshot,
-  unmarkExpenseOneOff,
   type ExpenseDraft,
   type ExpenseEdits,
 } from './expenses.js'
@@ -24,7 +23,6 @@ export {
   recordContribution,
   removeSavingsGoal,
   totalContributedTo,
-  unmarkGoalOneOff,
   type GoalDraft,
   type GoalEdits,
 } from './goals.js'
@@ -44,7 +42,6 @@ export {
   markIncomeOneOff,
   removeIncomeSnapshot,
   spendableIncome,
-  unmarkIncomeOneOff,
   type IncomeDraft,
   type IncomeEdits,
 } from './income.js'

@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { DomainError } from './errors.js'
-import { addExpenseSnapshot, editExpenseSnapshot, removeExpenseSnapshot } from './expenses.js'
+import {
+  addExpenseSnapshot,
+  editExpenseSnapshot,
+  markExpenseOneOff,
+  removeExpenseSnapshot,
+} from './expenses.js'
 import { setUpHousehold } from './household.js'
 import { monthAt, openMonth } from './month.js'
+import { isOneOff } from './rows.js'
 import { renamingAsks, repurposeExpenseSnapshot } from './repurposing.js'
 import type { Household, MemberId, MonthKey, RowId } from './types.js'
 
@@ -153,6 +159,18 @@ describe('repurposing the Expense', () => {
     })
 
     expect(expensesIn(after, '2026-09')[0]).toMatchObject({ name: 'Netflix', amount: 1200 })
+  })
+
+  it('mints the new identity without the One-Off mark, however the old identity carried it', () => {
+    const markedOneOff = markExpenseOneOff(household, '2026-08', netflix).household
+
+    const { household: after, row } = repurposeExpenseSnapshot(markedOneOff, '2026-08', netflix, {
+      name: 'Gym',
+      amount: 4000,
+    })
+
+    expect(isOneOff(row)).toBe(false)
+    expect(isOneOff(expensesIn(after, '2026-08')[0]!)).toBe(false)
   })
 
   it('leaves alone the later Months where the cost had already ended', () => {

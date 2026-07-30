@@ -64,7 +64,7 @@ export function repurposeExpenseSnapshot(
   const minted = crypto.randomUUID()
   return {
     household: rethread(edited.household, key, id, minted),
-    row: { ...edited.row, id: minted },
+    row: { ...edited.row, id: minted, oneOff: false },
   }
 }
 
@@ -97,6 +97,10 @@ function inherited(household: Household, key: MonthKey, id: RowId): boolean {
  * having inherited it, so they are on this thread and must come with it. Stopping at
  * the gap would leave the retired identity alive after it, which is the old thread
  * resuming rather than ending.
+ *
+ * The new identity also starts with the One-Off mark cleared, whatever the old identity
+ * carried: a mark set on the old thread said something about that thread ending here,
+ * which is exactly what repurposing has just done on its own terms.
  */
 function rethread(household: Household, from: MonthKey, id: RowId, minted: RowId): Household {
   const months = { ...household.months }
@@ -105,7 +109,9 @@ function rethread(household: Household, from: MonthKey, id: RowId, minted: RowId
     if (!expenseIn(month, id)) continue
     months[key] = {
       ...month,
-      expenses: month.expenses.map((row) => (row.id === id ? { ...row, id: minted } : row)),
+      expenses: month.expenses.map((row) =>
+        row.id === id ? { ...row, id: minted, oneOff: false } : row,
+      ),
     }
   }
   return { ...household, months }

@@ -106,7 +106,8 @@ export function confirmExpenseSnapshot(
 /**
  * Marks an Expense as belonging to this Month alone: opening the next Month will not
  * inherit it. This is also how a long-running Expense stops recurring while keeping
- * this Month's record intact.
+ * this Month's record intact. Marking One-Off says nothing about whether the Expense's
+ * other fields have been reviewed, so it leaves the Unreviewed mark exactly as it found it.
  */
 export function markExpenseOneOff(
   household: Household,
@@ -114,18 +115,7 @@ export function markExpenseOneOff(
   id: RowId,
 ): RowChange<ExpenseSnapshot> {
   const month = openedMonth(household, key)
-  const row: ExpenseSnapshot = { ...expenseRow(month, id), oneOff: true, reviewed: true }
-  return { household: withExpenses(household, month, replaceRow(month.expenses, id, row)), row }
-}
-
-/** Takes the One-Off mark back off an Expense, so it recurs as it did before. */
-export function unmarkExpenseOneOff(
-  household: Household,
-  key: MonthKey,
-  id: RowId,
-): RowChange<ExpenseSnapshot> {
-  const month = openedMonth(household, key)
-  const row: ExpenseSnapshot = { ...expenseRow(month, id), oneOff: false, reviewed: true }
+  const row: ExpenseSnapshot = { ...expenseRow(month, id), oneOff: true }
   return { household: withExpenses(household, month, replaceRow(month.expenses, id, row)), row }
 }
 

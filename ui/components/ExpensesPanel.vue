@@ -24,8 +24,14 @@ import RepurposeQuestion from './RepurposeQuestion.vue'
 
 const props = defineProps<{ household: Household; month: Month }>()
 
-const { addExpense, editExpense, repurposeExpense, removeExpense, confirmExpense, setExpenseOneOff } =
-  useHousehold()
+const {
+  addExpense,
+  editExpense,
+  repurposeExpense,
+  removeExpense,
+  confirmExpense,
+  markExpenseAsOneOff,
+} = useHousehold()
 
 const { failure, report } = useChanges()
 
@@ -192,12 +198,13 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
           Confirm
         </button>
         <button
-          class="one-off-toggle"
+          v-if="!isOneOff(expense)"
+          class="mark-one-off"
           type="button"
-          :aria-label="`${isOneOff(expense) ? 'Unmark' : 'Mark'} ${expense.name} One-Off`"
-          @click="report(setExpenseOneOff(month.key, expense.id, !isOneOff(expense)))"
+          :aria-label="`Mark ${expense.name} One-Off`"
+          @click="report(markExpenseAsOneOff(month.key, expense.id))"
         >
-          {{ isOneOff(expense) ? 'Recurring' : 'One-Off' }}
+          One-Off
         </button>
         <button
           class="remove"
@@ -310,7 +317,7 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
   border-color: var(--fire);
 }
 
-.one-off-toggle {
+.mark-one-off {
   align-self: flex-start;
   margin-top: 10px;
   padding: 4px 8px;
@@ -320,7 +327,7 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
   border: 0.5px solid transparent;
 }
 
-.one-off-toggle:hover {
+.mark-one-off:hover {
   color: var(--text);
   border-color: var(--hairline);
 }

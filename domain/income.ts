@@ -89,7 +89,8 @@ export function confirmIncomeSnapshot(
 /**
  * Marks an income source as belonging to this Month alone: opening the next Month will
  * not inherit it. This is also how a long-running source stops recurring while keeping
- * this Month's record intact.
+ * this Month's record intact. Marking One-Off says nothing about whether the row's other
+ * fields have been reviewed, so it leaves the Unreviewed mark exactly as it found it.
  */
 export function markIncomeOneOff(
   household: Household,
@@ -97,18 +98,7 @@ export function markIncomeOneOff(
   id: RowId,
 ): RowChange<IncomeSnapshot> {
   const month = openedMonth(household, key)
-  const row: IncomeSnapshot = { ...incomeRow(month, id), oneOff: true, reviewed: true }
-  return { household: withIncome(household, month, replaceRow(month.income, id, row)), row }
-}
-
-/** Takes the One-Off mark back off an income source, so it recurs as it did before. */
-export function unmarkIncomeOneOff(
-  household: Household,
-  key: MonthKey,
-  id: RowId,
-): RowChange<IncomeSnapshot> {
-  const month = openedMonth(household, key)
-  const row: IncomeSnapshot = { ...incomeRow(month, id), oneOff: false, reviewed: true }
+  const row: IncomeSnapshot = { ...incomeRow(month, id), oneOff: true }
   return { household: withIncome(household, month, replaceRow(month.income, id, row)), row }
 }
 

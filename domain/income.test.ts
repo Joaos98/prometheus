@@ -7,10 +7,10 @@ import {
   markIncomeOneOff,
   removeIncomeSnapshot,
   spendableIncome,
-  unmarkIncomeOneOff,
 } from './income.js'
 import { monthAt, openMonth } from './month.js'
 import { isOneOff, isPending } from './rows.js'
+import { isReviewed } from './review.js'
 import type { Household, MemberId } from './types.js'
 
 const euro = { code: 'EUR', symbol: '€', decimals: 2 }
@@ -324,17 +324,19 @@ describe('marking income One-Off', () => {
     expect(marked.row).toEqual({ ...row, oneOff: true })
   })
 
-  it('clears the One-Off mark, so the row recurs again', () => {
-    const { household: after, row } = addIncomeSnapshot(household, '2026-07', {
+  it('leaves the Unreviewed mark exactly as it found it', () => {
+    const july = addIncomeSnapshot(household, '2026-07', {
       name: 'Bonus',
       member: ana,
       amount: 50000,
-    })
-    const marked = markIncomeOneOff(after, '2026-07', row.id)
+    }).household
+    const august = openMonth(july, '2026-08')
+    const row = monthAt(august, '2026-08')!.income[0]!
+    expect(isReviewed(row)).toBe(false)
 
-    const unmarked = unmarkIncomeOneOff(marked.household, '2026-07', row.id)
+    const marked = markIncomeOneOff(august, '2026-08', row.id)
 
-    expect(isOneOff(unmarked.row)).toBe(false)
+    expect(isReviewed(marked.row)).toBe(false)
   })
 
   it('refuses a row that is not in that Month', () => {

@@ -98,7 +98,9 @@ export function confirmSavingsGoal(
 /**
  * Marks a goal as belonging to this Month alone: opening the next Month will not
  * inherit it. This is also how a goal that has been reached stops recurring while
- * keeping this Month's record intact.
+ * keeping this Month's record intact. Marking One-Off says nothing about whether the
+ * goal's other fields have been reviewed, so it leaves the Unreviewed mark exactly as
+ * it found it.
  */
 export function markGoalOneOff(
   household: Household,
@@ -106,18 +108,7 @@ export function markGoalOneOff(
   id: RowId,
 ): RowChange<SavingsGoal> {
   const month = openedMonth(household, key)
-  const row: SavingsGoal = { ...goalRow(month, id), oneOff: true, reviewed: true }
-  return { household: withGoals(household, month, replaceRow(month.goals, id, row)), row }
-}
-
-/** Takes the One-Off mark back off a goal, so it recurs as it did before. */
-export function unmarkGoalOneOff(
-  household: Household,
-  key: MonthKey,
-  id: RowId,
-): RowChange<SavingsGoal> {
-  const month = openedMonth(household, key)
-  const row: SavingsGoal = { ...goalRow(month, id), oneOff: false, reviewed: true }
+  const row: SavingsGoal = { ...goalRow(month, id), oneOff: true }
   return { household: withGoals(household, month, replaceRow(month.goals, id, row)), row }
 }
 

@@ -22,7 +22,7 @@ import MonthPanel from './MonthPanel.vue'
 
 const props = defineProps<{ household: Household; month: Month }>()
 
-const { addGoal, editGoal, removeGoal, confirmGoal, setGoalOneOff, contribute } = useHousehold()
+const { addGoal, editGoal, removeGoal, confirmGoal, markGoalAsOneOff, contribute } = useHousehold()
 
 const { failure, report } = useChanges()
 
@@ -167,12 +167,13 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
           Confirm
         </button>
         <button
-          class="one-off-toggle"
+          v-if="!isOneOff(goal)"
+          class="mark-one-off"
           type="button"
-          :aria-label="`${isOneOff(goal) ? 'Unmark' : 'Mark'} ${goal.name} One-Off`"
-          @click="report(setGoalOneOff(month.key, goal.id, !isOneOff(goal)))"
+          :aria-label="`Mark ${goal.name} One-Off`"
+          @click="report(markGoalAsOneOff(month.key, goal.id))"
         >
-          {{ isOneOff(goal) ? 'Recurring' : 'One-Off' }}
+          One-Off
         </button>
         <button
           class="remove"
@@ -384,7 +385,7 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
   border-color: var(--fire);
 }
 
-.one-off-toggle {
+.mark-one-off {
   align-self: flex-start;
   margin-top: 8px;
   padding: 4px 8px;
@@ -394,7 +395,7 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
   border: 0.5px solid transparent;
 }
 
-.one-off-toggle:hover {
+.mark-one-off:hover {
   color: var(--text);
   border-color: var(--hairline);
 }

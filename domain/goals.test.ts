@@ -10,11 +10,11 @@ import {
   recordContribution,
   removeSavingsGoal,
   totalContributedTo,
-  unmarkGoalOneOff,
 } from './goals.js'
 import { setUpHousehold } from './household.js'
 import { monthAt, openMonth } from './month.js'
 import { isOneOff } from './rows.js'
+import { isReviewed } from './review.js'
 import type { Household, MemberId, Month, RowId, SavingsGoal } from './types.js'
 
 const euro = { code: 'EUR', symbol: '€', decimals: 2 }
@@ -196,13 +196,15 @@ describe('marking a Savings Goal One-Off', () => {
     expect(marked.row).toEqual({ ...row, oneOff: true })
   })
 
-  it('clears the One-Off mark, so the goal recurs again', () => {
-    const { household: after, row } = addSavingsGoal(household, '2026-07', holiday([ana]))
-    const marked = markGoalOneOff(after, '2026-07', row.id)
+  it('leaves the Unreviewed mark exactly as it found it', () => {
+    const july = addSavingsGoal(household, '2026-07', holiday([ana])).household
+    const august = openMonth(july, '2026-08')
+    const row = monthAt(august, '2026-08')!.goals[0]!
+    expect(isReviewed(row)).toBe(false)
 
-    const unmarked = unmarkGoalOneOff(marked.household, '2026-07', row.id)
+    const marked = markGoalOneOff(august, '2026-08', row.id)
 
-    expect(isOneOff(unmarked.row)).toBe(false)
+    expect(isReviewed(marked.row)).toBe(false)
   })
 
   it('refuses a row that is not in that Month', () => {

@@ -1,3 +1,4 @@
+import { isOneOff } from './rows.js'
 import type {
   ExpenseSnapshot,
   IncomeSnapshot,
@@ -34,14 +35,10 @@ export function inheritMonth(previous: Month, key: MonthKey, roster: Member[]): 
   return {
     key,
     members: inheritMembers(previous.members, roster),
-    income: previous.income.filter(notOneOff).map(inheritIncome),
-    expenses: previous.expenses.filter(notOneOff).map(inheritExpense),
-    goals: previous.goals.filter(notOneOff).map(inheritGoal),
+    income: previous.income.filter((row) => !isOneOff(row)).map(inheritIncome),
+    expenses: previous.expenses.filter((row) => !isOneOff(row)).map(inheritExpense),
+    goals: previous.goals.filter((row) => !isOneOff(row)).map(inheritGoal),
   }
-}
-
-function notOneOff(row: { oneOff: boolean }): boolean {
-  return !row.oneOff
 }
 
 function inheritMembers(previous: Month['members'], roster: Member[]): Month['members'] {
