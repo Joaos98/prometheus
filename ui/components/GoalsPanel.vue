@@ -66,24 +66,28 @@ function edit(goal: SavingsGoal): void {
 }
 
 /**
- * Carries out a change, saying so if the engine or the store refuses it. A change made
- * from a row leaves the panel's forms exactly as it found them: entering a Contribution
- * is the routine monthly action, and it must not throw away a goal somebody is halfway
- * through typing.
+ * Carries out a change, saying so if the engine or the store refuses it, and answering
+ * whether it was accepted. A change made from a row leaves the panel's forms exactly as
+ * it found them: entering a Contribution is the routine monthly action, and it must not
+ * throw away a goal somebody is halfway through typing.
+ *
+ * The answer is returned rather than read back off `failure`, which any other change in
+ * flight is free to have overwritten by the time this one lands.
  */
-async function report(change: Promise<void>): Promise<void> {
+async function report(change: Promise<void>): Promise<boolean> {
   failure.value = undefined
   try {
     await change
+    return true
   } catch (cause) {
     failure.value = cause instanceof Error ? cause.message : String(cause)
+    return false
   }
 }
 
 /** A change made from a form, which closes once it is accepted and stays open if it is not. */
 async function attempt(change: Promise<void>): Promise<void> {
-  await report(change)
-  if (failure.value !== undefined) return
+  if (!(await report(change))) return
   adding.value = false
   editing.value = undefined
 }
