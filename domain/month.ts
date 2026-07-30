@@ -1,4 +1,5 @@
 import { DomainError } from './errors.js'
+import { inheritMonth } from './inheritance.js'
 import { assertMonthKey, monthName } from './month-key.js'
 import type { Household, Month, MonthKey } from './types.js'
 
@@ -27,10 +28,9 @@ export function previousMonthKey(household: Household, key: MonthKey): MonthKey 
 }
 
 /**
- * Brings a Month's data into existence. A Month takes its members from the Previous
- * Month, so that changing the Roster cannot alter what any Month already says; the
- * Household's very first Month has no Previous Month and takes the active Roster
- * instead, opening with no rows — which is correct, since nothing precedes it.
+ * Brings a Month's data into existence by copying the Previous Month wholesale. The
+ * Household's very first Month has no Previous Month, so it takes the active Roster and
+ * opens with no rows — which is correct, since nothing precedes it.
  */
 export function openMonth(household: Household, key: MonthKey): Household {
   const month = assertMonthKey(key)
@@ -39,10 +39,15 @@ export function openMonth(household: Household, key: MonthKey): Household {
   }
 
   const previous = previousMonthKey(household, month)
-  const members = previous
-    ? [...household.months[previous]!.members]
-    : household.roster.filter((member) => member.active).map((member) => member.id)
+  const opened: Month = previous
+    ? inheritMonth(household.months[previous]!, month)
+    : firstMonth(household, month)
 
-  const opened: Month = { key: month, members, income: [], expenses: [], goals: [] }
   return { ...household, months: { ...household.months, [month]: opened } }
+}
+
+/** The Household's earliest Month: the active Roster, and nothing to inherit. */
+function firstMonth(household: Household, key: MonthKey): Month {
+  const members = household.roster.filter((member) => member.active).map((member) => member.id)
+  return { key, members, income: [], expenses: [], goals: [] }
 }
