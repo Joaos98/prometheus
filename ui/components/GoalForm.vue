@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import type { Currency, MemberId, Minor } from '../../domain/index.js'
 import { editableAmount, readAmount } from '../amount.js'
+import { messageOf } from '../changes.js'
 
 const props = withDefaults(
   defineProps<{
@@ -43,7 +44,7 @@ function save(): void {
       participants: participants.value,
     })
   } catch (cause) {
-    failure.value = cause instanceof Error ? cause.message : String(cause)
+    failure.value = messageOf(cause)
   }
 }
 </script>

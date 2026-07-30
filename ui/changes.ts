@@ -1,5 +1,14 @@
 import { ref, type Ref } from 'vue'
 
+/**
+ * What went wrong, as a member should read it. The engine raises DomainError with a
+ * sentence already worded for them, so there is nothing to translate — but anything at
+ * all can be thrown, and a panel still has to have something to say.
+ */
+export function messageOf(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause)
+}
+
 /** What a panel holds while it carries changes out: what went wrong, and how to try. */
 export interface Changes {
   /** What the engine or the store said when it last refused a change, if it did. */
@@ -26,7 +35,7 @@ export function useChanges(): Changes {
       await change
       return true
     } catch (cause) {
-      failure.value = cause instanceof Error ? cause.message : String(cause)
+      failure.value = messageOf(cause)
       return false
     }
   }

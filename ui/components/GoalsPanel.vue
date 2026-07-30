@@ -13,7 +13,7 @@ import {
   type SavingsGoal,
 } from '../../domain/index.js'
 import { editableAmount, readAmount } from '../amount.js'
-import { useChanges } from '../changes.js'
+import { messageOf, useChanges } from '../changes.js'
 import { useHousehold } from '../household.js'
 import { membersOf } from '../members.js'
 import GoalForm from './GoalForm.vue'
@@ -85,7 +85,7 @@ function enterContribution(goal: SavingsGoal, member: MemberId, typed: string): 
     const amount = readAmount(typed, props.household.currency)
     void report(contribute(props.month.key, goal.id, member, amount))
   } catch (cause) {
-    failure.value = cause instanceof Error ? cause.message : String(cause)
+    failure.value = messageOf(cause)
   }
 }
 

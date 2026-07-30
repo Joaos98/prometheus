@@ -1,17 +1,18 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { monthKey, monthName } from '../../domain/index.js'
+import { useChanges } from '../changes.js'
 import { CURRENCIES } from '../currencies.js'
 import { useHousehold } from '../household.js'
 
 const { setUp } = useHousehold()
+const { failure, report } = useChanges()
 
 const currencyCode = ref('')
 const memberNames = ref<string[]>(['', ''])
 const now = new Date()
 const year = ref(now.getFullYear())
 const month = ref(now.getMonth() + 1)
-const failure = ref<string | undefined>(undefined)
 const working = ref(false)
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, name: monthName(monthKey(2000, i + 1)).split(' ')[0] }))
@@ -33,14 +34,8 @@ async function begin(): Promise<void> {
   const currency = CURRENCIES.find((candidate) => candidate.code === currencyCode.value)
   if (!currency) return
   working.value = true
-  failure.value = undefined
-  try {
-    await setUp({ currency, memberNames: named.value, startingMonth: startingMonth.value })
-  } catch (cause) {
-    failure.value = cause instanceof Error ? cause.message : String(cause)
-  } finally {
-    working.value = false
-  }
+  await report(setUp({ currency, memberNames: named.value, startingMonth: startingMonth.value }))
+  working.value = false
 }
 </script>
 

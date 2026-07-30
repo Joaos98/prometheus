@@ -6,6 +6,7 @@ import GoalsPanel from '../components/GoalsPanel.vue'
 import IncomePanel from '../components/IncomePanel.vue'
 import MonthRail from '../components/MonthRail.vue'
 import RosterPanel from '../components/RosterPanel.vue'
+import { useChanges } from '../changes.js'
 import { CURRENCIES } from '../currencies.js'
 import { useHousehold } from '../household.js'
 import logo from '../../prometheus-logo.svg'
@@ -13,24 +14,20 @@ import logo from '../../prometheus-logo.svg'
 const props = defineProps<{ household: Household; viewing: MonthKey }>()
 
 const { relabel } = useHousehold()
+const { failure, report } = useChanges()
 
 const month = computed(() => monthAt(props.household, props.viewing))
 
 const managingRoster = ref(false)
 const relabelling = ref(false)
 const chosen = ref(props.household.currency.code)
-const failure = ref<string | undefined>(undefined)
 
+/** The chooser closes once the currency is relabelled, and stays open to say why not. */
 async function saveCurrency(): Promise<void> {
   const currency = CURRENCIES.find((candidate) => candidate.code === chosen.value)
   if (!currency) return
-  failure.value = undefined
-  try {
-    await relabel(currency)
-    relabelling.value = false
-  } catch (cause) {
-    failure.value = cause instanceof Error ? cause.message : String(cause)
-  }
+  if (!(await report(relabel(currency)))) return
+  relabelling.value = false
 }
 </script>
 

@@ -8,6 +8,7 @@ import {
   type SplitRule,
 } from '../../domain/index.js'
 import { editableAmount, readAmount } from '../amount.js'
+import { messageOf } from '../changes.js'
 import { RULE_CHOICES, type RuleValues } from '../split-rules.js'
 
 const props = withDefaults(
@@ -124,7 +125,7 @@ const standing = computed(() => {
     requireConsistentRule(chosen.value, enteredAmount.value, participants.value, props.currency)
     return { adds: true, said: 'Adds up.' }
   } catch (cause) {
-    return { adds: false, said: cause instanceof Error ? cause.message : String(cause) }
+    return { adds: false, said: messageOf(cause) }
   }
 })
 
@@ -143,7 +144,7 @@ function save(): void {
       splitRule: chosen.value,
     })
   } catch (cause) {
-    failure.value = cause instanceof Error ? cause.message : String(cause)
+    failure.value = messageOf(cause)
   }
 }
 </script>

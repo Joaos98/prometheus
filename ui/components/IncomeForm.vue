@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import type { Currency, Minor } from '../../domain/index.js'
 import { editableAmount, readAmount } from '../amount.js'
+import { messageOf } from '../changes.js'
 
 const props = withDefaults(
   defineProps<{
@@ -33,7 +34,7 @@ function save(): void {
       restrictedUse: restrictedUse.value,
     })
   } catch (cause) {
-    failure.value = cause instanceof Error ? cause.message : String(cause)
+    failure.value = messageOf(cause)
   }
 }
 </script>

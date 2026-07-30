@@ -36,6 +36,7 @@ import {
 } from '../domain/index.js'
 import { localStorageStore } from '../storage/local-storage-store.js'
 import type { HouseholdStore } from '../storage/port.js'
+import { messageOf } from './changes.js'
 
 /**
  * The Household the app is showing, and the one Month it is looking at. The engine
@@ -56,7 +57,7 @@ async function load(): Promise<void> {
     household.value = loaded
     viewing.value = loaded ? openedMonthKeys(loaded).at(-1) : undefined
   } catch (cause) {
-    failure.value = cause instanceof Error ? cause.message : String(cause)
+    failure.value = messageOf(cause)
   } finally {
     loading.value = false
   }
