@@ -36,9 +36,7 @@ export function leftoverBalanceOf(month: Month, member: MemberId): LeftoverBalan
   )
   const contributions = contributionsOf(month, member)
 
-  const pendingIncome = month.income.some(
-    (row) => row.member === member && !row.restrictedUse && isPending(row),
-  )
+  const pendingIncome = month.income.some((row) => row.member === member && isPending(row))
   const pendingShare = month.expenses.some(
     (expense) => expense.participants.includes(member) && isPending(expense),
   )

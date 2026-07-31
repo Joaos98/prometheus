@@ -209,7 +209,7 @@ describe('a Leftover Balance', () => {
       expect(leftoverBalanceOf(monthOf(after), ana).incomplete).toBe(false)
     })
 
-    it('does not flag incomplete for a Pending Restricted-Use row, since it never counts anyway', () => {
+    it('flags incomplete for a Pending Restricted-Use row too, since total Income counts it', () => {
       const after = addIncomeSnapshot(household, '2026-07', {
         name: 'Meal vouchers',
         member: ana,
@@ -217,7 +217,7 @@ describe('a Leftover Balance', () => {
         restrictedUse: true,
       }).household
 
-      expect(leftoverBalanceOf(monthOf(after), ana).incomplete).toBe(false)
+      expect(leftoverBalanceOf(monthOf(after), ana).incomplete).toBe(true)
     })
   })
 })

@@ -28,14 +28,20 @@ const month = computed(() => monthAt(props.household, props.viewing))
 /**
  * Only an active member can be picked as the Viewer — a Month past their departure
  * still names them, but this device's own preference is a Roster concern, not a Month
- * one.
+ * one. The already-picked Viewer stays listed even if deactivated since, so the
+ * dropdown never shows "nobody" for a choice that is still standing.
  */
-const activeRoster = computed(() => props.household.roster.filter((member) => member.active))
+const viewerOptions = computed(() =>
+  props.household.roster.filter((member) => member.active || member.id === viewer.value),
+)
 
-function setViewer(event: Event): void {
-  const value = (event.target as HTMLSelectElement).value
-  viewer.value = value === '' ? undefined : value
-}
+/** Bridges the select's empty-string "nobody" option to the Viewer's own undefined. */
+const chosenViewer = computed({
+  get: () => viewer.value ?? '',
+  set: (value: string) => {
+    viewer.value = value === '' ? undefined : value
+  },
+})
 
 /**
  * The Month the calendar is on. The engine will not guess it — only a Month after this one
@@ -87,9 +93,9 @@ async function saveCurrency(): Promise<void> {
       <MonthNavigator :household="household" :viewing="viewing" />
 
       <div class="side right">
-        <select :value="viewer ?? ''" aria-label="Viewer" @change="setViewer">
+        <select v-model="chosenViewer" aria-label="Viewer">
           <option value="">Viewer: nobody</option>
-          <option v-for="member in activeRoster" :key="member.id" :value="member.id">
+          <option v-for="member in viewerOptions" :key="member.id" :value="member.id">
             Viewer: {{ member.name }}
           </option>
         </select>

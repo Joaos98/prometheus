@@ -9,24 +9,42 @@ export type LeftoverDisplay = 'spendable' | 'total'
 
 /**
  * The Viewer this device has picked, or nothing if it has not picked one. Read straight
- * off the device's own storage — never the Household's, and never sent to a store.
+ * off the device's own storage — never the Household's, and never sent to a store. A
+ * device that cannot be read from (storage disabled, blocked) answers as if it had
+ * picked nobody, rather than taking the app down over a comfort.
  */
 export function readViewer(storage: Storage): MemberId | undefined {
-  return storage.getItem(VIEWER_KEY) ?? undefined
+  try {
+    return storage.getItem(VIEWER_KEY) ?? undefined
+  } catch {
+    return undefined
+  }
 }
 
 export function writeViewer(storage: Storage, member: MemberId | undefined): void {
-  if (member) storage.setItem(VIEWER_KEY, member)
-  else storage.removeItem(VIEWER_KEY)
+  try {
+    if (member) storage.setItem(VIEWER_KEY, member)
+    else storage.removeItem(VIEWER_KEY)
+  } catch {
+    // Left unwritten. The choice only fails to persist; nothing else depends on it.
+  }
 }
 
 /** Defaults to Spendable Income, the Leftover Balance's own default basis. */
 export function readLeftoverDisplay(storage: Storage): LeftoverDisplay {
-  return storage.getItem(LEFTOVER_DISPLAY_KEY) === 'total' ? 'total' : 'spendable'
+  try {
+    return storage.getItem(LEFTOVER_DISPLAY_KEY) === 'total' ? 'total' : 'spendable'
+  } catch {
+    return 'spendable'
+  }
 }
 
 export function writeLeftoverDisplay(storage: Storage, display: LeftoverDisplay): void {
-  storage.setItem(LEFTOVER_DISPLAY_KEY, display)
+  try {
+    storage.setItem(LEFTOVER_DISPLAY_KEY, display)
+  } catch {
+    // Left unwritten. The choice only fails to persist; nothing else depends on it.
+  }
 }
 
 /**
