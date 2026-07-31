@@ -9,7 +9,13 @@ import {
 import { messageOf, useChanges } from '../changes.js'
 import { useHousehold } from '../household.js'
 
-const props = defineProps<{ household: Household }>()
+/**
+ * No Household at all is the deployment nobody has set up yet, which is exactly where a
+ * self-hoster arrives with a backup and where somebody arrives with what they built in
+ * the demo. There is nothing to export there and nothing to replace, so the panel offers
+ * only the import.
+ */
+const props = defineProps<{ household?: Household }>()
 
 const { exportFile, importFile } = useHousehold()
 const { failure, report } = useChanges()
@@ -23,6 +29,8 @@ const imported = ref(false)
  * stands right now — never of the one that was on screen when the file was chosen.
  */
 const replacing = computed(() => {
+  if (!props.household) return 'Nothing has been set up here yet.'
+
   const replacement = whatImportReplaces(props.household)
   if (replacement.months === 0) return 'Nothing has been opened here yet.'
 
@@ -42,7 +50,8 @@ function download(): void {
   link.href = address
   link.download = 'prometheus-household.json'
   link.click()
-  URL.revokeObjectURL(address)
+  /** Let the click take the file first: revoking in the same turn can outrun the download. */
+  setTimeout(() => URL.revokeObjectURL(address))
 }
 
 /**
@@ -59,8 +68,8 @@ async function choose(event: Event): Promise<void> {
   chosen.value = undefined
   if (!file) return
 
-  const text = await file.text()
   try {
+    const text = await file.text()
     importHousehold(text)
     chosen.value = { name: file.name, text }
   } catch (cause) {
@@ -86,7 +95,9 @@ async function confirm(): Promise<void> {
     </p>
 
     <div class="actions">
-      <button class="button-primary" type="button" @click="download">Export a file</button>
+      <button v-if="household" class="button-primary" type="button" @click="download">
+        Export a file
+      </button>
       <label class="button-quiet choose">
         Choose a file to import
         <input type="file" accept="application/json,.json" @change="choose" />
@@ -95,11 +106,17 @@ async function confirm(): Promise<void> {
 
     <div v-if="chosen" class="question">
       <p class="lead">
-        Importing {{ chosen.name }} replaces this Household entirely. {{ replacing }}
+        Importing {{ chosen.name }}
+        {{ household ? 'replaces this Household entirely.' : 'brings its Household here.' }}
+        {{ replacing }}
       </p>
       <div class="actions">
-        <button class="destructive" type="button" @click="confirm">Replace this Household</button>
-        <button class="button-quiet" type="button" @click="chosen = undefined">Keep it</button>
+        <button class="destructive" type="button" @click="confirm">
+          {{ household ? 'Replace this Household' : 'Import this Household' }}
+        </button>
+        <button class="button-quiet" type="button" @click="chosen = undefined">
+          {{ household ? 'Keep it' : 'Never mind' }}
+        </button>
       </div>
     </div>
 

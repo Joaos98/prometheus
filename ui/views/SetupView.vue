@@ -5,6 +5,7 @@ import { useChanges } from '../changes.js'
 import { CURRENCIES } from '../currencies.js'
 import { useHousehold } from '../household.js'
 import { MONTH_NAMES } from '../months.js'
+import HouseholdFile from '../components/HouseholdFile.vue'
 
 const { setUp } = useHousehold()
 const { failure, report } = useChanges()
@@ -15,6 +16,13 @@ const now = new Date()
 const year = ref(now.getFullYear())
 const month = ref(now.getMonth() + 1)
 const working = ref(false)
+
+/**
+ * Not every Household starts here. A self-hoster arrives with a backup, and somebody who
+ * has been trying the demo arrives with what they built in it — neither should have to
+ * invent a currency and a Roster first, only to replace them a moment later.
+ */
+const importing = ref(false)
 
 const MONTHS = MONTH_NAMES.map((name, index) => ({ value: index + 1, name }))
 const years = Array.from({ length: 11 }, (_, i) => now.getFullYear() - 5 + i)
@@ -108,6 +116,18 @@ async function begin(): Promise<void> {
     <button class="button-primary" type="button" :disabled="!ready || working" @click="begin">
       Open {{ monthName(startingMonth) }}
     </button>
+
+    <section class="card">
+      <h2 class="section-label">Already have a Household?</h2>
+      <p class="muted hint">
+        A Household exported from another deployment, or from the demo, arrives whole — there is
+        nothing to set up first.
+      </p>
+      <button v-if="!importing" class="button-quiet add" type="button" @click="importing = true">
+        Import a Household file
+      </button>
+      <HouseholdFile v-else />
+    </section>
   </main>
 </template>
 

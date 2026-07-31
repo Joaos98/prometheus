@@ -18,7 +18,7 @@ import logo from '../../prometheus-logo.svg'
 
 const props = defineProps<{ household: Household; viewing: MonthKey }>()
 
-const { relabel } = useHousehold()
+const { relabel, replacements } = useHousehold()
 const { failure, report } = useChanges()
 
 const month = computed(() => monthAt(props.household, props.viewing))
@@ -121,8 +121,15 @@ async function saveCurrency(): Promise<void> {
         is about the Month it was started in and means nothing in another. Without this,
         stepping to the next Month leaves the form open and its next save lands there,
         which is how an edit meant for July gets written to August.
+
+        Keyed on the import that replaced the Household too, for the same reason and a
+        worse version of it: an import lands on whichever Month the arriving Household
+        ends at, which may be the very Month on screen. What was half-typed belongs to
+        the Household that has just gone, and where a row of the same identity exists in
+        the one that arrived — restoring a backup of this same Household — saving it
+        would quietly write it there.
       -->
-      <div :key="viewing" class="columns">
+      <div :key="`${viewing}/${replacements}`" class="columns">
         <MonthRail :household="household" :month="month" :now="now" />
 
         <main>

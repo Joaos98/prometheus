@@ -60,6 +60,13 @@ const store: HouseholdStore = localStorageStore(window.localStorage)
 
 const household = shallowRef<Household | undefined>(undefined)
 const viewing = ref<MonthKey | undefined>(undefined)
+
+/**
+ * How many times the Household on screen has been swapped for another one. Every other
+ * change is to the Household a member is working in; an import is a different Household
+ * arriving, and what a panel is halfway through belongs to the one that has just gone.
+ */
+const replacements = ref(0)
 const loading = ref(true)
 const failure = ref<string | undefined>(undefined)
 
@@ -129,13 +136,16 @@ function exportFile(): string {
  *
  * What is being looked at cannot survive the replacement, since the Months are another
  * Household's: the newest Month with anything in it is where the member lands, as it is
- * when Prometheus is opened.
+ * when Prometheus is opened. Nor can anything a panel is halfway through, which is why
+ * the replacement is counted — an edit typed before the import was meant for a Household
+ * that no longer exists, and must never land in the one that has just arrived.
  */
 async function importFile(text: string): Promise<void> {
   const imported = importHousehold(text)
   await store.replaceHousehold(imported)
   household.value = imported
   viewing.value = openedMonthKeys(imported).at(-1) ?? thisMonth()
+  replacements.value += 1
 }
 
 /**
@@ -400,6 +410,7 @@ export function useHousehold() {
   return {
     household,
     viewing,
+    replacements,
     loading,
     failure,
     load,
