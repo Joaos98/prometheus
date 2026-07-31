@@ -4,6 +4,38 @@ import { StorageError, type HouseholdStore, type RowKind } from './port.js'
 const KEY = 'prometheus.household'
 
 /**
+ * The shape the browser's storage is written in today. Every schema change is paid twice
+ * — once in SQLite, once here — so the stored document says which shape it is rather than
+ * leaving a later version to guess from what it finds.
+ */
+const SHAPE = 1
+
+/** The stored document, as of the current shape. */
+interface StoredDocument {
+  shape: number
+  household: Household
+}
+
+/**
+ * Brings whatever is in the browser's storage up to the current shape. Shape 0 is the
+ * document Prometheus wrote before it versioned anything: the Household, bare.
+ */
+function migrate(stored: unknown): Household {
+  const document = stored as Partial<StoredDocument>
+  const household =
+    typeof document.shape === 'number' ? (document.household as Household) : (stored as Household)
+  return { ...household, months: inCalendarOrder(household.months) }
+}
+
+/**
+ * A record is read in the order it happened, so that is the order the Months come back in
+ * — whichever order they were opened in, and whichever adapter is answering.
+ */
+function inCalendarOrder(months: Record<MonthKey, Month>): Record<MonthKey, Month> {
+  return Object.fromEntries(Object.entries(months).sort(([one], [other]) => one.localeCompare(other)))
+}
+
+/**
  * Keeps the Household in the browser's own storage. This is the whole data layer of
  * the demo build, and the reason returning to Prometheus shows the same Household.
  *
@@ -15,7 +47,7 @@ export function localStorageStore(storage: Storage): HouseholdStore {
     const stored = storage.getItem(KEY)
     if (stored === null) return undefined
     try {
-      return JSON.parse(stored) as Household
+      return migrate(JSON.parse(stored))
     } catch (cause) {
       throw new StorageError(`The stored Household could not be read: ${String(cause)}`)
     }
@@ -23,7 +55,7 @@ export function localStorageStore(storage: Storage): HouseholdStore {
 
   const write = (household: Household): void => {
     try {
-      storage.setItem(KEY, JSON.stringify(household))
+      storage.setItem(KEY, JSON.stringify({ shape: SHAPE, household } satisfies StoredDocument))
     } catch (cause) {
       throw new StorageError(`The Household could not be stored: ${String(cause)}`)
     }

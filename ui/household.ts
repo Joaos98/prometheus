@@ -14,6 +14,7 @@ import {
   importHousehold,
   editIncomeSnapshot,
   editSavingsGoal,
+  isOpened,
   markExpenseOneOff,
   markGoalOneOff,
   markIncomeOneOff,
@@ -47,366 +48,445 @@ import {
   type RowKind,
   type Setup,
 } from '../domain/index.js'
-import { localStorageStore } from '../storage/local-storage-store.js'
 import type { HouseholdStore } from '../storage/port.js'
 import { messageOf } from './changes.js'
 import { thisMonth } from './months.js'
+import { chosenStore } from './store.js'
+
+/** How often a Month left open on screen goes back and asks what has changed. */
+const POLL = 20000
 
 /**
  * The Household the app is showing, and the one Month it is looking at. The engine
  * computes; this only holds what it returned and hands writes to the storage port.
  */
-const store: HouseholdStore = localStorageStore(window.localStorage)
+export function householdOver(store: HouseholdStore) {
+  const household = shallowRef<Household | undefined>(undefined)
+  const viewing = ref<MonthKey | undefined>(undefined)
 
-const household = shallowRef<Household | undefined>(undefined)
-const viewing = ref<MonthKey | undefined>(undefined)
+  /**
+   * How many times the Household on screen has been swapped for another one. Every other
+   * change is to the Household a member is working in; an import is a different Household
+   * arriving, and what a panel is halfway through belongs to the one that has just gone.
+   */
+  const replacements = ref(0)
+  const loading = ref(true)
+  const failure = ref<string | undefined>(undefined)
 
-/**
- * How many times the Household on screen has been swapped for another one. Every other
- * change is to the Household a member is working in; an import is a different Household
- * arriving, and what a panel is halfway through belongs to the one that has just gone.
- */
-const replacements = ref(0)
-const loading = ref(true)
-const failure = ref<string | undefined>(undefined)
+  /**
+   * Changes are carried out one at a time. Each of them reads the Household in hand, hands
+   * the store what changed, and puts back what the engine returned — and that last step is
+   * only truthful if nothing else moved while the store was being waited on. Over the
+   * browser's own storage nothing can; over a network it can, and the earlier change would
+   * vanish from the screen while sitting perfectly well in storage.
+   *
+   * Waiting is also what keeps a refetch honest: what another member wrote is only worth
+   * putting on screen when this member has nothing in flight to be overwritten.
+   */
+  let queue: Promise<unknown> = Promise.resolve()
 
-async function load(): Promise<void> {
-  loading.value = true
-  failure.value = undefined
-  try {
-    const loaded = await store.loadHousehold()
-    household.value = loaded
-    // The latest Month with anything in it, or — every Month having been discarded —
-    // the one the calendar is on, which is a Month like any other and offers to open.
-    viewing.value = loaded ? (openedMonthKeys(loaded).at(-1) ?? thisMonth()) : undefined
-  } catch (cause) {
-    failure.value = messageOf(cause)
-  } finally {
-    loading.value = false
+  function inOrder<T>(work: () => Promise<T>): Promise<T> {
+    const next = queue.then(work, work)
+    queue = next.then(
+      () => undefined,
+      () => undefined,
+    )
+    return next
   }
-}
 
-async function setUp(setup: Setup): Promise<void> {
-  const created = setUpHousehold(setup)
-  await store.createHousehold(created)
-  household.value = created
-  viewing.value = setup.startingMonth
-}
+  /** A change to the Household in hand: what the engine returns is what the app shows. */
+  function changing(work: (current: Household) => Promise<Household>): Promise<void> {
+    return inOrder(async () => {
+      const current = household.value
+      if (!current) return
+      household.value = await work(current)
+    })
+  }
 
-/**
- * Moving around the record, which changes nothing: looking at a Month the Household has
- * not opened is a read, and leaves it unopened.
- */
-function view(month: MonthKey): void {
-  viewing.value = month
-}
+  /**
+   * The Household as it stands. Propagation reports back rather than returning nothing, so
+   * unlike every other change here it cannot quietly do nothing when there is no Household
+   * — there would be no report to give.
+   */
+  function current(): Household {
+    const loaded = household.value
+    if (!loaded) throw new Error('No Household is loaded')
+    return loaded
+  }
 
-/** Opening a Month, which is the explicit act that brings its data into existence. */
-async function open(month: MonthKey): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const after = openMonth(current, month)
-  await store.openMonth(after.months[month]!)
-  household.value = after
-  viewing.value = month
-}
+  function load(): Promise<void> {
+    return inOrder(async () => {
+      loading.value = true
+      failure.value = undefined
+      try {
+        const loaded = await store.loadHousehold()
+        household.value = loaded
+        // The latest Month with anything in it, or — every Month having been discarded —
+        // the one the calendar is on, which is a Month like any other and offers to open.
+        viewing.value = loaded ? (openedMonthKeys(loaded).at(-1) ?? thisMonth()) : undefined
+      } catch (cause) {
+        failure.value = messageOf(cause)
+      } finally {
+        loading.value = false
+      }
+    })
+  }
 
-/**
- * Discarding a Month: the whole Month goes, so the port is handed the Month rather than
- * a row. What is being looked at stays where it is — the Month is still the one the
- * member is on, now unopened and offering to be opened afresh.
- */
-async function discard(month: MonthKey): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const after = discardMonth(current, month)
-  await store.discardMonth(month)
-  household.value = after
-}
+  /**
+   * What the other member has been doing. Their writes are row-scoped, so their edits are
+   * already in the store whole; this is only the copy on this screen catching up. Where the
+   * member is looking is left alone — a Month they discarded elsewhere simply goes back to
+   * offering to be opened.
+   *
+   * Nobody asked for this, so nobody is told when it fails. Saying so would replace the
+   * whole dashboard with an apology because a poll nobody noticed did not come back, and
+   * the next change the member does make will report properly for itself.
+   */
+  function refresh(): Promise<void> {
+    return inOrder(async () => {
+      if (!household.value) return
+      try {
+        const loaded = await store.loadHousehold()
+        if (loaded) household.value = loaded
+      } catch {
+        // Left as it was. It will be asked again.
+      }
+    })
+  }
 
-/** The whole Household as one file, taken from what is in hand rather than from the store. */
-function exportFile(): string {
-  return exportHousehold(current())
-}
+  /**
+   * Keeps the screen roughly level with the other member: asked outright whenever the
+   * window is come back to, and lightly on a timer while an opened Month is being looked
+   * at. Nothing is pushed and nothing is watched — this is two people at a kitchen table,
+   * not a collaborative editor.
+   */
+  function watchOtherMembers(every: number = POLL): () => void {
+    const wake = (): void => void refresh()
+    const woken = (): void => {
+      if (!document.hidden) wake()
+    }
+    const tick = (): void => {
+      const loaded = household.value
+      if (!document.hidden && loaded && viewing.value && isOpened(loaded, viewing.value)) wake()
+    }
+    window.addEventListener('focus', wake)
+    document.addEventListener('visibilitychange', woken)
+    const timer = window.setInterval(tick, every)
+    return () => {
+      window.removeEventListener('focus', wake)
+      document.removeEventListener('visibilitychange', woken)
+      window.clearInterval(timer)
+    }
+  }
 
-/**
- * Importing a file, which replaces the Household wholesale. The engine reads the file
- * through before anything is written, so a file it cannot read throws here and the
- * Household — in the store and on screen — is left exactly as it was.
- *
- * What is being looked at cannot survive the replacement, since the Months are another
- * Household's: the newest Month with anything in it is where the member lands, as it is
- * when Prometheus is opened. Nor can anything a panel is halfway through, which is why
- * the replacement is counted — an edit typed before the import was meant for a Household
- * that no longer exists, and must never land in the one that has just arrived.
- */
-async function importFile(text: string): Promise<void> {
-  const imported = importHousehold(text)
-  await store.replaceHousehold(imported)
-  household.value = imported
-  viewing.value = openedMonthKeys(imported).at(-1) ?? thisMonth()
-  replacements.value += 1
-}
+  function setUp(setup: Setup): Promise<void> {
+    return inOrder(async () => {
+      const created = setUpHousehold(setup)
+      await store.createHousehold(created)
+      household.value = created
+      viewing.value = setup.startingMonth
+    })
+  }
 
-/**
- * Renames the currency. No amount is converted, and the engine refuses a currency of
- * different decimal precision before any of this reaches storage.
- */
-async function relabel(currency: Currency): Promise<void> {
-  if (!household.value) return
-  const relabelled = relabelCurrency(household.value, currency)
-  await store.replaceHousehold(relabelled)
-  household.value = relabelled
-}
+  /**
+   * Moving around the record, which changes nothing: looking at a Month the Household has
+   * not opened is a read, and leaves it unopened.
+   */
+  function view(month: MonthKey): void {
+    viewing.value = month
+  }
 
-/**
- * The Roster, which is not a Month's row and so is written back whole, on the same
- * terms as relabelling the currency.
- */
-async function addRosterMember(name: string): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const after = addMember(current, name)
-  await store.replaceHousehold(after)
-  household.value = after
-}
+  /** Opening a Month, which is the explicit act that brings its data into existence. */
+  function open(month: MonthKey): Promise<void> {
+    return changing(async (loaded) => {
+      const after = openMonth(loaded, month)
+      await store.openMonth(after.months[month]!)
+      viewing.value = month
+      return after
+    })
+  }
 
-async function deactivateRosterMember(member: MemberId): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const after = deactivateMember(current, member)
-  await store.replaceHousehold(after)
-  household.value = after
-}
+  /**
+   * Discarding a Month: the whole Month goes, so the port is handed the Month rather than
+   * a row. What is being looked at stays where it is — the Month is still the one the
+   * member is on, now unopened and offering to be opened afresh.
+   */
+  function discard(month: MonthKey): Promise<void> {
+    return changing(async (loaded) => {
+      const after = discardMonth(loaded, month)
+      await store.discardMonth(month)
+      return after
+    })
+  }
 
-async function reactivateRosterMember(member: MemberId): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const after = reactivateMember(current, member)
-  await store.replaceHousehold(after)
-  household.value = after
-}
+  /** The whole Household as one file, taken from what is in hand rather than from the store. */
+  function exportFile(): string {
+    return exportHousehold(current())
+  }
 
-/**
- * Income, one row at a time. The engine decides what the Household becomes; the port
- * is handed only the row that changed, so two members editing different rows never
- * collide.
- */
-async function addIncome(month: MonthKey, draft: IncomeDraft): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const { household: after, row } = addIncomeSnapshot(current, month, draft)
-  await store.writeRow(month, 'income', row)
-  household.value = after
-}
+  /**
+   * Importing a file, which replaces the Household wholesale. The engine reads the file
+   * through before anything is written, so a file it cannot read throws here and the
+   * Household — in the store and on screen — is left exactly as it was.
+   *
+   * What is being looked at cannot survive the replacement, since the Months are another
+   * Household's: the newest Month with anything in it is where the member lands, as it is
+   * when Prometheus is opened. Nor can anything a panel is halfway through, which is why
+   * the replacement is counted — an edit typed before the import was meant for a Household
+   * that no longer exists, and must never land in the one that has just arrived.
+   */
+  function importFile(text: string): Promise<void> {
+    return inOrder(async () => {
+      const imported = importHousehold(text)
+      await store.replaceHousehold(imported)
+      household.value = imported
+      viewing.value = openedMonthKeys(imported).at(-1) ?? thisMonth()
+      replacements.value += 1
+    })
+  }
 
-async function editIncome(month: MonthKey, id: RowId, edits: IncomeEdits): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const { household: after, row } = editIncomeSnapshot(current, month, id, edits)
-  await store.writeRow(month, 'income', row)
-  household.value = after
-}
+  /**
+   * Renames the currency. No amount is converted, and the engine refuses a currency of
+   * different decimal precision before any of this reaches storage.
+   */
+  function relabel(currency: Currency): Promise<void> {
+    return changing(async (loaded) => {
+      const relabelled = relabelCurrency(loaded, currency)
+      await store.replaceHousehold(relabelled)
+      return relabelled
+    })
+  }
 
-async function removeIncome(month: MonthKey, id: RowId): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const after = removeIncomeSnapshot(current, month, id)
-  await store.deleteRow(month, 'income', id)
-  household.value = after
-}
+  /**
+   * The Roster, which is not a Month's row and so is written back whole, on the same
+   * terms as relabelling the currency.
+   */
+  function addRosterMember(name: string): Promise<void> {
+    return changing(async (loaded) => {
+      const after = addMember(loaded, name)
+      await store.replaceHousehold(after)
+      return after
+    })
+  }
 
-/** Confirms a row that is correct as inherited, without editing it. */
-async function confirmIncome(month: MonthKey, id: RowId): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const { household: after, row } = confirmIncomeSnapshot(current, month, id)
-  await store.writeRow(month, 'income', row)
-  household.value = after
-}
+  function deactivateRosterMember(member: MemberId): Promise<void> {
+    return changing(async (loaded) => {
+      const after = deactivateMember(loaded, member)
+      await store.replaceHousehold(after)
+      return after
+    })
+  }
 
-/** Marks a row One-Off, one row at a time. */
-async function markIncomeAsOneOff(month: MonthKey, id: RowId): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const { household: after, row } = markIncomeOneOff(current, month, id)
-  await store.writeRow(month, 'income', row)
-  household.value = after
-}
+  function reactivateRosterMember(member: MemberId): Promise<void> {
+    return changing(async (loaded) => {
+      const after = reactivateMember(loaded, member)
+      await store.replaceHousehold(after)
+      return after
+    })
+  }
 
-/** Expenses, one row at a time, on the same terms as income. */
-async function addExpense(month: MonthKey, draft: ExpenseDraft): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const { household: after, row } = addExpenseSnapshot(current, month, draft)
-  await store.writeRow(month, 'expenses', row)
-  household.value = after
-}
+  /**
+   * Income, one row at a time. The engine decides what the Household becomes; the port
+   * is handed only the row that changed, so two members editing different rows never
+   * collide.
+   */
+  function addIncome(month: MonthKey, draft: IncomeDraft): Promise<void> {
+    return changing(async (loaded) => {
+      const { household: after, row } = addIncomeSnapshot(loaded, month, draft)
+      await store.writeRow(month, 'income', row)
+      return after
+    })
+  }
 
-async function editExpense(month: MonthKey, id: RowId, edits: ExpenseEdits): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const { household: after, row } = editExpenseSnapshot(current, month, id, edits)
-  await store.writeRow(month, 'expenses', row)
-  household.value = after
-}
+  function editIncome(month: MonthKey, id: RowId, edits: IncomeEdits): Promise<void> {
+    return changing(async (loaded) => {
+      const { household: after, row } = editIncomeSnapshot(loaded, month, id, edits)
+      await store.writeRow(month, 'income', row)
+      return after
+    })
+  }
 
-/**
- * Repurposing, which is not a row edit: it retires one identity and mints another, and
- * re-threads the row in every later Month that inherited it. A row-scoped write cannot
- * say that, so the Household goes back whole, as the Roster does.
- */
-async function repurposeExpense(month: MonthKey, id: RowId, edits: ExpenseEdits): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const { household: after } = repurposeExpenseSnapshot(current, month, id, edits)
-  await store.replaceHousehold(after)
-  household.value = after
-}
+  function removeIncome(month: MonthKey, id: RowId): Promise<void> {
+    return changing(async (loaded) => {
+      const after = removeIncomeSnapshot(loaded, month, id)
+      await store.deleteRow(month, 'income', id)
+      return after
+    })
+  }
 
-/**
- * Forward Propagation, which is not a row edit either: it writes one row in each of
- * however many later Months still hold the copy, so the Household goes back whole. What
- * it changed and what it passed over comes back to the caller, which is the only way the
- * member gets told where a later Month kept its own answer.
- */
-async function propagateIncome(
-  month: MonthKey,
-  id: RowId,
-  edits: IncomeEdits,
-): Promise<Propagation> {
-  return carryForward(propagateIncomeEdit(current(), month, id, edits))
-}
+  /** Confirms a row that is correct as inherited, without editing it. */
+  function confirmIncome(month: MonthKey, id: RowId): Promise<void> {
+    return changing(async (loaded) => {
+      const { household: after, row } = confirmIncomeSnapshot(loaded, month, id)
+      await store.writeRow(month, 'income', row)
+      return after
+    })
+  }
 
-async function propagateExpense(
-  month: MonthKey,
-  id: RowId,
-  edits: ExpenseEdits,
-): Promise<Propagation> {
-  return carryForward(propagateExpenseEdit(current(), month, id, edits))
-}
+  /** Marks a row One-Off, one row at a time. */
+  function markIncomeAsOneOff(month: MonthKey, id: RowId): Promise<void> {
+    return changing(async (loaded) => {
+      const { household: after, row } = markIncomeOneOff(loaded, month, id)
+      await store.writeRow(month, 'income', row)
+      return after
+    })
+  }
 
-async function propagateGoal(month: MonthKey, id: RowId, edits: GoalEdits): Promise<Propagation> {
-  return carryForward(propagateGoalEdit(current(), month, id, edits))
-}
+  /** Expenses, one row at a time, on the same terms as income. */
+  function addExpense(month: MonthKey, draft: ExpenseDraft): Promise<void> {
+    return changing(async (loaded) => {
+      const { household: after, row } = addExpenseSnapshot(loaded, month, draft)
+      await store.writeRow(month, 'expenses', row)
+      return after
+    })
+  }
 
-/**
- * Settling one reported Drift difference the Previous Month's way. It writes one row, but
- * which row and whether it is a write at all depends on the difference, so the Household
- * goes back whole rather than as a row-scoped write the caller would have to classify.
- */
-async function refreshDrifted(
-  month: MonthKey,
-  now: MonthKey,
-  kind: RowKind,
-  id: RowId,
-): Promise<void> {
-  const after = refreshFromPreviousMonth(current(), month, now, kind, id)
-  await store.replaceHousehold(after)
-  household.value = after
-}
+  function editExpense(month: MonthKey, id: RowId, edits: ExpenseEdits): Promise<void> {
+    return changing(async (loaded) => {
+      const { household: after, row } = editExpenseSnapshot(loaded, month, id, edits)
+      await store.writeRow(month, 'expenses', row)
+      return after
+    })
+  }
 
-async function carryForward(propagation: Propagation): Promise<Propagation> {
-  await store.replaceHousehold(propagation.household)
-  household.value = propagation.household
-  return propagation
-}
+  /**
+   * Repurposing, which is not a row edit: it retires one identity and mints another, and
+   * re-threads the row in every later Month that inherited it. A row-scoped write cannot
+   * say that, so the Household goes back whole, as the Roster does.
+   */
+  function repurposeExpense(month: MonthKey, id: RowId, edits: ExpenseEdits): Promise<void> {
+    return changing(async (loaded) => {
+      const { household: after } = repurposeExpenseSnapshot(loaded, month, id, edits)
+      await store.replaceHousehold(after)
+      return after
+    })
+  }
 
-/**
- * The Household as it stands. Propagation reports back rather than returning nothing, so
- * unlike every other change here it cannot quietly do nothing when there is no Household
- * — there would be no report to give.
- */
-function current(): Household {
-  const loaded = household.value
-  if (!loaded) throw new Error('No Household is loaded')
-  return loaded
-}
+  function removeExpense(month: MonthKey, id: RowId): Promise<void> {
+    return changing(async (loaded) => {
+      const after = removeExpenseSnapshot(loaded, month, id)
+      await store.deleteRow(month, 'expenses', id)
+      return after
+    })
+  }
 
-async function removeExpense(month: MonthKey, id: RowId): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const after = removeExpenseSnapshot(current, month, id)
-  await store.deleteRow(month, 'expenses', id)
-  household.value = after
-}
+  /** Confirms an Expense that is correct as inherited, without editing it. */
+  function confirmExpense(month: MonthKey, id: RowId): Promise<void> {
+    return changing(async (loaded) => {
+      const { household: after, row } = confirmExpenseSnapshot(loaded, month, id)
+      await store.writeRow(month, 'expenses', row)
+      return after
+    })
+  }
 
-/** Confirms an Expense that is correct as inherited, without editing it. */
-async function confirmExpense(month: MonthKey, id: RowId): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const { household: after, row } = confirmExpenseSnapshot(current, month, id)
-  await store.writeRow(month, 'expenses', row)
-  household.value = after
-}
+  /** Marks an Expense One-Off, one row at a time. */
+  function markExpenseAsOneOff(month: MonthKey, id: RowId): Promise<void> {
+    return changing(async (loaded) => {
+      const { household: after, row } = markExpenseOneOff(loaded, month, id)
+      await store.writeRow(month, 'expenses', row)
+      return after
+    })
+  }
 
-/** Marks an Expense One-Off, one row at a time. */
-async function markExpenseAsOneOff(month: MonthKey, id: RowId): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const { household: after, row } = markExpenseOneOff(current, month, id)
-  await store.writeRow(month, 'expenses', row)
-  household.value = after
-}
+  /** Savings Goals, one row at a time, on the same terms as income and Expenses. */
+  function addGoal(month: MonthKey, draft: GoalDraft): Promise<void> {
+    return changing(async (loaded) => {
+      const { household: after, row } = addSavingsGoal(loaded, month, draft)
+      await store.writeRow(month, 'goals', row)
+      return after
+    })
+  }
 
-/** Savings Goals, one row at a time, on the same terms as income and Expenses. */
-async function addGoal(month: MonthKey, draft: GoalDraft): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const { household: after, row } = addSavingsGoal(current, month, draft)
-  await store.writeRow(month, 'goals', row)
-  household.value = after
-}
+  function editGoal(month: MonthKey, id: RowId, edits: GoalEdits): Promise<void> {
+    return changing(async (loaded) => {
+      const { household: after, row } = editSavingsGoal(loaded, month, id, edits)
+      await store.writeRow(month, 'goals', row)
+      return after
+    })
+  }
 
-async function editGoal(month: MonthKey, id: RowId, edits: GoalEdits): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const { household: after, row } = editSavingsGoal(current, month, id, edits)
-  await store.writeRow(month, 'goals', row)
-  household.value = after
-}
+  function removeGoal(month: MonthKey, id: RowId): Promise<void> {
+    return changing(async (loaded) => {
+      const after = removeSavingsGoal(loaded, month, id)
+      await store.deleteRow(month, 'goals', id)
+      return after
+    })
+  }
 
-async function removeGoal(month: MonthKey, id: RowId): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const after = removeSavingsGoal(current, month, id)
-  await store.deleteRow(month, 'goals', id)
-  household.value = after
-}
+  /** Confirms a goal that is correct as inherited, without editing it. */
+  function confirmGoal(month: MonthKey, id: RowId): Promise<void> {
+    return changing(async (loaded) => {
+      const { household: after, row } = confirmSavingsGoal(loaded, month, id)
+      await store.writeRow(month, 'goals', row)
+      return after
+    })
+  }
 
-/** Confirms a goal that is correct as inherited, without editing it. */
-async function confirmGoal(month: MonthKey, id: RowId): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const { household: after, row } = confirmSavingsGoal(current, month, id)
-  await store.writeRow(month, 'goals', row)
-  household.value = after
-}
+  /** Marks a goal One-Off, one row at a time. */
+  function markGoalAsOneOff(month: MonthKey, id: RowId): Promise<void> {
+    return changing(async (loaded) => {
+      const { household: after, row } = markGoalOneOff(loaded, month, id)
+      await store.writeRow(month, 'goals', row)
+      return after
+    })
+  }
 
-/** Marks a goal One-Off, one row at a time. */
-async function markGoalAsOneOff(month: MonthKey, id: RowId): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const { household: after, row } = markGoalOneOff(current, month, id)
-  await store.writeRow(month, 'goals', row)
-  household.value = after
-}
+  /** What one Participant puts toward one goal this Month, entered directly. */
+  function contribute(
+    month: MonthKey,
+    id: RowId,
+    member: MemberId,
+    amount: Minor | null,
+  ): Promise<void> {
+    return changing(async (loaded) => {
+      const { household: after, row } = recordContribution(loaded, month, id, member, amount)
+      await store.writeRow(month, 'goals', row)
+      return after
+    })
+  }
 
-/** What one Participant puts toward one goal this Month, entered directly. */
-async function contribute(
-  month: MonthKey,
-  id: RowId,
-  member: MemberId,
-  amount: Minor | null,
-): Promise<void> {
-  const current = household.value
-  if (!current) return
-  const { household: after, row } = recordContribution(current, month, id, member, amount)
-  await store.writeRow(month, 'goals', row)
-  household.value = after
-}
+  /**
+   * Forward Propagation, which is not a row edit either: it writes one row in each of
+   * however many later Months still hold the copy, so the Household goes back whole. What
+   * it changed and what it passed over comes back to the caller, which is the only way the
+   * member gets told where a later Month kept its own answer.
+   */
+  function propagateIncome(month: MonthKey, id: RowId, edits: IncomeEdits): Promise<Propagation> {
+    return inOrder(() => carryForward(propagateIncomeEdit(current(), month, id, edits)))
+  }
 
-export function useHousehold() {
+  function propagateExpense(month: MonthKey, id: RowId, edits: ExpenseEdits): Promise<Propagation> {
+    return inOrder(() => carryForward(propagateExpenseEdit(current(), month, id, edits)))
+  }
+
+  function propagateGoal(month: MonthKey, id: RowId, edits: GoalEdits): Promise<Propagation> {
+    return inOrder(() => carryForward(propagateGoalEdit(current(), month, id, edits)))
+  }
+
+  /**
+   * Settling one reported Drift difference the Previous Month's way. It writes one row, but
+   * which row and whether it is a write at all depends on the difference, so the Household
+   * goes back whole rather than as a row-scoped write the caller would have to classify.
+   */
+  function refreshDrifted(
+    month: MonthKey,
+    now: MonthKey,
+    kind: RowKind,
+    id: RowId,
+  ): Promise<void> {
+    return changing(async (loaded) => {
+      const after = refreshFromPreviousMonth(loaded, month, now, kind, id)
+      await store.replaceHousehold(after)
+      return after
+    })
+  }
+
+  async function carryForward(propagation: Propagation): Promise<Propagation> {
+    await store.replaceHousehold(propagation.household)
+    household.value = propagation.household
+    return propagation
+  }
+
   return {
     household,
     viewing,
@@ -414,6 +494,8 @@ export function useHousehold() {
     loading,
     failure,
     load,
+    refresh,
+    watchOtherMembers,
     setUp,
     view,
     open,
@@ -446,4 +528,15 @@ export function useHousehold() {
     contribute,
     refreshDrifted,
   }
+}
+
+/**
+ * The one Household the app is working in, over whichever store this build was made with.
+ * Built on first asking rather than on import, so that nothing reaches for the browser
+ * until there is a browser to reach for.
+ */
+let app: ReturnType<typeof householdOver> | undefined
+
+export function useHousehold(): ReturnType<typeof householdOver> {
+  return (app ??= householdOver(chosenStore()))
 }

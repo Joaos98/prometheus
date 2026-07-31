@@ -8,19 +8,19 @@ Two members are likely to be editing at the same time, so writes are row-scoped:
 
 **Blocked by:** 15
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Opus, medium thinking — the contract suite is a design job and both adapters answer to it afterwards. The Docker half is routine; the suite is not.
 
-- [ ] A Node server serves the static build and row-level CRUD over SQLite
-- [ ] The server imports no domain code and enforces no domain invariants
-- [ ] There is no login, no password storage, no session and no permission check anywhere
-- [ ] The SQLite adapter sits behind the same storage port as the localStorage adapter, with no change to the port
-- [ ] One contract suite is parameterised over both adapters and passes against each
-- [ ] The contract suite proves: what was written is what loads back; row-scoped writes to different rows do not clobber each other; same-row writes are last-write-wins; a null amount round-trips as null and not as zero or absent; replacing the whole Household is atomic
-- [ ] A schema migration leaves an existing database readable, and the equivalent localStorage shape migration leaves existing browser data readable
-- [ ] The client refetches on window focus and polls lightly while a Month is open
-- [ ] Two members editing different rows of the same Month both keep their edits
+- [x] A Node server serves the static build and row-level CRUD over SQLite
+- [x] The server imports no domain code and enforces no domain invariants
+- [x] There is no login, no password storage, no session and no permission check anywhere
+- [x] The SQLite adapter sits behind the same storage port as the localStorage adapter, with no change to the port
+- [x] One contract suite is parameterised over both adapters and passes against each
+- [x] The contract suite proves: what was written is what loads back; row-scoped writes to different rows do not clobber each other; same-row writes are last-write-wins; a null amount round-trips as null and not as zero or absent; replacing the whole Household is atomic
+- [x] A schema migration leaves an existing database readable, and the equivalent localStorage shape migration leaves existing browser data readable
+- [x] The client refetches on window focus and polls lightly while a Month is open
+- [x] Two members editing different rows of the same Month both keep their edits
 - [ ] A Docker multi-stage build produces a runnable image, and the database persists across container restarts
 
 ## Comments
@@ -39,3 +39,20 @@ keep their edits" — is the one this fails, on a single client with one member 
 Row-scoped writes make the *store* safe from cross-row collisions; this is the same problem
 one layer up, in the client's own copy. Worth fixing as part of this ticket rather than
 before it, since the contract suite is what will demonstrate it.
+
+---
+
+**Fixed by carrying changes out one at a time.** Every operation in `ui/household.ts` now
+goes through a queue, so the read, the store's answer and the assignment back cannot be
+interleaved by another operation. `ui/household.test.ts` drives the app over a deliberately
+slow store and fails without the queue. The same queue is what keeps the refetch honest: a
+poll never lands on top of a change still in flight.
+
+---
+
+**The Docker criterion is written but not exercised.** `Dockerfile`, `compose.yaml` and the
+`build:self-hosted` script are in place, and the bundled server was run directly against a
+SQLite file — it serves the built app, stores rows, and the file is still there after the
+process goes. The image itself has not been built: Docker Desktop on the development machine
+is returning I/O errors from its own storage metadata and cannot build or run anything. Left
+unticked deliberately; `docker build -t prometheus .` is the check outstanding.

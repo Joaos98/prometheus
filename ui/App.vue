@@ -1,12 +1,21 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import { useHousehold } from './household.js'
 import SetupView from './views/SetupView.vue'
 import MonthDashboard from './views/MonthDashboard.vue'
 
-const { household, viewing, loading, failure, load } = useHousehold()
+const { household, viewing, loading, failure, load, watchOtherMembers } = useHousehold()
 
-onMounted(load)
+// The other member is editing too. Nothing here pushes or subscribes — the app asks
+// again when it is come back to, and lightly while a Month is left open on screen.
+let stopWatching: (() => void) | undefined
+
+onMounted(() => {
+  stopWatching = watchOtherMembers()
+  void load()
+})
+
+onUnmounted(() => stopWatching?.())
 </script>
 
 <template>

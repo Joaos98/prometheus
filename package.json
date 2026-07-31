@@ -5,15 +5,22 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
+    "build:app": "vite build --mode server",
+    "build:server": "esbuild server/main.ts --bundle --platform=node --format=esm --packages=external --outfile=dist-server/main.js",
+    "build:self-hosted": "vue-tsc --noEmit && npm run build:app && npm run build:server",
+    "start": "node dist-server/main.js",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
+    "better-sqlite3": "^13.0.2",
     "vue": "^3.5.13"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@vitejs/plugin-vue": "^5.2.1",
+    "esbuild": "^0.28.1",
     "typescript": "^5.7.3",
     "vite": "^6.0.11",
     "vitest": "^3.0.5",

@@ -1,0 +1,17 @@
+# Self-hosting Prometheus should be an evening, not a project.
+#
+#   docker compose up -d
+#
+# Then open http://localhost:8080 and set the Household up. There is no login to
+# configure, because there are no accounts — keep this off the public internet.
+services:
+  prometheus:
+    build: .
+    ports:
+      - '8080:8080'
+    volumes:
+      - household:/data
+    restart: unless-stopped
+
+volumes:
+  household:

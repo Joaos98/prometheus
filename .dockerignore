@@ -1,0 +1,9 @@
+node_modules
+dist
+dist-server
+.git
+.scratch
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
