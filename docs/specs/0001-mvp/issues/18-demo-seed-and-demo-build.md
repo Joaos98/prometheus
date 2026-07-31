@@ -8,22 +8,22 @@ Which makes it an integration test that happens to double as the shop window, so
 
 **Blocked by:** 13, 14, 15
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Opus, medium thinking — the seed is the end-to-end integration test rather than sample data, so it has to drive the engine the way a member would.
 
-- [ ] The demo is a static build with the localStorage adapter and no backend
-- [ ] The demo is fully functional — every MVP behaviour works, not a subset
-- [ ] The sample Household is produced by a program that drives the domain through the same operations a member uses, not by hand-written fixture rows
-- [ ] The seed exercises opening a Month, inheritance, Forward Propagation and Drift end to end
-- [ ] The seeded Household shows at least two different Split Rules in use, a non-zero Leftover Balance per member, and a Savings Goal partway to its target
-- [ ] Members' incomes differ, so that a proportional split and an even split produce visibly different Shares
-- [ ] The seed includes a Restricted-Use income source, so that its exclusion from Spendable Income and the per-viewer toggle both have something to act on
-- [ ] At least one Expense does not divide cleanly among its Participants, so that largest-remainder distribution is visible
-- [ ] At least one Expense changed its Split Rule between two Months, so that the snapshot model's payoff is visible by navigating back
-- [ ] The Month a visitor arrives in has rows still Unreviewed and at least one Pending row, so that the review checklist is on the first screen rather than something to reach for
-- [ ] The seed runs in CI as an integration test and fails loudly when a domain change breaks it
-- [ ] A visitor's changes persist in their browser
-- [ ] Resetting the demo re-runs the seed and restores the sample Household
-- [ ] A visitor can export what they built and import it into a self-hosted deployment
-- [ ] The demo and the self-hosted build differ only in their data layer — the same engine runs in both
+- [x] The demo is a static build with the localStorage adapter and no backend
+- [x] The demo is fully functional — every MVP behaviour works, not a subset
+- [x] The sample Household is produced by a program that drives the domain through the same operations a member uses, not by hand-written fixture rows
+- [x] The seed exercises opening a Month, inheritance, Forward Propagation and Drift end to end
+- [x] The seeded Household shows at least two different Split Rules in use, a non-zero Leftover Balance per member, and a Savings Goal partway to its target
+- [x] Members' incomes differ, so that a proportional split and an even split produce visibly different Shares
+- [x] The seed includes a Restricted-Use income source, so that its exclusion from Spendable Income and the per-viewer toggle both have something to act on
+- [x] At least one Expense does not divide cleanly among its Participants, so that largest-remainder distribution is visible
+- [x] At least one Expense changed its Split Rule between two Months, so that the snapshot model's payoff is visible by navigating back
+- [x] The Month a visitor arrives in has rows still Unreviewed and at least one Pending row, so that the review checklist is on the first screen rather than something to reach for
+- [x] The seed runs in CI as an integration test and fails loudly when a domain change breaks it
+- [x] A visitor's changes persist in their browser
+- [x] Resetting the demo re-runs the seed and restores the sample Household
+- [x] A visitor can export what they built and import it into a self-hosted deployment
+- [x] The demo and the self-hosted build differ only in their data layer — the same engine runs in both

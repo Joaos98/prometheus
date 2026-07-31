@@ -1,0 +1,36 @@
+# Every push and every pull request runs the same three things a change is judged by:
+# it typechecks, every test passes — the demo seed among them, which drives the whole
+# engine end to end and so breaks loudly when a domain change breaks the model — and
+# both builds still build.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # The demo seed runs here as an integration test, not as sample data.
+      - name: Test
+        run: npm test
+
+      - name: Build the demo
+        run: npm run build:demo
+
+      - name: Build the self-hosted app
+        run: npm run build:self-hosted

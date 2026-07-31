@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import type { ExpenseDraft, Household, Setup } from '../domain/index.js'
+import { seedHousehold } from '../demo/seed.js'
+import { openedMonthKeys, type ExpenseDraft, type Household, type Setup } from '../domain/index.js'
 import { localStorageStore } from '../storage/local-storage-store.js'
 import type { HouseholdStore } from '../storage/port.js'
-import { householdOver } from './household.js'
+import { householdOver, type Seed } from './household.js'
+import { thisMonth } from './months.js'
 
 /** Enough of the browser's Storage to stand in for it outside a browser. */
 function fakeStorage(): Storage {
@@ -117,5 +119,88 @@ describe('the Household the app is showing', () => {
     await Promise.all([writing, asking])
 
     expect(app.household.value!.months['2026-07']!.expenses.map((row) => row.name)).toEqual(['Rent'])
+  })
+})
+
+describe('a build that has a Household to start from', () => {
+  const sample: Seed = () => seedHousehold(thisMonth())
+
+  it('shows the sample Household to a browser with nothing stored', async () => {
+    const storage = fakeStorage()
+    const app = householdOver(localStorageStore(storage), sample)
+    await app.load()
+
+    expect(app.household.value!.roster.map((member) => member.name)).toEqual([
+      'Ada',
+      'Bruno',
+      'Mira',
+    ])
+    expect(await localStorageStore(storage).loadHousehold()).toBeDefined()
+  })
+
+  it('lands a visitor in the Month the calendar is on rather than the Month opened ahead', async () => {
+    const app = householdOver(localStorageStore(fakeStorage()), sample)
+    await app.load()
+
+    expect(app.viewing.value).toBe(thisMonth())
+    expect(openedMonthKeys(app.household.value!).at(-1)).not.toBe(thisMonth())
+  })
+
+  it('lands a returning visitor in that same Month too', async () => {
+    const store = localStorageStore(fakeStorage())
+    await householdOver(store, sample).load()
+
+    const returning = householdOver(store, sample)
+    await returning.load()
+
+    expect(returning.viewing.value).toBe(thisMonth())
+  })
+
+  it('keeps what a visitor changed, rather than sowing the sample again', async () => {
+    const storage = fakeStorage()
+    const store = localStorageStore(storage)
+    const app = householdOver(store, sample)
+    await app.load()
+    await app.addExpense(thisMonth(), expense('Piano lessons', 6000, app.household.value!))
+
+    const returning = householdOver(store, sample)
+    await returning.load()
+
+    expect(
+      returning.household.value!.months[thisMonth()]!.expenses.map((row) => row.name),
+    ).toContain('Piano lessons')
+  })
+
+  it('leaves a Household a visitor has emptied emptied', async () => {
+    const storage = fakeStorage()
+    const store = localStorageStore(storage)
+    const app = householdOver(store, sample)
+    await app.load()
+    for (const key of openedMonthKeys(app.household.value!)) await app.discard(key)
+
+    const returning = householdOver(store, sample)
+    await returning.load()
+
+    expect(openedMonthKeys(returning.household.value!)).toEqual([])
+  })
+
+  it('puts the sample Household back when it is reset', async () => {
+    const app = householdOver(localStorageStore(fakeStorage()), sample)
+    await app.load()
+    await app.addExpense(thisMonth(), expense('Piano lessons', 6000, app.household.value!))
+    await app.reset()
+
+    expect(
+      app.household.value!.months[thisMonth()]!.expenses.map((row) => row.name),
+    ).not.toContain('Piano lessons')
+    expect(app.viewing.value).toBe(thisMonth())
+  })
+
+  it('offers no reset, and sows nothing, where there is no Household to start from', async () => {
+    const app = householdOver(localStorageStore(fakeStorage()))
+    await app.load()
+
+    expect(app.seeded).toBe(false)
+    expect(app.household.value).toBeUndefined()
   })
 })

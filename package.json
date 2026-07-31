@@ -6,6 +6,7 @@
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "build:app": "vite build --mode server",
+    "build:demo": "vue-tsc --noEmit && vite build --mode demo --outDir dist-demo",
     "build:server": "esbuild server/main.ts --bundle --platform=node --format=esm --packages=external --outfile=dist-server/main.js",
     "build:self-hosted": "vue-tsc --noEmit && npm run build:app && npm run build:server",
     "start": "node dist-server/main.js",

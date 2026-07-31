@@ -51,16 +51,23 @@ import {
 import type { HouseholdStore } from '../storage/port.js'
 import { messageOf } from './changes.js'
 import { thisMonth } from './months.js'
-import { chosenStore } from './store.js'
+import { chosenSeed, chosenStore } from './store.js'
 
 /** How often a Month left open on screen goes back and asks what has changed. */
 const POLL = 20000
 
 /**
+ * A Household to start from where nothing is stored, which only the demo build has. It
+ * is a program that drives the domain rather than a file of rows, so what it produces is
+ * a Household like any other — the app cannot tell, and nothing below here is told.
+ */
+export type Seed = () => Household
+
+/**
  * The Household the app is showing, and the one Month it is looking at. The engine
  * computes; this only holds what it returned and hands writes to the storage port.
  */
-export function householdOver(store: HouseholdStore) {
+export function householdOver(store: HouseholdStore, seed?: Seed) {
   const household = shallowRef<Household | undefined>(undefined)
   const viewing = ref<MonthKey | undefined>(undefined)
 
@@ -119,16 +126,48 @@ export function householdOver(store: HouseholdStore) {
       loading.value = true
       failure.value = undefined
       try {
-        const loaded = await store.loadHousehold()
-        household.value = loaded
-        // The latest Month with anything in it, or — every Month having been discarded —
-        // the one the calendar is on, which is a Month like any other and offers to open.
-        viewing.value = loaded ? (openedMonthKeys(loaded).at(-1) ?? thisMonth()) : undefined
+        const stored = await store.loadHousehold()
+        // Nothing stored and a seed to run is a demo being opened for the first time.
+        // Every visit after this one finds the sample Household in the browser like any
+        // other — including one the visitor has since emptied, which is theirs to have
+        // emptied and is not quietly sown again underneath them.
+        if (!stored && seed) {
+          await sow(seed)
+          return
+        }
+
+        household.value = stored
+        viewing.value = stored ? landOn(stored) : undefined
       } catch (cause) {
         failure.value = messageOf(cause)
       } finally {
         loading.value = false
       }
+    })
+  }
+
+  /**
+   * Runs the seed and stores what it produced. Nothing here knows it is sample data: the
+   * seed drives the same engine a member does, so what it hands back is a Household like
+   * any other, landed in by the same rule as any other.
+   */
+  async function sow(sowing: Seed): Promise<void> {
+    const seeded = sowing()
+    await store.replaceHousehold(seeded)
+    household.value = seeded
+    viewing.value = landOn(seeded)
+  }
+
+  /**
+   * Puts the sample Household back exactly as it arrived, whatever the visitor has done to
+   * it. Nothing of theirs survives, which is the point — this is the way back to the shop
+   * window, and it is offered only where there is a seed to run.
+   */
+  function reset(): Promise<void> {
+    return inOrder(async () => {
+      if (!seed) return
+      await sow(seed)
+      replacements.value += 1
     })
   }
 
@@ -240,7 +279,7 @@ export function householdOver(store: HouseholdStore) {
       const imported = importHousehold(text)
       await store.replaceHousehold(imported)
       household.value = imported
-      viewing.value = openedMonthKeys(imported).at(-1) ?? thisMonth()
+      viewing.value = landOn(imported)
       replacements.value += 1
     })
   }
@@ -496,6 +535,9 @@ export function householdOver(store: HouseholdStore) {
     load,
     refresh,
     watchOtherMembers,
+    /** Whether this build has a Household to start from and to put back — the demo alone. */
+    seeded: seed !== undefined,
+    reset,
     setUp,
     view,
     open,
@@ -531,6 +573,22 @@ export function householdOver(store: HouseholdStore) {
 }
 
 /**
+ * Where opening Prometheus puts a member: the Month the calendar is on, whenever the
+ * Household has opened it. That is the Month being lived in, and it stays the answer when
+ * a Month or two ahead has been opened to plan — arriving in a Month planned for is
+ * arriving in a screen of rows nobody has looked at yet, which is nobody's starting point.
+ *
+ * A Household that has not got that far lands on the latest Month it has opened, and one
+ * with nothing opened at all lands on the calendar's own Month, which is a Month like any
+ * other and offers to be opened.
+ */
+function landOn(household: Household): MonthKey {
+  const now = thisMonth()
+  if (isOpened(household, now)) return now
+  return openedMonthKeys(household).at(-1) ?? now
+}
+
+/**
  * The one Household the app is working in, over whichever store this build was made with.
  * Built on first asking rather than on import, so that nothing reaches for the browser
  * until there is a browser to reach for.
@@ -538,5 +596,5 @@ export function householdOver(store: HouseholdStore) {
 let app: ReturnType<typeof householdOver> | undefined
 
 export function useHousehold(): ReturnType<typeof householdOver> {
-  return (app ??= householdOver(chosenStore()))
+  return (app ??= householdOver(chosenStore(), chosenSeed()))
 }

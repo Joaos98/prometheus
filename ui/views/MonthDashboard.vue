@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { monthAt, type Household, type MonthKey } from '../../domain/index.js'
+import DemoPanel from '../components/DemoPanel.vue'
 import ExpensesPanel from '../components/ExpensesPanel.vue'
 import GoalsPanel from '../components/GoalsPanel.vue'
 import HouseholdFile from '../components/HouseholdFile.vue'
@@ -19,7 +20,7 @@ import logo from '../../prometheus-logo.svg'
 
 const props = defineProps<{ household: Household; viewing: MonthKey }>()
 
-const { relabel, replacements } = useHousehold()
+const { relabel, replacements, seeded } = useHousehold()
 const { failure, report } = useChanges()
 const { viewer } = useDevicePreferences()
 
@@ -71,6 +72,7 @@ onUnmounted(() => {
 const managingRoster = ref(false)
 const relabelling = ref(false)
 const transferring = ref(false)
+const explainingTheDemo = ref(false)
 const chosen = ref(props.household.currency.code)
 
 /** The chooser closes once the currency is relabelled, and stays open to say why not. */
@@ -108,8 +110,20 @@ async function saveCurrency(): Promise<void> {
         <button class="button-quiet" type="button" @click="relabelling = !relabelling">
           {{ household.currency.code }} {{ household.currency.symbol.trim() }}
         </button>
+        <button
+          v-if="seeded"
+          class="button-quiet"
+          type="button"
+          @click="explainingTheDemo = !explainingTheDemo"
+        >
+          Demo
+        </button>
       </div>
     </header>
+
+    <div v-if="explainingTheDemo" class="card">
+      <DemoPanel />
+    </div>
 
     <div v-if="managingRoster" class="card">
       <RosterPanel :household="household" />

@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [vue()],
   test: {
     include: [
+      'demo/**/*.test.ts',
       'domain/**/*.test.ts',
       'storage/**/*.test.ts',
       'server/**/*.test.ts',
