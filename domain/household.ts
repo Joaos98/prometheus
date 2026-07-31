@@ -16,7 +16,7 @@ export interface Setup {
  * All three are required — a Household missing any of them cannot record anything.
  */
 export function setUpHousehold(setup: Setup): Household {
-  const currency = validCurrency(setup.currency)
+  const currency = requireCurrency(setup.currency)
   const names = setup.memberNames.map((name) => name.trim()).filter((name) => name !== '')
   if (names.length === 0) {
     throw new DomainError('A Household needs at least one member on its Roster')
@@ -33,7 +33,7 @@ export function setUpHousehold(setup: Setup): Household {
  * stored amount means; that is refused rather than converted.
  */
 export function relabelCurrency(household: Household, currency: Currency): Household {
-  const relabelled = validCurrency(currency)
+  const relabelled = requireCurrency(currency)
   if (relabelled.decimals !== household.currency.decimals) {
     throw new DomainError(
       `Amounts are held as ${household.currency.code} minor units to ${household.currency.decimals} decimals, and ${relabelled.code} has ${relabelled.decimals}. Nothing is converted, so this change is refused.`,
@@ -82,7 +82,11 @@ function setActive(household: Household, member: MemberId, active: boolean): Mem
   )
 }
 
-function validCurrency(currency: Currency): Currency {
+/**
+ * The one currency every amount in the Household is in. Held to a whole number of decimal
+ * places, because a currency's precision is what its stored minor units mean.
+ */
+export function requireCurrency(currency: Currency): Currency {
   const code = currency.code.trim()
   if (code === '') throw new DomainError('A Household needs a currency')
   if (!Number.isInteger(currency.decimals) || currency.decimals < 0 || currency.decimals > 4) {

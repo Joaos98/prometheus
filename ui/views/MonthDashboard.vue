@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { monthAt, type Household, type MonthKey } from '../../domain/index.js'
 import ExpensesPanel from '../components/ExpensesPanel.vue'
 import GoalsPanel from '../components/GoalsPanel.vue'
+import HouseholdFile from '../components/HouseholdFile.vue'
 import IncomePanel from '../components/IncomePanel.vue'
 import MonthDrift from '../components/MonthDrift.vue'
 import MonthNavigator from '../components/MonthNavigator.vue'
@@ -49,6 +50,7 @@ onUnmounted(() => {
 
 const managingRoster = ref(false)
 const relabelling = ref(false)
+const transferring = ref(false)
 const chosen = ref(props.household.currency.code)
 
 /** The chooser closes once the currency is relabelled, and stays open to say why not. */
@@ -74,6 +76,9 @@ async function saveCurrency(): Promise<void> {
         <button class="button-quiet" type="button" @click="managingRoster = !managingRoster">
           Roster
         </button>
+        <button class="button-quiet" type="button" @click="transferring = !transferring">
+          Household file
+        </button>
         <button class="button-quiet" type="button" @click="relabelling = !relabelling">
           {{ household.currency.code }} {{ household.currency.symbol.trim() }}
         </button>
@@ -82,6 +87,10 @@ async function saveCurrency(): Promise<void> {
 
     <div v-if="managingRoster" class="card">
       <RosterPanel :household="household" />
+    </div>
+
+    <div v-if="transferring" class="card">
+      <HouseholdFile :household="household" />
     </div>
 
     <div v-if="relabelling" class="card relabel">

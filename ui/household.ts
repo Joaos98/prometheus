@@ -10,6 +10,8 @@ import {
   deactivateMember,
   discardMonth,
   editExpenseSnapshot,
+  exportHousehold,
+  importHousehold,
   editIncomeSnapshot,
   editSavingsGoal,
   markExpenseOneOff,
@@ -113,6 +115,27 @@ async function discard(month: MonthKey): Promise<void> {
   const after = discardMonth(current, month)
   await store.discardMonth(month)
   household.value = after
+}
+
+/** The whole Household as one file, taken from what is in hand rather than from the store. */
+function exportFile(): string {
+  return exportHousehold(current())
+}
+
+/**
+ * Importing a file, which replaces the Household wholesale. The engine reads the file
+ * through before anything is written, so a file it cannot read throws here and the
+ * Household — in the store and on screen — is left exactly as it was.
+ *
+ * What is being looked at cannot survive the replacement, since the Months are another
+ * Household's: the newest Month with anything in it is where the member lands, as it is
+ * when Prometheus is opened.
+ */
+async function importFile(text: string): Promise<void> {
+  const imported = importHousehold(text)
+  await store.replaceHousehold(imported)
+  household.value = imported
+  viewing.value = openedMonthKeys(imported).at(-1) ?? thisMonth()
 }
 
 /**
@@ -385,6 +408,8 @@ export function useHousehold() {
     open,
     discard,
     relabel,
+    exportFile,
+    importFile,
     addRosterMember,
     deactivateRosterMember,
     reactivateRosterMember,

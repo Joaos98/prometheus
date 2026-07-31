@@ -91,6 +91,13 @@ export {
   previousMonthKey,
 } from './month.js'
 export { formatAmount, toMinor } from './money.js'
+export {
+  exportHousehold,
+  importHousehold,
+  whatImportReplaces,
+  HOUSEHOLD_FILE_FORMAT,
+  type Replacement,
+} from './transfer.js'
 export type {
   Currency,
   ExpenseSnapshot,
