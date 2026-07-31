@@ -1,4 +1,5 @@
 import { DomainError } from './errors.js'
+import { mintId } from './identity.js'
 import { assertMonthKey } from './month-key.js'
 import { openMonth } from './month.js'
 import { requireName } from './rows.js'
@@ -23,7 +24,7 @@ export function setUpHousehold(setup: Setup): Household {
   }
   const startingMonth = assertMonthKey(setup.startingMonth)
 
-  const roster: Member[] = names.map((name) => ({ id: crypto.randomUUID(), name, active: true }))
+  const roster: Member[] = names.map((name) => ({ id: mintId(), name, active: true }))
   return openMonth({ currency, roster, months: {} }, startingMonth)
 }
 
@@ -49,7 +50,7 @@ export function relabelCurrency(household: Household, currency: Currency): House
  */
 export function addMember(household: Household, name: string): Household {
   const member: Member = {
-    id: crypto.randomUUID(),
+    id: mintId(),
     name: requireName(name, 'A member'),
     active: true,
   }

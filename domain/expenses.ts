@@ -1,4 +1,5 @@
 import { DomainError } from './errors.js'
+import { mintId } from './identity.js'
 import { requireConsistentRule } from './split-rules.js'
 import {
   openedMonth,
@@ -48,7 +49,7 @@ export function addExpenseSnapshot(
 ): RowChange<ExpenseSnapshot> {
   const month = openedMonth(household, key)
   const row = consistent(household, {
-    id: crypto.randomUUID(),
+    id: mintId(),
     name: requireName(draft.name, 'An Expense'),
     category: draft.category.trim(),
     amount: requireAmount(draft.amount),

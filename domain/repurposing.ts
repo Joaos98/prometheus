@@ -1,4 +1,5 @@
 import { DomainError } from './errors.js'
+import { mintId } from './identity.js'
 import { editExpenseSnapshot, expenseIn, type ExpenseEdits } from './expenses.js'
 import { monthAt, openedMonthKeys } from './month.js'
 import { openedMonth, type RowChange } from './rows.js'
@@ -61,7 +62,7 @@ export function repurposeExpenseSnapshot(
   }
 
   const edited = editExpenseSnapshot(household, key, id, edits)
-  const minted = crypto.randomUUID()
+  const minted = mintId()
   return {
     household: rethread(edited.household, key, id, minted),
     row: { ...edited.row, id: minted, oneOff: false },

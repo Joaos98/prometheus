@@ -1,4 +1,5 @@
 import { DomainError } from './errors.js'
+import { mintId } from './identity.js'
 import {
   openedMonth,
   replaceRow,
@@ -36,7 +37,7 @@ export function addSavingsGoal(
 ): RowChange<SavingsGoal> {
   const month = openedMonth(household, key)
   const row: SavingsGoal = {
-    id: crypto.randomUUID(),
+    id: mintId(),
     name: requireName(draft.name, 'A Savings Goal'),
     target: requireTarget(draft.target ?? null),
     startAmount: requireStartAmount(draft.startAmount ?? 0),

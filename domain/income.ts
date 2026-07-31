@@ -1,4 +1,5 @@
 import { DomainError } from './errors.js'
+import { mintId } from './identity.js'
 import {
   openedMonth,
   replaceRow,
@@ -36,7 +37,7 @@ export function addIncomeSnapshot(
 ): RowChange<IncomeSnapshot> {
   const month = openedMonth(household, key)
   const row: IncomeSnapshot = {
-    id: crypto.randomUUID(),
+    id: mintId(),
     name: requireName(draft.name, 'An income source'),
     member: requireMember(month, draft.member),
     amount: requireAmount(draft.amount),
