@@ -305,7 +305,7 @@ describe('a later Month the correction cannot stand in', () => {
     })
 
     expect(rentIn(after, '2026-10')!.amount).toBe(120000)
-    expect(rentIn(after, '2026-10')!.participants).toEqual([ana, bruno])
+    expect(rentIn(after, '2026-10')!.participants).toEqual([ana])
   })
 })
 

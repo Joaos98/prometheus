@@ -12,9 +12,10 @@ export interface Share {
 export interface Split {
   shares: Share[]
   /**
-   * True when a proportional rule found no Spendable Income among its Participants to
-   * weight by and divided evenly instead. The stored rule is unchanged — this is what
-   * happened this Month, and the Expense says so.
+   * True when the stored rule could not be applied as written and the Expense divided
+   * evenly instead: a proportional rule with no Spendable Income among its Participants
+   * to weight by, or a fixed rule whose amounts do not total the Expense. The stored rule
+   * is unchanged — this is what happened this Month, and the Expense says so.
    */
   dividedEvenlyInstead: boolean
 }
@@ -72,12 +73,23 @@ export function splitOf(month: Month, expense: ExpenseSnapshot): Split {
         dividedEvenlyInstead: false,
       }
 
-    case 'fixed':
-      /** Fixed amounts already total the Expense — that is the only way one can be stored. */
-      return {
-        shares: participants.map((member) => ({ member, amount: rule.byMember[member] ?? 0 })),
-        dividedEvenlyInstead: false,
-      }
+    case 'fixed': {
+      /**
+       * Fixed amounts already total the Expense — that is the only way one can be stored,
+       * so this reads each Participant the figure that was agreed, negative ones included.
+       *
+       * The total is checked all the same. Nothing the engine writes can fail it, but a
+       * row that arrived some other way — hand-edited storage, a file an import has yet to
+       * learn to reject — must not be allowed to answer with Shares that quietly come to
+       * less than the Expense. Dividing evenly is the wrong split, and says so on the row;
+       * under-summing is the wrong total, and says nothing at all.
+       */
+      const shares = participants.map((member) => ({ member, amount: rule.byMember[member] ?? 0 }))
+      const total = shares.reduce((running, share) => running + share.amount, 0)
+      return total === amount
+        ? { shares, dividedEvenlyInstead: false }
+        : { shares: evenly(), dividedEvenlyInstead: true }
+    }
   }
 }
 

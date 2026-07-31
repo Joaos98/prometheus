@@ -73,6 +73,7 @@ export {
   entryCount,
   isOpened,
   monthAt,
+  monthIfOpened,
   openedMonthKeys,
   openMonth,
   previousMonthKey,

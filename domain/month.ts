@@ -28,6 +28,23 @@ export function previousMonthKey(household: Household, key: MonthKey): MonthKey 
 }
 
 /**
+ * The Month that opening `key` would produce, worked out without opening anything. A
+ * pure question about the record as it now stands: what the Previous Month would hand
+ * over, and to whom.
+ *
+ * Asking it of a Month that is already opened is meaningful and answers what opening it
+ * afresh would give — which is not necessarily what it holds, since it may have been
+ * opened before the Previous Month was last corrected.
+ */
+export function monthIfOpened(household: Household, key: MonthKey): Month {
+  const month = assertMonthKey(key)
+  const previous = previousMonthKey(household, month)
+  return previous
+    ? inheritMonth(household.months[previous]!, month, household)
+    : firstMonth(household, month)
+}
+
+/**
  * Brings a Month's data into existence by copying the Previous Month wholesale. The
  * Household's very first Month has no Previous Month, so it takes the active Roster and
  * opens with no rows — which is correct, since nothing precedes it.
@@ -38,12 +55,7 @@ export function openMonth(household: Household, key: MonthKey): Household {
     throw new DomainError(`${monthName(month)} is already opened`)
   }
 
-  const previous = previousMonthKey(household, month)
-  const opened: Month = previous
-    ? inheritMonth(household.months[previous]!, month, household.roster)
-    : firstMonth(household, month)
-
-  return { ...household, months: { ...household.months, [month]: opened } }
+  return { ...household, months: { ...household.months, [month]: monthIfOpened(household, month) } }
 }
 
 /** How many rows a Month holds, of every kind — what discarding it would remove. */

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { monthName, type MonthKey, type Propagation } from '../../domain/index.js'
 import type { Carrying } from '../carry-forward.js'
 import { messageOf } from '../changes.js'
@@ -13,6 +13,20 @@ const { propagateIncome, propagateExpense, propagateGoal } = useHousehold()
 
 const carried = ref<Propagation | undefined>(undefined)
 const failure = ref<string | undefined>(undefined)
+
+/**
+ * A report is about the one edit it was run for. The panel holds this component in place
+ * across edits, so without this a second edit arrives to find the first one's report
+ * still showing: its offer would never be made, and dismissing what looks like a finished
+ * report would throw the second correction away with nothing said.
+ */
+watch(
+  () => props.carrying,
+  () => {
+    carried.value = undefined
+    failure.value = undefined
+  },
+)
 
 const names = (months: MonthKey[]): string => months.map(monthName).join(', ')
 

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { addExpenseSnapshot } from './expenses.js'
 import { setUpHousehold } from './household.js'
 import { monthAt } from './month.js'
-import { sharesOf } from './shares.js'
+import { sharesOf, splitOf } from './shares.js'
 import type { ExpenseSnapshot, Household, MemberId, Minor, Month } from './types.js'
 
 const euro = { code: 'EUR', symbol: '€', decimals: 2 }
@@ -118,5 +118,31 @@ describe('the Shares of an Expense', () => {
 
   it('are nothing at all for a Pending Expense, which is not the same as costing nothing', () => {
     expect(sharesOf(month, expenseOf(null, [ana, bruno]))).toEqual([])
+  })
+
+  /**
+   * No write path in the engine can produce a fixed rule that does not total its Expense.
+   * One reaching here some other way — storage edited by hand, a file an import has yet to
+   * learn to reject — must still not answer with Shares that come to less than the Expense.
+   */
+  it('still total the Expense when a fixed rule reaches them not adding up', () => {
+    const malformed: ExpenseSnapshot = {
+      ...expenseOf(120000, [ana, bruno]),
+      splitRule: { kind: 'fixed', byMember: { [ana]: 50000 } },
+    }
+
+    const shares = sharesOf(month, malformed)
+
+    expect(shares.reduce((total, share) => total + share.amount, 0)).toBe(120000)
+    expect(splitOf(month, malformed).dividedEvenlyInstead).toBe(true)
+  })
+
+  it('read a fixed rule exactly as agreed, negative figures included', () => {
+    const owed: ExpenseSnapshot = {
+      ...expenseOf(120000, [ana, bruno]),
+      splitRule: { kind: 'fixed', byMember: { [ana]: 140000, [bruno]: -20000 } },
+    }
+
+    expect(amountsOf(sharesOf(month, owed))).toEqual([140000, -20000])
   })
 })

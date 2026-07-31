@@ -6,10 +6,12 @@ import {
   removeExpenseSnapshot,
 } from './expenses.js'
 import { addSavingsGoal, markGoalOneOff, recordContribution } from './goals.js'
-import { setUpHousehold } from './household.js'
+import { deactivateMember, setUpHousehold } from './household.js'
 import { addIncomeSnapshot, markIncomeOneOff } from './income.js'
 import { monthAt, openMonth } from './month.js'
+import { unreviewedCount } from './review.js'
 import { isOneOff, isPending } from './rows.js'
+import { sharesOf } from './shares.js'
 import type { Household, MemberId, MonthKey } from './types.js'
 
 const euro = { code: 'EUR', symbol: '€', decimals: 2 }
@@ -212,6 +214,118 @@ describe('a Month that is not the latest', () => {
     const edit = editExpenseSnapshot(later, '2026-07', july.row.id, { amount: 118000 })
 
     expect(expensesIn(edit.household, '2026-07')[0]!.amount).toBe(118000)
+  })
+})
+
+describe('a row naming somebody who has left the Roster', () => {
+  const withoutBruno = (of: Household): Household => deactivateMember(of, bruno)
+
+  it('leaves an income row of theirs behind — it belongs to nobody here', () => {
+    const july = addIncomeSnapshot(household, '2026-07', {
+      name: 'Salary',
+      member: bruno,
+      amount: 250000,
+    }).household
+
+    const august = openMonth(withoutBruno(july), '2026-08')
+
+    expect(incomeIn(august, '2026-08')).toEqual([])
+  })
+
+  it('divides an Expense among the Participants who are members here', () => {
+    const july = addExpenseSnapshot(household, '2026-07', {
+      name: 'Rent',
+      category: 'Home',
+      amount: 120000,
+      participants: [ana, bruno],
+    }).household
+
+    const august = openMonth(withoutBruno(july), '2026-08')
+
+    expect(expensesIn(august, '2026-08')[0]!.participants).toEqual([ana])
+  })
+
+  it('keeps that Expense’s Shares totalling the Expense', () => {
+    const july = addExpenseSnapshot(household, '2026-07', {
+      name: 'Rent',
+      category: 'Home',
+      amount: 120000,
+      participants: [ana, bruno],
+      splitRule: { kind: 'fixed', byMember: { [ana]: 50000, [bruno]: 70000 } },
+    }).household
+
+    const august = monthAt(openMonth(withoutBruno(july), '2026-08'), '2026-08')!
+    const shares = sharesOf(august, august.expenses[0]!)
+
+    expect(shares.reduce((total, share) => total + share.amount, 0)).toBe(120000)
+  })
+
+  it('divides evenly when their figure was part of a rule that no longer adds up', () => {
+    const july = addExpenseSnapshot(household, '2026-07', {
+      name: 'Rent',
+      category: 'Home',
+      amount: 120000,
+      participants: [ana, bruno],
+      splitRule: { kind: 'percentage', byMember: { [ana]: 40, [bruno]: 60 } },
+    }).household
+
+    const august = openMonth(withoutBruno(july), '2026-08')
+
+    expect(expensesIn(august, '2026-08')[0]!.splitRule).toEqual({ kind: 'even' })
+  })
+
+  it('keeps a rule that still adds up without them, and drops their figure from it', () => {
+    const july = addExpenseSnapshot(household, '2026-07', {
+      name: 'Rent',
+      category: 'Home',
+      amount: 120000,
+      participants: [ana, bruno],
+      splitRule: { kind: 'fixed', byMember: { [ana]: 120000, [bruno]: 0 } },
+    }).household
+
+    const august = openMonth(withoutBruno(july), '2026-08')
+
+    expect(expensesIn(august, '2026-08')[0]!.splitRule).toEqual({
+      kind: 'fixed',
+      byMember: { [ana]: 120000 },
+    })
+  })
+
+  it('leaves behind an Expense that was theirs alone, which stops recurring', () => {
+    const july = addExpenseSnapshot(household, '2026-07', {
+      name: 'Gym',
+      category: 'Health',
+      amount: 4000,
+      participants: [bruno],
+    }).household
+
+    const august = openMonth(withoutBruno(july), '2026-08')
+
+    expect(expensesIn(august, '2026-08')).toEqual([])
+  })
+
+  it('leaves no row behind that the Month cannot show or anybody confirm', () => {
+    const salary = addIncomeSnapshot(household, '2026-07', {
+      name: 'Salary',
+      member: bruno,
+      amount: 250000,
+    }).household
+    const july = addExpenseSnapshot(salary, '2026-07', {
+      name: 'Gym',
+      category: 'Health',
+      amount: 4000,
+      participants: [bruno],
+    }).household
+
+    const august = monthAt(openMonth(withoutBruno(july), '2026-08'), '2026-08')!
+
+    expect(august.income.every((row) => august.members.includes(row.member))).toBe(true)
+    expect(
+      august.expenses.every((row) =>
+        row.participants.every((member) => august.members.includes(member)),
+      ),
+    ).toBe(true)
+    expect(unreviewedCount(august)).toBe(0)
   })
 })
 

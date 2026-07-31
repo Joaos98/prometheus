@@ -22,3 +22,20 @@ Two members are likely to be editing at the same time, so writes are row-scoped:
 - [ ] The client refetches on window focus and polls lightly while a Month is open
 - [ ] Two members editing different rows of the same Month both keep their edits
 - [ ] A Docker multi-stage build produces a runnable image, and the database persists across container restarts
+
+## Comments
+
+**`ui/household.ts` clobbers its own state once a write actually takes time**, and this
+ticket is where that starts to bite. Every operation there reads `household.value`, awaits
+the store, then assigns a Household derived from the value it read *before* the await. Two
+operations in flight together therefore lose the earlier one's change from what the app is
+showing, even though both rows reach storage correctly.
+
+It cannot happen today: localStorage does no real I/O, so the continuation runs in a
+microtask no DOM event can interleave with. An adapter that goes over the network removes
+exactly that protection, and the criterion above — "two members editing different rows both
+keep their edits" — is the one this fails, on a single client with one member clicking twice.
+
+Row-scoped writes make the *store* safe from cross-row collisions; this is the same problem
+one layer up, in the client's own copy. Worth fixing as part of this ticket rather than
+before it, since the contract suite is what will demonstrate it.

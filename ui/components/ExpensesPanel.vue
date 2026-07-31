@@ -205,7 +205,11 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
             <span class="muted">·</span>
             <span class="muted">{{ participantCount(expense) }}</span>
             <span v-if="dividedEvenlyInstead" class="fallback">
-              No Spendable Income this Month — divided evenly
+              {{
+                expense.splitRule.kind === 'fixed'
+                  ? 'The fixed amounts do not total the Expense — divided evenly'
+                  : 'No Spendable Income this Month — divided evenly'
+              }}
             </span>
           </div>
 
