@@ -21,7 +21,7 @@ Two members are likely to be editing at the same time, so writes are row-scoped:
 - [x] A schema migration leaves an existing database readable, and the equivalent localStorage shape migration leaves existing browser data readable
 - [x] The client refetches on window focus and polls lightly while a Month is open
 - [x] Two members editing different rows of the same Month both keep their edits
-- [ ] A Docker multi-stage build produces a runnable image, and the database persists across container restarts
+- [x] A Docker multi-stage build produces a runnable image, and the database persists across container restarts
 
 ## Comments
 
@@ -50,9 +50,15 @@ poll never lands on top of a change still in flight.
 
 ---
 
-**The Docker criterion is written but not exercised.** `Dockerfile`, `compose.yaml` and the
-`build:self-hosted` script are in place, and the bundled server was run directly against a
-SQLite file — it serves the built app, stores rows, and the file is still there after the
-process goes. The image itself has not been built: Docker Desktop on the development machine
-is returning I/O errors from its own storage metadata and cannot build or run anything. Left
-unticked deliberately; `docker build -t prometheus .` is the check outstanding.
+**The image was built and run.** 418MB, no compiler in it — better-sqlite3 is compiled in a
+build stage and only the result is carried over, and `which g++ make python3` finds nothing
+in what ships. It runs as `node`, not root.
+
+The Household was written through the API, then read back after `docker restart`, and again
+after the container was destroyed outright and recreated on the same volume: roster, rows and
+a null amount all intact, with a fresh volume still genuinely empty. `docker compose down`
+and back up keeps it too.
+
+One thing found by running it: 8080 is a popular port — on this machine qBittorrent's web UI
+already had it, so the page did not load while the container logs looked perfectly healthy.
+The compose file publishes `${PROMETHEUS_PORT:-8080}` now, and says so.

@@ -4,11 +4,16 @@
 #
 # Then open http://localhost:8080 and set the Household up. There is no login to
 # configure, because there are no accounts — keep this off the public internet.
+#
+# 8080 is a popular port and something else on the machine may already have it, in
+# which case the page will not load and the logs here will look perfectly healthy:
+#
+#   PROMETHEUS_PORT=8090 docker compose up -d
 services:
   prometheus:
     build: .
     ports:
-      - '8080:8080'
+      - '${PROMETHEUS_PORT:-8080}:8080'
     volumes:
       - household:/data
     restart: unless-stopped
