@@ -4,6 +4,7 @@ import { monthAt, type Household, type MonthKey } from '../../domain/index.js'
 import ExpensesPanel from '../components/ExpensesPanel.vue'
 import GoalsPanel from '../components/GoalsPanel.vue'
 import IncomePanel from '../components/IncomePanel.vue'
+import MonthDrift from '../components/MonthDrift.vue'
 import MonthNavigator from '../components/MonthNavigator.vue'
 import MonthRail from '../components/MonthRail.vue'
 import RosterPanel from '../components/RosterPanel.vue'
@@ -11,6 +12,7 @@ import UnopenedMonth from '../components/UnopenedMonth.vue'
 import { useChanges } from '../changes.js'
 import { CURRENCIES } from '../currencies.js'
 import { useHousehold } from '../household.js'
+import { thisMonth } from '../months.js'
 import logo from '../../prometheus-logo.svg'
 
 const props = defineProps<{ household: Household; viewing: MonthKey }>()
@@ -19,6 +21,12 @@ const { relabel } = useHousehold()
 const { failure, report } = useChanges()
 
 const month = computed(() => monthAt(props.household, props.viewing))
+
+/**
+ * The Month the calendar is on. The engine will not guess it — only a Month after this one
+ * can drift, and which one that is is the device's to say, not the Household's.
+ */
+const now = thisMonth()
 
 const managingRoster = ref(false)
 const relabelling = ref(false)
@@ -75,26 +83,30 @@ async function saveCurrency(): Promise<void> {
 
     <UnopenedMonth v-if="!month" :household="household" :viewing="viewing" />
 
-    <!--
-      Keyed on the Month, so moving to another one builds the panels afresh rather than
-      reusing them. What a panel holds while a member is halfway through something — the
-      row being edited, an amount typed but not saved, a rename waiting to be answered —
-      is about the Month it was started in and means nothing in another. Without this,
-      stepping to the next Month leaves the form open and its next save lands there,
-      which is how an edit meant for July gets written to August.
-    -->
-    <div v-else :key="viewing" class="columns">
-      <MonthRail :household="household" :month="month" />
+    <template v-else>
+      <MonthDrift :household="household" :viewing="viewing" :now="now" />
 
-      <main>
-        <ExpensesPanel :household="household" :month="month" />
-      </main>
+      <!--
+        Keyed on the Month, so moving to another one builds the panels afresh rather than
+        reusing them. What a panel holds while a member is halfway through something — the
+        row being edited, an amount typed but not saved, a rename waiting to be answered —
+        is about the Month it was started in and means nothing in another. Without this,
+        stepping to the next Month leaves the form open and its next save lands there,
+        which is how an edit meant for July gets written to August.
+      -->
+      <div :key="viewing" class="columns">
+        <MonthRail :household="household" :month="month" :now="now" />
 
-      <div class="right-column">
-        <IncomePanel :household="household" :month="month" />
-        <GoalsPanel :household="household" :month="month" />
+        <main>
+          <ExpensesPanel :household="household" :month="month" />
+        </main>
+
+        <div class="right-column">
+          <IncomePanel :household="household" :month="month" />
+          <GoalsPanel :household="household" :month="month" />
+        </div>
       </div>
-    </div>
+    </template>
   </div>
 </template>
 

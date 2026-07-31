@@ -29,10 +29,7 @@ import { monthName } from './month-key.js'
 import { monthAt, openedMonthKeys } from './month.js'
 import { isReviewed } from './review.js'
 import { openedMonth, replaceRow, withMonth, type RowChange } from './rows.js'
-import type { Household, Month, MonthKey, MonthRow, RowId } from './types.js'
-
-/** Which of a Month's lists a row belongs to. */
-type RowKind = 'income' | 'expenses' | 'goals'
+import type { Household, Month, MonthKey, MonthRow, RowId, RowKind } from './types.js'
 
 /**
  * Why propagation passed a Month over rather than carrying the correction into it.

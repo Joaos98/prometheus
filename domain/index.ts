@@ -3,6 +3,18 @@
  * Household value. It imports no framework and does no I/O, so it is testable with no
  * browser, no adapter and no Vue.
  */
+export {
+  driftAhead,
+  driftCount,
+  driftOf,
+  hasDrift,
+  refreshFromPreviousMonth,
+  type Drift,
+  type DriftField,
+  type MembershipDrift,
+  type RowDrift,
+  type RowDriftState,
+} from './drift.js'
 export { DomainError } from './errors.js'
 export {
   addExpenseSnapshot,
@@ -91,6 +103,7 @@ export type {
   MonthKey,
   MonthRow,
   RowId,
+  RowKind,
   SavingsGoal,
   SplitRule,
 } from './types.js'

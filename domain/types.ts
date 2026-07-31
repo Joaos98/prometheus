@@ -108,6 +108,9 @@ export interface SavingsGoal {
 /** Any row a Month holds. */
 export type MonthRow = IncomeSnapshot | ExpenseSnapshot | SavingsGoal
 
+/** Which of a Month's lists a row belongs to. */
+export type RowKind = 'income' | 'expenses' | 'goals'
+
 /**
  * A Month that has been opened. It owns its own list of members and its own rows, so
  * it keeps saying what it said whatever happens to the Roster or to any other Month.

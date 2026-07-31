@@ -1,4 +1,4 @@
-import type { Household, Month, MonthKey, MonthRow, RowId } from '../domain/index.js'
+import type { Household, Month, MonthKey, MonthRow, RowId, RowKind } from '../domain/index.js'
 
 /** Raised when storage cannot honour an operation. */
 export class StorageError extends Error {
@@ -8,8 +8,8 @@ export class StorageError extends Error {
   }
 }
 
-/** Which of a Month's lists a row belongs to. */
-export type RowKind = 'income' | 'expenses' | 'goals'
+/** Which of a Month's lists a row belongs to, as the domain names them. */
+export type { RowKind }
 
 /**
  * How Prometheus stores a Household.

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import {
+  driftAhead,
+  driftCount,
   entryCount,
   formatAmount,
   leftoverBalancesOf,
@@ -10,11 +12,12 @@ import {
   type Household,
   type Minor,
   type Month,
+  type MonthKey,
 } from '../../domain/index.js'
 import { nameOf } from '../members.js'
 import DiscardMonth from './DiscardMonth.vue'
 
-const props = defineProps<{ household: Household; month: Month }>()
+const props = defineProps<{ household: Household; month: Month; now: MonthKey }>()
 
 /**
  * Until ticket 17 adds the Roster dropdown that picks a device's Viewer, the Month's
@@ -35,6 +38,18 @@ const copiedFrom = computed(() => previousMonthKey(props.household, props.month.
 const rowCount = computed(() => entryCount(props.month))
 
 const unreviewed = computed(() => unreviewedCount(props.month))
+
+/**
+ * ADR-0010 puts the Drift standing against later opened Months among this Month's facts:
+ * correcting a figure here is exactly when a member wants to know which Months ahead were
+ * copied before it and no longer agree.
+ */
+const ahead = computed(() =>
+  driftAhead(props.household, props.month.key, props.now).map((drift) => ({
+    month: drift.month,
+    differences: driftCount(drift),
+  })),
+)
 
 const money = (amount: Minor): string => formatAmount(amount, props.household.currency)
 </script>
@@ -99,6 +114,19 @@ const money = (amount: Minor): string => formatAmount(amount, props.household.cu
         <dt class="muted">Entries</dt>
         <dd>{{ rowCount }}</dd>
       </dl>
+
+      <!-- Neutral by ADR-0001: a difference ahead is a fact about the record, not a fault. -->
+      <div v-if="ahead.length" class="ahead">
+        <p class="muted note">Drifted from this Month</p>
+        <dl class="facts">
+          <template v-for="later in ahead" :key="later.month">
+            <dt class="secondary">{{ monthName(later.month) }}</dt>
+            <dd class="secondary">
+              {{ later.differences }} {{ later.differences === 1 ? 'difference' : 'differences' }}
+            </dd>
+          </template>
+        </dl>
+      </div>
 
       <DiscardMonth :month="month" />
     </section>
@@ -209,5 +237,13 @@ const money = (amount: Minor): string => formatAmount(amount, props.household.cu
 
 .facts dd {
   text-align: right;
+}
+
+.ahead {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 0.5px solid var(--hairline);
 }
 </style>

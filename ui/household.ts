@@ -17,6 +17,7 @@ import {
   markIncomeOneOff,
   reactivateMember,
   recordContribution,
+  refreshFromPreviousMonth,
   removeExpenseSnapshot,
   removeSavingsGoal,
   openedMonthKeys,
@@ -41,6 +42,7 @@ import {
   type MonthKey,
   type Propagation,
   type RowId,
+  type RowKind,
   type Setup,
 } from '../domain/index.js'
 import { localStorageStore } from '../storage/local-storage-store.js'
@@ -255,6 +257,22 @@ async function propagateGoal(month: MonthKey, id: RowId, edits: GoalEdits): Prom
   return carryForward(propagateGoalEdit(current(), month, id, edits))
 }
 
+/**
+ * Settling one reported Drift difference the Previous Month's way. It writes one row, but
+ * which row and whether it is a write at all depends on the difference, so the Household
+ * goes back whole rather than as a row-scoped write the caller would have to classify.
+ */
+async function refreshDrifted(
+  month: MonthKey,
+  now: MonthKey,
+  kind: RowKind,
+  id: RowId,
+): Promise<void> {
+  const after = refreshFromPreviousMonth(current(), month, now, kind, id)
+  await store.replaceHousehold(after)
+  household.value = after
+}
+
 async function carryForward(propagation: Propagation): Promise<Propagation> {
   await store.replaceHousehold(propagation.household)
   household.value = propagation.household
@@ -390,5 +408,6 @@ export function useHousehold() {
     markGoalAsOneOff,
     propagateGoal,
     contribute,
+    refreshDrifted,
   }
 }
