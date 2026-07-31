@@ -14,10 +14,12 @@ import {
   type Month,
   type RowId,
 } from '../../domain/index.js'
+import { laterOpenedMonths, type Carrying } from '../carry-forward.js'
 import { useChanges } from '../changes.js'
 import { useHousehold } from '../household.js'
 import { membersOf, nameOf } from '../members.js'
 import { ruleName } from '../split-rules.js'
+import CarryForward from './CarryForward.vue'
 import ExpenseForm from './ExpenseForm.vue'
 import MonthPanel from './MonthPanel.vue'
 import RepurposeQuestion from './RepurposeQuestion.vue'
@@ -46,7 +48,12 @@ const editing = ref<RowId | undefined>(undefined)
 const held = ref<{ id: RowId; was: string; edits: Required<ExpenseEdits> } | undefined>(undefined)
 const asking = ref(false)
 
+/** An edit that has landed, waiting on whether it should reach the later Months too. */
+const carrying = ref<Carrying | undefined>(undefined)
+
 const members = computed(() => membersOf(props.household, props.month))
+
+const later = computed(() => laterOpenedMonths(props.household, props.month.key))
 
 const rows = computed(() =>
   props.month.expenses.map((expense) => {
@@ -101,7 +108,21 @@ function save(expense: ExpenseSnapshot, edits: Required<ExpenseEdits>): void {
     asking.value = true
     return
   }
-  void attempt(editExpense(props.month.key, expense.id, edits))
+  void saveEdit(expense, edits)
+}
+
+/**
+ * An edit that lands, and then the offer to carry it into the Months already open after
+ * this one — which is the whole of Forward Propagation from where the member sits. Only
+ * an edit raises it: a cost recorded here for the first time is on no later Month's
+ * thread, so there is nothing there for it to correct.
+ */
+async function saveEdit(expense: ExpenseSnapshot, edits: Required<ExpenseEdits>): Promise<void> {
+  if (!(await report(editExpense(props.month.key, expense.id, edits)))) return
+  close()
+  if (later.value.length > 0) {
+    carrying.value = { kind: 'expenses', id: expense.id, name: expense.name, edits }
+  }
 }
 
 /** What the edit form opens with: the row, or the edit the question is holding back. */
@@ -125,6 +146,14 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
 
     <p v-if="failure" class="failure note">{{ failure }}</p>
 
+    <CarryForward
+      v-if="carrying"
+      :month="month.key"
+      :later="later"
+      :carrying="carrying"
+      @done="carrying = undefined"
+    />
+
     <ExpenseForm
       v-if="adding"
       :currency="household.currency"
@@ -141,7 +170,7 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
         v-if="asking && held?.id === expense.id"
         :was="held.was"
         :becomes="held.edits.name.trim()"
-        @continued="attempt(editExpense(month.key, expense.id, held!.edits))"
+        @continued="saveEdit(expense, held!.edits)"
         @repurposed="attempt(repurposeExpense(month.key, expense.id, held!.edits))"
         @cancel="asking = false"
       />

@@ -46,6 +46,14 @@ export {
   type IncomeEdits,
 } from './income.js'
 export { leftoverBalanceOf, leftoverBalancesOf, type LeftoverBalance } from './leftover.js'
+export {
+  propagateExpenseEdit,
+  propagateGoalEdit,
+  propagateIncomeEdit,
+  type Propagation,
+  type PropagationSkip,
+  type SkipReason,
+} from './propagation.js'
 export { renamingAsks, repurposeExpenseSnapshot } from './repurposing.js'
 export { isReviewed, unreviewedCount } from './review.js'
 export { isOneOff, isPending, type RowChange } from './rows.js'

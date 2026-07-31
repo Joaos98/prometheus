@@ -128,8 +128,13 @@ export function spendableIncome(month: Month, member: MemberId): Minor {
     .reduce((total, row) => total + (row.amount ?? 0), 0)
 }
 
+/** The Month's income row of that identity, or nothing if this Month is not on its thread. */
+export function incomeIn(month: Month, id: RowId): IncomeSnapshot | undefined {
+  return month.income.find((candidate) => candidate.id === id)
+}
+
 function incomeRow(month: Month, id: RowId): IncomeSnapshot {
-  const row = month.income.find((candidate) => candidate.id === id)
+  const row = incomeIn(month, id)
   if (!row) throw new DomainError(`${month.key} holds no income row ${id}`)
   return row
 }

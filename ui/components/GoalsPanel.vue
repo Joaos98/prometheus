@@ -6,6 +6,7 @@ import {
   formatAmount,
   isOneOff,
   isReviewed,
+  type GoalEdits,
   type Household,
   type MemberId,
   type Minor,
@@ -14,9 +15,11 @@ import {
   type SavingsGoal,
 } from '../../domain/index.js'
 import { editableAmount, readAmount } from '../amount.js'
+import { laterOpenedMonths, type Carrying } from '../carry-forward.js'
 import { messageOf, useChanges } from '../changes.js'
 import { useHousehold } from '../household.js'
 import { membersOf } from '../members.js'
+import CarryForward from './CarryForward.vue'
 import GoalForm from './GoalForm.vue'
 import MonthPanel from './MonthPanel.vue'
 
@@ -30,7 +33,12 @@ const adding = ref(false)
 const editing = ref<RowId | undefined>(undefined)
 const expanded = ref<RowId | undefined>(undefined)
 
+/** An edit that has landed, waiting on whether it should reach the later Months too. */
+const carrying = ref<Carrying | undefined>(undefined)
+
 const members = computed(() => membersOf(props.household, props.month))
+
+const later = computed(() => laterOpenedMonths(props.household, props.month.key))
 
 /**
  * Every goal of the Month with its progress as of this Month, and — per ADR-0010 — every
@@ -80,6 +88,20 @@ async function attempt(change: Promise<void>): Promise<void> {
   editing.value = undefined
 }
 
+/**
+ * An edit that lands, and then the offer to carry it into the Months already open after
+ * this one. Only an edit raises it: a goal recorded here for the first time is on no later
+ * Month's thread, so there is nothing there for it to correct. Contributions are never
+ * among a goal's edits, so nothing a member put in anywhere is ever carried.
+ */
+async function saveEdit(goal: SavingsGoal, edits: GoalEdits): Promise<void> {
+  if (!(await report(editGoal(props.month.key, goal.id, edits)))) return
+  editing.value = undefined
+  if (later.value.length > 0) {
+    carrying.value = { kind: 'goals', id: goal.id, name: goal.name, edits }
+  }
+}
+
 /** A Contribution as typed: an empty field takes it back to nothing entered at all. */
 function enterContribution(goal: SavingsGoal, member: MemberId, typed: string): void {
   try {
@@ -101,6 +123,14 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
     </template>
 
     <p v-if="failure" class="failure note">{{ failure }}</p>
+
+    <CarryForward
+      v-if="carrying"
+      :month="month.key"
+      :later="later"
+      :carrying="carrying"
+      @done="carrying = undefined"
+    />
 
     <GoalForm
       v-if="adding"
@@ -195,7 +225,7 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
           :start-amount="goal.startAmount"
           :participants="goal.participants"
           @cancel="editing = undefined"
-          @save="(edits) => attempt(editGoal(month.key, goal.id, edits))"
+          @save="(edits) => saveEdit(goal, edits)"
         />
 
         <ul v-else class="contributions">

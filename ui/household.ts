@@ -21,6 +21,9 @@ import {
   removeSavingsGoal,
   openedMonthKeys,
   openMonth,
+  propagateExpenseEdit,
+  propagateGoalEdit,
+  propagateIncomeEdit,
   relabelCurrency,
   removeIncomeSnapshot,
   repurposeExpenseSnapshot,
@@ -36,6 +39,7 @@ import {
   type MemberId,
   type Minor,
   type MonthKey,
+  type Propagation,
   type RowId,
   type Setup,
 } from '../domain/index.js'
@@ -225,6 +229,49 @@ async function repurposeExpense(month: MonthKey, id: RowId, edits: ExpenseEdits)
   household.value = after
 }
 
+/**
+ * Forward Propagation, which is not a row edit either: it writes one row in each of
+ * however many later Months still hold the copy, so the Household goes back whole. What
+ * it changed and what it passed over comes back to the caller, which is the only way the
+ * member gets told where a later Month kept its own answer.
+ */
+async function propagateIncome(
+  month: MonthKey,
+  id: RowId,
+  edits: IncomeEdits,
+): Promise<Propagation> {
+  return carryForward(propagateIncomeEdit(current(), month, id, edits))
+}
+
+async function propagateExpense(
+  month: MonthKey,
+  id: RowId,
+  edits: ExpenseEdits,
+): Promise<Propagation> {
+  return carryForward(propagateExpenseEdit(current(), month, id, edits))
+}
+
+async function propagateGoal(month: MonthKey, id: RowId, edits: GoalEdits): Promise<Propagation> {
+  return carryForward(propagateGoalEdit(current(), month, id, edits))
+}
+
+async function carryForward(propagation: Propagation): Promise<Propagation> {
+  await store.replaceHousehold(propagation.household)
+  household.value = propagation.household
+  return propagation
+}
+
+/**
+ * The Household as it stands. Propagation reports back rather than returning nothing, so
+ * unlike every other change here it cannot quietly do nothing when there is no Household
+ * — there would be no report to give.
+ */
+function current(): Household {
+  const loaded = household.value
+  if (!loaded) throw new Error('No Household is loaded')
+  return loaded
+}
+
 async function removeExpense(month: MonthKey, id: RowId): Promise<void> {
   const current = household.value
   if (!current) return
@@ -328,17 +375,20 @@ export function useHousehold() {
     removeIncome,
     confirmIncome,
     markIncomeAsOneOff,
+    propagateIncome,
     addExpense,
     editExpense,
     repurposeExpense,
     removeExpense,
     confirmExpense,
     markExpenseAsOneOff,
+    propagateExpense,
     addGoal,
     editGoal,
     removeGoal,
     confirmGoal,
     markGoalAsOneOff,
+    propagateGoal,
     contribute,
   }
 }
