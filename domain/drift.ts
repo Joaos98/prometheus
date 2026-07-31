@@ -16,14 +16,17 @@
  * future, and never because somebody waved it away.
  */
 import { DomainError } from './errors.js'
+import { rowForMembers } from './inheritance.js'
 import { monthName } from './month-key.js'
 import { monthAt, monthIfOpened, openedMonthKeys, previousMonthKey } from './month.js'
 import { openedMonth, replaceRow, withMonth } from './rows.js'
 import type {
+  Currency,
   ExpenseSnapshot,
   Household,
   IncomeSnapshot,
   MemberId,
+  Month,
   MonthKey,
   MonthRow,
   RowId,
@@ -163,14 +166,54 @@ export function refreshFromPreviousMonth(
   }
 
   const rows: MonthRow[] = month[kind]
+  if (difference.state === 'gone') {
+    return withMonth(household, { ...month, [kind]: rows.filter((row) => row.id !== id) })
+  }
+
+  const taking = landed(month, difference, kind, household.currency)
   const refreshed =
-    difference.state === 'gone'
-      ? rows.filter((row) => row.id !== id)
-      : difference.state === 'missing'
-        ? [...rows, difference.inherited!]
-        : replaceRow(rows, id, difference.inherited!)
+    difference.state === 'missing' ? [...rows, taking] : replaceRow(rows, id, taking)
 
   return withMonth(household, { ...month, [kind]: refreshed })
+}
+
+/**
+ * The inherited row as this Month can actually hold it.
+ *
+ * The row was worked out against the members a fresh open *would* give the Month, which is
+ * not always the members it has — membership is one of the things that drifts, and it is
+ * not refreshed a row at a time. Landing the row as computed would hand this Month an
+ * Expense divided among somebody it has never had, so it is reconciled again on the way in.
+ *
+ * A goal keeps the Contributions the Month already holds. A fresh open starts them at
+ * nothing, which is right for a Month being opened and quite wrong for one being corrected:
+ * what anybody put in here they put in here, and refreshing a target is no reason to lose
+ * it. They are pruned to whoever is still a Participant, as editing a goal prunes them.
+ */
+function landed(
+  month: Month,
+  difference: RowDrift,
+  kind: RowKind,
+  currency: Currency,
+): MonthRow {
+  const row = rowForMembers(kind, difference.inherited!, month.members, currency)
+  if (!row) {
+    throw new DomainError(
+      `${monthName(month.key)} has nobody that row could be about, so it cannot be refreshed`,
+    )
+  }
+  return kind === 'goals' ? keepingContributions(row as SavingsGoal, difference.held) : row
+}
+
+function keepingContributions(goal: SavingsGoal, held: MonthRow | undefined): SavingsGoal {
+  const already = (held as SavingsGoal | undefined)?.contributions
+  if (!already) return goal
+  return {
+    ...goal,
+    contributions: Object.fromEntries(
+      Object.entries(already).filter(([member]) => goal.participants.includes(member)),
+    ),
+  }
 }
 
 /**

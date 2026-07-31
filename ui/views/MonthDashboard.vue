@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { monthAt, type Household, type MonthKey } from '../../domain/index.js'
 import ExpensesPanel from '../components/ExpensesPanel.vue'
 import GoalsPanel from '../components/GoalsPanel.vue'
@@ -25,8 +25,27 @@ const month = computed(() => monthAt(props.household, props.viewing))
 /**
  * The Month the calendar is on. The engine will not guess it — only a Month after this one
  * can drift, and which one that is is the device's to say, not the Household's.
+ *
+ * Read again whenever the window comes back, because Prometheus is the kind of thing left
+ * open on a tab: a session that spans the turn of a month would otherwise go on treating
+ * the Month that has just arrived as one still ahead, and offer to refresh a Month that
+ * has stopped being a plan.
  */
-const now = thisMonth()
+const now = ref(thisMonth())
+
+function catchUpWithTheCalendar(): void {
+  now.value = thisMonth()
+}
+
+onMounted(() => {
+  window.addEventListener('focus', catchUpWithTheCalendar)
+  document.addEventListener('visibilitychange', catchUpWithTheCalendar)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('focus', catchUpWithTheCalendar)
+  document.removeEventListener('visibilitychange', catchUpWithTheCalendar)
+})
 
 const managingRoster = ref(false)
 const relabelling = ref(false)

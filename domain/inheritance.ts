@@ -10,6 +10,8 @@ import type {
   Minor,
   Month,
   MonthKey,
+  MonthRow,
+  RowKind,
   SavingsGoal,
   SplitRule,
 } from './types.js'
@@ -55,6 +57,27 @@ export function inheritMonth(previous: Month, key: MonthKey, household: Househol
     ),
     goals: kept(previous.goals).flatMap((goal) => inheritGoal(goal, members)),
   }
+}
+
+/**
+ * One row reconciled against a member list, on exactly the terms inheritance reconciles
+ * the rows it copies — nothing at all when there is nobody left for it to be about.
+ *
+ * Opening a Month is not the only place a row is handed to a member list that is not the
+ * one it was worked out against: refreshing a drifted row takes a row computed for the
+ * members a fresh open *would* give the Month and lands it in the Month as it stands,
+ * whose membership may itself have drifted. That row has to be reconciled again, or the
+ * invariant this module exists to keep is broken by the other door.
+ */
+export function rowForMembers(
+  kind: RowKind,
+  row: MonthRow,
+  members: MemberId[],
+  currency: Currency,
+): MonthRow | undefined {
+  if (kind === 'income') return inheritIncome(row as IncomeSnapshot, members)[0]
+  if (kind === 'expenses') return inheritExpense(row as ExpenseSnapshot, members, currency)[0]
+  return inheritGoal(row as SavingsGoal, members)[0]
 }
 
 /** A row marked One-Off belonged to its Month alone, so there is nothing here to inherit. */

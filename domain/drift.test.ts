@@ -7,10 +7,11 @@ import {
   removeExpenseSnapshot,
 } from './expenses.js'
 import { addSavingsGoal, editSavingsGoal, recordContribution } from './goals.js'
-import { deactivateMember, setUpHousehold } from './household.js'
+import { addMember, deactivateMember, setUpHousehold } from './household.js'
 import { addIncomeSnapshot, editIncomeSnapshot } from './income.js'
 import { monthAt, openMonth } from './month.js'
 import { isReviewed } from './review.js'
+import { sharesOf } from './shares.js'
 import type { Household, MemberId, MonthKey, RowId } from './types.js'
 
 const euro = { code: 'EUR', symbol: '€', decimals: 2 }
@@ -312,6 +313,30 @@ describe('refreshing one difference from the Previous Month', () => {
     expect(monthAt(refreshed, '2026-07')).toEqual(monthAt(corrected, '2026-07'))
   })
 
+  it('keeps the Contributions this Month already holds', () => {
+    const contributed = recordContribution(household, '2026-08', holiday, ana, 20000).household
+    const raised = editSavingsGoal(contributed, '2026-07', holiday, { target: 400000 }).household
+
+    const refreshed = refreshFromPreviousMonth(raised, '2026-08', '2026-07', 'goals', holiday)
+    const goal = monthAt(refreshed, '2026-08')!.goals.find((row) => row.id === holiday)!
+
+    expect(goal.target).toBe(400000)
+    expect(goal.contributions).toEqual({ [ana]: 20000 })
+  })
+
+  it('drops a Contribution from somebody the refreshed goal no longer saves with', () => {
+    const contributed = recordContribution(household, '2026-08', holiday, bruno, 20000).household
+    const narrowed = editSavingsGoal(contributed, '2026-07', holiday, {
+      participants: [ana],
+    }).household
+
+    const refreshed = refreshFromPreviousMonth(narrowed, '2026-08', '2026-07', 'goals', holiday)
+    const goal = monthAt(refreshed, '2026-08')!.goals.find((row) => row.id === holiday)!
+
+    expect(goal.participants).toEqual([ana])
+    expect(goal.contributions).toEqual({})
+  })
+
   it('is refused for a row that is not drifting, since there is nothing to take', () => {
     expect(() =>
       refreshFromPreviousMonth(household, '2026-08', '2026-07', 'expenses', rent),
@@ -324,6 +349,64 @@ describe('refreshing one difference from the Previous Month', () => {
     expect(() =>
       refreshFromPreviousMonth(corrected, '2026-08', '2026-08', 'expenses', rent),
     ).toThrow(DomainError)
+  })
+})
+
+/**
+ * Membership drifts too, and is not refreshed a row at a time, so the row being taken was
+ * worked out for a member list the Month receiving it may not have. June and August are
+ * opened before Cleo joins; July is opened after her, and so has her.
+ */
+describe('refreshing into a Month whose membership has drifted too', () => {
+  const record = (rule?: (ana: MemberId, bruno: MemberId, cleo: MemberId) => object) => {
+    let of = setUpHousehold({
+      currency: euro,
+      memberNames: ['Ana', 'Bruno'],
+      startingMonth: '2026-06',
+    })
+    const [one, two] = of.roster.map((member) => member.id) as [MemberId, MemberId]
+
+    const withRent = addExpenseSnapshot(of, '2026-06', {
+      name: 'Rent',
+      category: 'Home',
+      amount: 120000,
+      participants: [one, two],
+    })
+    of = openMonth(withRent.household, '2026-08')
+
+    of = addMember(of, 'Cleo')
+    const three = of.roster[2]!.id
+    of = openMonth(of, '2026-07')
+    of = editExpenseSnapshot(of, '2026-07', withRent.row.id, {
+      participants: [one, two, three],
+      ...(rule ? rule(one, two, three) : {}),
+    }).household
+
+    return { of, rent: withRent.row.id, one, two, three }
+  }
+
+  it('takes no Participant the Month receiving it does not have', () => {
+    const { of, rent: id, one, two, three } = record()
+
+    const refreshed = refreshFromPreviousMonth(of, '2026-08', '2026-06', 'expenses', id)
+    const august = monthAt(refreshed, '2026-08')!
+
+    expect(august.members).toEqual([one, two])
+    expect(august.expenses[0]!.participants).toEqual([one, two])
+    expect(august.expenses[0]!.participants).not.toContain(three)
+  })
+
+  it('stands down a Split Rule that cannot fit the Participants who are here', () => {
+    const { of, rent: id } = record((one, two, three) => ({
+      splitRule: { kind: 'fixed', byMember: { [one]: 40000, [two]: 40000, [three]: 40000 } },
+    }))
+
+    const refreshed = refreshFromPreviousMonth(of, '2026-08', '2026-06', 'expenses', id)
+    const august = monthAt(refreshed, '2026-08')!
+    const shares = sharesOf(august, august.expenses[0]!)
+
+    expect(august.expenses[0]!.splitRule).toEqual({ kind: 'even' })
+    expect(shares.reduce((total, share) => total + share.amount, 0)).toBe(120000)
   })
 })
 
