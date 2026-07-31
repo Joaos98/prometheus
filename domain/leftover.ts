@@ -1,5 +1,5 @@
 import { contributionsOf } from './goals.js'
-import { spendableIncome } from './income.js'
+import { spendableIncome, totalIncome } from './income.js'
 import { isPending } from './rows.js'
 import { sharesOf } from './shares.js'
 import type { MemberId, Minor, Month } from './types.js'
@@ -8,10 +8,14 @@ import type { MemberId, Minor, Month } from './types.js'
  * A member's position for a Month: Spendable Income minus their Shares across the
  * Month's Expenses minus their Savings Goal Contributions. Never carries into a later
  * Month — every figure here is recomputed fresh from this Month's own rows.
+ *
+ * `totalIncome` rides alongside `spendableIncome` so a dashboard toggle can substitute
+ * it into the balance for display, without this function or a Share ever weighing it.
  */
 export interface LeftoverBalance {
   member: MemberId
   spendableIncome: Minor
+  totalIncome: Minor
   shares: Minor
   contributions: Minor
   balance: Minor
@@ -42,6 +46,7 @@ export function leftoverBalanceOf(month: Month, member: MemberId): LeftoverBalan
   return {
     member,
     spendableIncome: income,
+    totalIncome: totalIncome(month, member),
     shares,
     contributions,
     balance: income - shares - contributions,

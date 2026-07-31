@@ -14,24 +14,54 @@ import {
   type Month,
   type MonthKey,
 } from '../../domain/index.js'
+import { useDevicePreferences } from '../device-preferences.js'
 import { nameOf } from '../members.js'
 import DiscardMonth from './DiscardMonth.vue'
 
 const props = defineProps<{ household: Household; month: Month; now: MonthKey }>()
 
+const { viewer: viewerId, leftoverDisplay } = useDevicePreferences()
+
 /**
- * Until ticket 17 adds the Roster dropdown that picks a device's Viewer, the Month's
- * first member stands in for it, so the rail's top slot has someone to show.
+ * The figure this device has chosen to lead the balance with — Spendable Income by
+ * default, or total Income when the toggle counts Restricted-Use in too. This is a
+ * display substitution only: Shares and Contributions are the same either way, and no
+ * Split Rule ever reads it.
  */
 const balances = computed(() =>
-  leftoverBalancesOf(props.month).map((balance) => ({
-    ...balance,
-    name: nameOf(props.household, balance.member),
-  })),
+  leftoverBalancesOf(props.month).map((balance) => {
+    const income = leftoverDisplay.value === 'total' ? balance.totalIncome : balance.spendableIncome
+    return {
+      ...balance,
+      name: nameOf(props.household, balance.member),
+      income,
+      balance: income - balance.shares - balance.contributions,
+    }
+  }),
 )
 
-const viewer = computed(() => balances.value[0])
-const others = computed(() => balances.value.slice(1))
+const includeRestrictedUse = computed({
+  get: () => leftoverDisplay.value === 'total',
+  set: (value: boolean) => {
+    leftoverDisplay.value = value ? 'total' : 'spendable'
+  },
+})
+
+const incomeLabel = computed(() => (leftoverDisplay.value === 'total' ? 'Income' : 'Spendable Income'))
+
+/**
+ * The Viewer leads the rail, sorted first, when this device has picked one who is in
+ * this Month. With no Viewer picked, the Month's own order stands in — the rail looked
+ * exactly like this before ticket 17, and stays fully usable with nobody chosen.
+ */
+const ordered = computed(() => {
+  const chosen = balances.value.find((balance) => balance.member === viewerId.value)
+  if (!chosen) return balances.value
+  return [chosen, ...balances.value.filter((balance) => balance.member !== chosen.member)]
+})
+
+const viewer = computed(() => ordered.value[0])
+const others = computed(() => ordered.value.slice(1))
 
 const copiedFrom = computed(() => previousMonthKey(props.household, props.month.key))
 
@@ -57,13 +87,19 @@ const money = (amount: Minor): string => formatAmount(amount, props.household.cu
 <template>
   <aside class="rail">
     <section class="card">
-      <h2 class="section-label">Leftover Balance</h2>
+      <div class="section-header">
+        <h2 class="section-label">Leftover Balance</h2>
+        <label class="toggle">
+          <input v-model="includeRestrictedUse" type="checkbox" />
+          Count Restricted-Use
+        </label>
+      </div>
 
       <div v-if="viewer" class="viewer">
         <p class="name">{{ viewer.name }}</p>
         <dl class="subtraction">
-          <dt class="muted">Spendable Income</dt>
-          <dd class="figure">{{ money(viewer.spendableIncome) }}</dd>
+          <dt class="muted">{{ incomeLabel }}</dt>
+          <dd class="figure">{{ money(viewer.income) }}</dd>
           <dt class="muted">Shares</dt>
           <dd class="figure">− {{ money(viewer.shares) }}</dd>
           <dt class="muted">Contributions</dt>
@@ -144,6 +180,22 @@ const money = (amount: Minor): string => formatAmount(amount, props.household.cu
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: normal;
 }
 
 .viewer {

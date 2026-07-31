@@ -7,6 +7,7 @@ import {
   markIncomeOneOff,
   removeIncomeSnapshot,
   spendableIncome,
+  totalIncome,
 } from './income.js'
 import { monthAt, openMonth } from './month.js'
 import { isOneOff, isPending } from './rows.js'
@@ -212,6 +213,49 @@ describe('Spendable Income', () => {
 
   it('is nothing for a member with no income at all', () => {
     expect(spendableIncome(monthAt(household, '2026-07')!, ana)).toBe(0)
+  })
+})
+
+describe('total Income', () => {
+  it('is the sum of every named source, Restricted-Use included', () => {
+    let after = addIncomeSnapshot(household, '2026-07', {
+      name: 'Salary',
+      member: ana,
+      amount: 320000,
+    }).household
+    after = addIncomeSnapshot(after, '2026-07', {
+      name: 'Meal vouchers',
+      member: ana,
+      amount: 22000,
+      restrictedUse: true,
+    }).household
+
+    expect(totalIncome(monthAt(after, '2026-07')!, ana)).toBe(342000)
+  })
+
+  it('counts a Pending row as nothing, since no amount was entered', () => {
+    const after = addIncomeSnapshot(household, '2026-07', {
+      name: 'Bonus',
+      member: ana,
+      amount: null,
+      restrictedUse: true,
+    }).household
+
+    expect(totalIncome(monthAt(after, '2026-07')!, ana)).toBe(0)
+  })
+
+  it('counts only the member’s own rows', () => {
+    const after = addIncomeSnapshot(household, '2026-07', {
+      name: 'Salary',
+      member: ana,
+      amount: 320000,
+    }).household
+
+    expect(totalIncome(monthAt(after, '2026-07')!, bruno)).toBe(0)
+  })
+
+  it('is nothing for a member with no income at all', () => {
+    expect(totalIncome(monthAt(household, '2026-07')!, ana)).toBe(0)
   })
 })
 

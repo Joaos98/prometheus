@@ -44,6 +44,7 @@ describe('a Leftover Balance', () => {
     expect(balance).toEqual({
       member: ana,
       spendableIncome: 100000,
+      totalIncome: 100000,
       shares: 20000,
       contributions: 0,
       balance: 80000,
@@ -81,6 +82,25 @@ describe('a Leftover Balance', () => {
     }).household
 
     expect(leftoverBalanceOf(monthOf(after), ana).spendableIncome).toBe(100000)
+  })
+
+  it('carries total Income, Restricted-Use included, alongside Spendable Income', () => {
+    let after = addIncomeSnapshot(household, '2026-07', {
+      name: 'Salary',
+      member: ana,
+      amount: 100000,
+    }).household
+    after = addIncomeSnapshot(after, '2026-07', {
+      name: 'Meal vouchers',
+      member: ana,
+      amount: 20000,
+      restrictedUse: true,
+    }).household
+
+    const balance = leftoverBalanceOf(monthOf(after), ana)
+
+    expect(balance.spendableIncome).toBe(100000)
+    expect(balance.totalIncome).toBe(120000)
   })
 
   it('sums Shares across every Expense the member participates in', () => {

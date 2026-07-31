@@ -128,6 +128,16 @@ export function spendableIncome(month: Month, member: MemberId): Minor {
     .reduce((total, row) => total + (row.amount ?? 0), 0)
 }
 
+/**
+ * A member's income for the Month including Restricted-Use — every named source, not
+ * only what can be freely spent. A Pending row counts as nothing.
+ */
+export function totalIncome(month: Month, member: MemberId): Minor {
+  return month.income
+    .filter((row) => row.member === member)
+    .reduce((total, row) => total + (row.amount ?? 0), 0)
+}
+
 /** The Month's income row of that identity, or nothing if this Month is not on its thread. */
 export function incomeIn(month: Month, id: RowId): IncomeSnapshot | undefined {
   return month.income.find((candidate) => candidate.id === id)

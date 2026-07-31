@@ -12,6 +12,7 @@ import RosterPanel from '../components/RosterPanel.vue'
 import UnopenedMonth from '../components/UnopenedMonth.vue'
 import { useChanges } from '../changes.js'
 import { CURRENCIES } from '../currencies.js'
+import { useDevicePreferences } from '../device-preferences.js'
 import { useHousehold } from '../household.js'
 import { thisMonth } from '../months.js'
 import logo from '../../prometheus-logo.svg'
@@ -20,8 +21,21 @@ const props = defineProps<{ household: Household; viewing: MonthKey }>()
 
 const { relabel, replacements } = useHousehold()
 const { failure, report } = useChanges()
+const { viewer } = useDevicePreferences()
 
 const month = computed(() => monthAt(props.household, props.viewing))
+
+/**
+ * Only an active member can be picked as the Viewer — a Month past their departure
+ * still names them, but this device's own preference is a Roster concern, not a Month
+ * one.
+ */
+const activeRoster = computed(() => props.household.roster.filter((member) => member.active))
+
+function setViewer(event: Event): void {
+  const value = (event.target as HTMLSelectElement).value
+  viewer.value = value === '' ? undefined : value
+}
 
 /**
  * The Month the calendar is on. The engine will not guess it — only a Month after this one
@@ -73,6 +87,12 @@ async function saveCurrency(): Promise<void> {
       <MonthNavigator :household="household" :viewing="viewing" />
 
       <div class="side right">
+        <select :value="viewer ?? ''" aria-label="Viewer" @change="setViewer">
+          <option value="">Viewer: nobody</option>
+          <option v-for="member in activeRoster" :key="member.id" :value="member.id">
+            Viewer: {{ member.name }}
+          </option>
+        </select>
         <button class="button-quiet" type="button" @click="managingRoster = !managingRoster">
           Roster
         </button>
@@ -170,6 +190,10 @@ async function saveCurrency(): Promise<void> {
 
 .side.right {
   justify-content: flex-end;
+}
+
+.side.right select {
+  max-width: 160px;
 }
 
 .mark {

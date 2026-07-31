@@ -54,6 +54,7 @@ export {
   markIncomeOneOff,
   removeIncomeSnapshot,
   spendableIncome,
+  totalIncome,
   type IncomeDraft,
   type IncomeEdits,
 } from './income.js'

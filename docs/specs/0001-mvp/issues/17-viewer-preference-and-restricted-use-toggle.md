@@ -8,17 +8,17 @@ And a toggle beside the Leftover Balance for whether Restricted-Use Income count
 
 **Blocked by:** 05
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Sonnet, medium thinking — small, with one rule to hold: the toggle is a display parameter at the call site and never reaches Share computation.
 
-- [ ] A Roster dropdown in the header sets which member this device treats as the Viewer
-- [ ] The Viewer's figures are highlighted and sorted first
-- [ ] The Viewer defaults to nobody, and the dashboard is fully usable with no Viewer set
-- [ ] The Viewer is stored on the device only, never leaves it, and is not Household data
-- [ ] Each device answers independently; changing the Viewer on one does not affect another
-- [ ] The Viewer grants no permissions and hides nothing — all members remain visible
-- [ ] A toggle beside the Leftover Balance substitutes total Income for Spendable Income in that figure alone
-- [ ] The toggle changes no member's Share, and no proportional Split Rule reweights
-- [ ] The toggle is a per-device display preference, not Household data
-- [ ] Neither the Viewer nor the toggle appears in an export
+- [x] A Roster dropdown in the header sets which member this device treats as the Viewer
+- [x] The Viewer's figures are highlighted and sorted first
+- [x] The Viewer defaults to nobody, and the dashboard is fully usable with no Viewer set
+- [x] The Viewer is stored on the device only, never leaves it, and is not Household data
+- [x] Each device answers independently; changing the Viewer on one does not affect another
+- [x] The Viewer grants no permissions and hides nothing — all members remain visible
+- [x] A toggle beside the Leftover Balance substitutes total Income for Spendable Income in that figure alone
+- [x] The toggle changes no member's Share, and no proportional Split Rule reweights
+- [x] The toggle is a per-device display preference, not Household data
+- [x] Neither the Viewer nor the toggle appears in an export
