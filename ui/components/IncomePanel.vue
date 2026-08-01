@@ -19,9 +19,11 @@ import { useChanges } from '../changes.js'
 import { useHousehold } from '../household.js'
 import { nameOf } from '../members.js'
 import CarryForward from './CarryForward.vue'
+import ConfirmMark from './ConfirmMark.vue'
 import IncomeForm from './IncomeForm.vue'
 import MonthPanel from './MonthPanel.vue'
 import OneOffMark from './OneOffMark.vue'
+import UnreviewedMark from './UnreviewedMark.vue'
 
 const props = defineProps<{ household: Household; month: Month }>()
 
@@ -114,22 +116,18 @@ async function saveEdit(source: IncomeSnapshot, edits: IncomeEdits): Promise<voi
                 {{ source.name }}
                 <span v-if="source.restrictedUse" class="tag">Restricted-Use</span>
                 <span v-if="isOneOff(source)" class="tag one-off">One-Off</span>
-                <span v-if="!isReviewed(source)" class="tag unreviewed">Unreviewed</span>
+                <UnreviewedMark v-if="!isReviewed(source)" :name="source.name" />
               </span>
               <span v-if="isPending(source)" class="pending">Pending</span>
               <span v-else class="figure" :class="{ restricted: source.restrictedUse }">
                 {{ money(source.amount!) }}
               </span>
             </button>
-            <button
+            <ConfirmMark
               v-if="!isReviewed(source)"
-              class="row-action accent"
-              type="button"
-              :aria-label="`Confirm ${source.name}`"
+              :name="source.name"
               @click="report(confirmIncome(month.key, source.id))"
-            >
-              Confirm
-            </button>
+            />
             <OneOffMark
               v-if="!isOneOff(source)"
               :name="source.name"
@@ -219,10 +217,13 @@ h3 {
   padding: 5px 8px;
 }
 
+/* Where the line runs out, the tags drop below the source name rather than the name
+   being broken up to make room for them. */
 .name {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px;
+  gap: 4px 8px;
 }
 
 .restricted {

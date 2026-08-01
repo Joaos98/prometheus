@@ -20,9 +20,11 @@ import { messageOf, useChanges } from '../changes.js'
 import { useHousehold } from '../household.js'
 import { membersOf } from '../members.js'
 import CarryForward from './CarryForward.vue'
+import ConfirmMark from './ConfirmMark.vue'
 import GoalForm from './GoalForm.vue'
 import MonthPanel from './MonthPanel.vue'
 import OneOffMark from './OneOffMark.vue'
+import UnreviewedMark from './UnreviewedMark.vue'
 
 const props = defineProps<{ household: Household; month: Month }>()
 
@@ -160,7 +162,7 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
           <div class="line">
             <span class="name">{{ goal.name }}</span>
             <span v-if="isOneOff(goal)" class="tag one-off">One-Off</span>
-            <span v-if="!isReviewed(goal)" class="tag unreviewed">Unreviewed</span>
+            <UnreviewedMark v-if="!isReviewed(goal)" :name="goal.name" />
             <span class="figure progress">
               {{ money(progress.accumulated) }}
               <span v-if="progress.target !== null" class="muted">
@@ -190,15 +192,11 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
           </div>
         </button>
 
-        <button
+        <ConfirmMark
           v-if="!isReviewed(goal)"
-          class="row-action accent"
-          type="button"
-          :aria-label="`Confirm ${goal.name}`"
+          :name="goal.name"
           @click="report(confirmGoal(month.key, goal.id))"
-        >
-          Confirm
-        </button>
+        />
         <OneOffMark
           v-if="!isOneOff(goal)"
           :name="goal.name"

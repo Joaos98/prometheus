@@ -20,10 +20,12 @@ import { useHousehold } from '../household.js'
 import { membersOf, nameOf } from '../members.js'
 import { ruleName } from '../split-rules.js'
 import CarryForward from './CarryForward.vue'
+import ConfirmMark from './ConfirmMark.vue'
 import ExpenseForm from './ExpenseForm.vue'
 import MonthPanel from './MonthPanel.vue'
 import OneOffMark from './OneOffMark.vue'
 import RepurposeQuestion from './RepurposeQuestion.vue'
+import UnreviewedMark from './UnreviewedMark.vue'
 
 const props = defineProps<{ household: Household; month: Month }>()
 
@@ -221,7 +223,7 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
             <span class="name">{{ expense.name }}</span>
             <span v-if="expense.category" class="tag">{{ expense.category }}</span>
             <span v-if="isOneOff(expense)" class="tag one-off">One-Off</span>
-            <span v-if="!isReviewed(expense)" class="tag unreviewed">Unreviewed</span>
+            <UnreviewedMark v-if="!isReviewed(expense)" :name="expense.name" />
             <span v-if="isPending(expense)" class="pending">Pending — no amount entered</span>
             <span v-else class="figure total">{{ money(expense.amount!) }}</span>
           </div>
@@ -247,15 +249,11 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
           </ul>
         </button>
 
-        <button
+        <ConfirmMark
           v-if="!isReviewed(expense)"
-          class="row-action accent"
-          type="button"
-          :aria-label="`Confirm ${expense.name}`"
+          :name="expense.name"
           @click="report(confirmExpense(month.key, expense.id))"
-        >
-          Confirm
-        </button>
+        />
         <OneOffMark
           v-if="!isOneOff(expense)"
           :name="expense.name"

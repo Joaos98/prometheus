@@ -180,7 +180,7 @@ button {
   padding: 6px 14px;
 }
 
-/* A pill saying what a row is: its category, One-Off, Unreviewed, Restricted-Use. */
+/* A pill saying what a row is: its category, One-Off, Restricted-Use. */
 .tag {
   padding: 1px 6px;
   font-size: 10px;
@@ -189,11 +189,6 @@ button {
   border: 0.5px solid var(--hairline);
   border-radius: 999px;
   white-space: nowrap;
-}
-
-.tag.unreviewed {
-  color: var(--fire);
-  border-color: var(--fire);
 }
 
 .tag.one-off {
