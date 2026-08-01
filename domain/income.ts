@@ -39,7 +39,7 @@ export function addIncomeSnapshot(
   const row: IncomeSnapshot = {
     id: mintId(),
     name: requireName(draft.name, 'An income source'),
-    member: requireMember(month, draft.member),
+    member: requireMember(household, month, draft.member),
     amount: requireAmount(draft.amount),
     restrictedUse: draft.restrictedUse ?? false,
     reviewed: true,
@@ -64,7 +64,7 @@ export function editIncomeSnapshot(
   const row: IncomeSnapshot = {
     ...existing,
     ...(edits.name !== undefined && { name: requireName(edits.name, 'An income source') }),
-    ...(edits.member !== undefined && { member: requireMember(month, edits.member) }),
+    ...(edits.member !== undefined && { member: requireMember(household, month, edits.member) }),
     ...(edits.amount !== undefined && { amount: requireAmount(edits.amount) }),
     ...(edits.restrictedUse !== undefined && { restrictedUse: edits.restrictedUse }),
     reviewed: true,

@@ -1,6 +1,7 @@
 import { DomainError } from './errors.js'
 import { mintId } from './identity.js'
 import {
+  memberName,
   openedMonth,
   replaceRow,
   requireAmount,
@@ -41,7 +42,7 @@ export function addSavingsGoal(
     name: requireName(draft.name, 'A Savings Goal'),
     target: requireTarget(draft.target ?? null),
     startAmount: requireStartAmount(draft.startAmount ?? 0),
-    participants: requireParticipants(month, draft.participants),
+    participants: requireParticipants(household, month, draft.participants),
     contributions: {},
     reviewed: true,
     oneOff: false,
@@ -66,7 +67,7 @@ export function editSavingsGoal(
   const participants =
     edits.participants === undefined
       ? existing.participants
-      : requireParticipants(month, edits.participants)
+      : requireParticipants(household, month, edits.participants)
 
   const row: SavingsGoal = {
     ...existing,
@@ -138,9 +139,9 @@ export function recordContribution(
 ): RowChange<SavingsGoal> {
   const month = openedMonth(household, key)
   const existing = goalRow(month, id)
-  requireMember(month, member)
+  requireMember(household, month, member)
   if (!existing.participants.includes(member)) {
-    throw new DomainError(`${member} is not saving for ${existing.name}`)
+    throw new DomainError(`${memberName(household, member)} is not saving for ${existing.name}`)
   }
 
   const contributions = { ...existing.contributions }
@@ -181,8 +182,12 @@ function goalRow(month: Month, id: RowId): SavingsGoal {
  * The Participants of a goal: a subset of the Month's members, each named once, in the
  * Month's own order so that the goal row reads the same way every time.
  */
-function requireParticipants(month: Month, participants: MemberId[]): MemberId[] {
-  for (const participant of participants) requireMember(month, participant)
+function requireParticipants(
+  household: Household,
+  month: Month,
+  participants: MemberId[],
+): MemberId[] {
+  for (const participant of participants) requireMember(household, month, participant)
   const named = month.members.filter((member) => participants.includes(member))
   if (named.length === 0) throw new DomainError('A Savings Goal needs somebody saving for it')
   return named

@@ -53,7 +53,22 @@ name and a Month. It is the one member-facing string here that is not in the Hou
 own words. Worth fixing where `requireMember` raises it, which would improve it
 everywhere at once rather than only in the propagation report.
 
+**Fixed.** `requireMember` takes the Household now and says `Carla is not a member of
+August 2026`, which improves every path that raises it, not only the propagation report.
+The name lookup is `memberName` in `domain/rows.ts`, exported for the panels too, so the
+UI's `nameOf` is that same one answer to "who is this" rather than a second copy of it.
+`recordContribution`'s neighbouring `<uuid> is not saving for Trip to Lisbon` was the
+same defect and went with it.
+
 **Repurposing does not offer to carry the new name forward.** Ticket 08 hands that to
 propagation, and the engine can do it, but the composable's `repurposeExpense` does not
 return the freshly minted identity, so the panel has nothing to propagate against. None
 of this ticket's criteria cover it; it wants the 08 seam widened by one return value.
+
+**Fixed, and it was one return value.** `repurposeExpense` answers with the minted
+identity, and `ExpensesPanel` makes the same offer after a repurpose that it makes after
+an edit — against the new identity, never the retired one, since no Month holds that any
+more. Re-threading has already moved the identity into the later Months, so they are the
+new cost holding the old cost's name and figures until this offer is taken. Exercised
+end to end: renaming August's Internet to Fibre as a different Expense, then carrying it,
+leaves September on the minted thread and renamed.

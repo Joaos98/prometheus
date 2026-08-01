@@ -123,6 +123,23 @@ describe('recording income', () => {
       addIncomeSnapshot(household, '2026-07', { name: 'Salary', member: ana, amount: 12.5 }),
     ).toThrow(DomainError)
   })
+
+  it('refuses somebody who is not a member of the Month, naming them and it', () => {
+    const august = openMonth(household, '2026-08')
+    const carla = { id: 'carla', name: 'Carla', active: true }
+    const withCarla = { ...august, roster: [...august.roster, carla] }
+
+    let told = ''
+    try {
+      addIncomeSnapshot(withCarla, '2026-08', { name: 'Salary', member: carla.id, amount: 1000 })
+    } catch (cause) {
+      told = (cause as DomainError).message
+    }
+
+    expect(told).toContain('Carla')
+    expect(told).toContain('August 2026')
+    expect(told).not.toContain('2026-08')
+  })
 })
 
 describe('an amount', () => {

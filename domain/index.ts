@@ -69,7 +69,7 @@ export {
 } from './propagation.js'
 export { renamingAsks, repurposeExpenseSnapshot } from './repurposing.js'
 export { isReviewed, unreviewedCount } from './review.js'
-export { isOneOff, isPending, type RowChange } from './rows.js'
+export { isOneOff, isPending, memberName, type RowChange } from './rows.js'
 export { sharesOf, splitOf, type Share, type Split } from './shares.js'
 export { requireConsistentRule } from './split-rules.js'
 export {

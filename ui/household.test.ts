@@ -89,6 +89,25 @@ describe('the Household the app is showing', () => {
     expect(stored!.months['2026-07']).toEqual(app.household.value!.months['2026-07'])
   })
 
+  it('answers a repurpose with the identity it minted, so the change has somewhere to go', async () => {
+    const app = householdOver(localStorageStore(fakeStorage()))
+    await app.setUp(setup)
+    const roster = app.household.value!
+    await app.addExpense('2026-07', expense('Netflix', 1200, roster))
+    await app.open('2026-08')
+    await app.open('2026-09')
+    const was = app.household.value!.months['2026-08']!.expenses[0]!.id
+
+    const minted = await app.repurposeExpense('2026-08', was, { name: 'Gym', amount: 4000 })
+
+    expect(minted).toBeDefined()
+    expect(minted).not.toBe(was)
+    /** September inherited the old thread, so it is on the new one — under its own name. */
+    const september = app.household.value!.months['2026-09']!.expenses[0]!
+    expect(september.id).toBe(minted)
+    expect(september.name).toBe('Netflix')
+  })
+
   it('takes up what the other member wrote when it asks again', async () => {
     const storage = fakeStorage()
     const store = localStorageStore(storage)

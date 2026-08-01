@@ -1,5 +1,6 @@
 import { DomainError } from './errors.js'
 import { monthAt } from './month.js'
+import { monthName } from './month-key.js'
 import type { Household, MemberId, Minor, Month, MonthKey, RowId } from './types.js'
 
 /**
@@ -46,9 +47,24 @@ export function requireAmount(amount: Minor | null): Minor | null {
   return amount
 }
 
-export function requireMember(month: Month, member: MemberId): MemberId {
+/**
+ * A member's name as the Roster records it. The Roster never deletes anybody, so it can
+ * name whoever a Month names, including somebody who has since left it.
+ */
+export function memberName(household: Household, member: MemberId): string {
+  return household.roster.find((candidate) => candidate.id === member)?.name ?? 'Unknown member'
+}
+
+/**
+ * A refusal a member can read: their own name and the Month as it is spoken, rather than
+ * the identities the two are held by. This one reaches a member through the propagation
+ * report, where a later Month can hold a row an edit cannot legally stand in.
+ */
+export function requireMember(household: Household, month: Month, member: MemberId): MemberId {
   if (!month.members.includes(member)) {
-    throw new DomainError(`${member} is not a member of ${month.key}`)
+    throw new DomainError(
+      `${memberName(household, member)} is not a member of ${monthName(month.key)}`,
+    )
   }
   return member
 }

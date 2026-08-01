@@ -126,6 +126,29 @@ async function saveEdit(expense: ExpenseSnapshot, edits: Required<ExpenseEdits>)
   }
 }
 
+/**
+ * Answering the rename question with "a different cost begins here", and then the same
+ * offer an edit gets. The engine has moved the minted identity into every later Month
+ * that inherited the old one, so those rows are this cost now — under the old cost's
+ * name and figures, until somebody carries this Month's across. The offer is made
+ * against the identity that came back, never the one just retired: no Month holds that
+ * any more.
+ */
+async function repurpose(expense: ExpenseSnapshot, edits: Required<ExpenseEdits>): Promise<void> {
+  let minted: RowId | undefined
+  const done = await report(
+    (async () => {
+      minted = await repurposeExpense(props.month.key, expense.id, edits)
+    })(),
+  )
+  if (!done) return
+  adding.value = false
+  close()
+  if (minted && later.value.length > 0) {
+    carrying.value = { kind: 'expenses', id: minted, name: edits.name.trim(), edits }
+  }
+}
+
 /** What the edit form opens with: the row, or the edit the question is holding back. */
 function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
   const pending = held.value?.id === expense.id ? held.value.edits : undefined
@@ -174,7 +197,7 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
         :was="held.was"
         :becomes="held.edits.name.trim()"
         @continued="saveEdit(expense, held!.edits)"
-        @repurposed="attempt(repurposeExpense(month.key, expense.id, held!.edits))"
+        @repurposed="repurpose(expense, held!.edits)"
         @cancel="asking = false"
       />
 

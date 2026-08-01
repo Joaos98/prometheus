@@ -53,7 +53,7 @@ export function addExpenseSnapshot(
     name: requireName(draft.name, 'An Expense'),
     category: draft.category.trim(),
     amount: requireAmount(draft.amount),
-    participants: requireParticipants(month, draft.participants),
+    participants: requireParticipants(household, month, draft.participants),
     splitRule: draft.splitRule ?? { kind: 'even' },
     reviewed: true,
     oneOff: false,
@@ -81,7 +81,7 @@ export function editExpenseSnapshot(
     ...(edits.category !== undefined && { category: edits.category.trim() }),
     ...(edits.amount !== undefined && { amount: requireAmount(edits.amount) }),
     ...(edits.participants !== undefined && {
-      participants: requireParticipants(month, edits.participants),
+      participants: requireParticipants(household, month, edits.participants),
     }),
     ...(edits.splitRule !== undefined && { splitRule: edits.splitRule }),
     reviewed: true,
@@ -159,8 +159,12 @@ function expenseRow(month: Month, id: RowId): ExpenseSnapshot {
  * The Participants of an Expense: a subset of the Month's members, each named once, in
  * the Month's own order so that Shares fall the same way every time.
  */
-function requireParticipants(month: Month, participants: MemberId[]): MemberId[] {
-  for (const participant of participants) requireMember(month, participant)
+function requireParticipants(
+  household: Household,
+  month: Month,
+  participants: MemberId[],
+): MemberId[] {
+  for (const participant of participants) requireMember(household, month, participant)
   const named = month.members.filter((member) => participants.includes(member))
   if (named.length === 0) throw new DomainError('An Expense needs somebody to divide among')
   return named

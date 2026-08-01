@@ -392,13 +392,28 @@ export function householdOver(store: HouseholdStore, seed?: Seed) {
    * Repurposing, which is not a row edit: it retires one identity and mints another, and
    * re-threads the row in every later Month that inherited it. A row-scoped write cannot
    * say that, so the Household goes back whole, as the Roster does.
+   *
+   * It answers with the identity it minted, because re-threading moves the identity into
+   * the later Months and nothing else: they hold the new cost under the old cost's name
+   * and figures until somebody carries this Month's across. That is Forward Propagation,
+   * and it has nothing to propagate against without this.
+   *
+   * Nothing comes back when there is no Household loaded, which is the one case where
+   * the change did not happen at all.
    */
-  function repurposeExpense(month: MonthKey, id: RowId, edits: ExpenseEdits): Promise<void> {
-    return changing(async (loaded) => {
-      const { household: after } = repurposeExpenseSnapshot(loaded, month, id, edits)
+  async function repurposeExpense(
+    month: MonthKey,
+    id: RowId,
+    edits: ExpenseEdits,
+  ): Promise<RowId | undefined> {
+    let minted: RowId | undefined
+    await changing(async (loaded) => {
+      const { household: after, row } = repurposeExpenseSnapshot(loaded, month, id, edits)
       await store.replaceHousehold(after)
+      minted = row.id
       return after
     })
+    return minted
   }
 
   function removeExpense(month: MonthKey, id: RowId): Promise<void> {
