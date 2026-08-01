@@ -225,6 +225,53 @@ button {
   border-color: var(--fire);
 }
 
+/*
+  What a control without a word on it means, on hover and on focus alike — the browser's
+  own `title` waits about a second, never appears for somebody arriving by keyboard, and
+  cannot be made to look like the rest of this.
+
+  It grows from the control's right edge and upward: every control carrying one sits at
+  the right end of its row, so anchoring it there is what keeps it from reaching past the
+  card and putting the page into sideways scroll, and going up rather than down keeps it
+  from lengthening the page under the last row of a panel.
+
+  The name a screen reader reads is the control's own `aria-label`, which is why this is
+  free to be the short version.
+*/
+.tip {
+  position: relative;
+}
+
+.tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 3;
+  width: max-content;
+  max-width: 240px;
+  padding: 6px 9px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  white-space: normal;
+  text-align: left;
+  color: var(--text-secondary);
+  background: var(--surface);
+  border: 0.5px solid var(--hairline);
+  border-radius: var(--radius-control);
+  /* Hidden by opacity alone. Paired with `visibility`, the fade never runs: the box is
+     unrendered when the change lands, so it arrives at full opacity or not at all. */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 90ms ease-out;
+}
+
+.tip:hover::after,
+.tip:focus-visible::after {
+  opacity: 1;
+}
+
 /* An action that reads as a link rather than a control: "+ Add an Expense". */
 .link-action {
   align-self: flex-start;

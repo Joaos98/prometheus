@@ -262,8 +262,9 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
           @click="report(markExpenseAsOneOff(month.key, expense.id))"
         />
         <button
-          class="row-action remove"
+          class="row-action remove tip"
           type="button"
+          data-tip="Remove from this Month — later Months inherit its absence"
           :aria-label="`Remove ${expense.name}`"
           @click="report(removeExpense(month.key, expense.id))"
         >

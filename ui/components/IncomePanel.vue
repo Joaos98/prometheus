@@ -136,8 +136,9 @@ async function saveEdit(source: IncomeSnapshot, edits: IncomeEdits): Promise<voi
               @click="report(markIncomeAsOneOff(month.key, source.id))"
             />
             <button
-              class="row-action"
+              class="row-action tip"
               type="button"
+              data-tip="Remove from this Month — later Months inherit its absence"
               :aria-label="`Remove ${source.name}`"
               @click="report(removeIncome(month.key, source.id))"
             >

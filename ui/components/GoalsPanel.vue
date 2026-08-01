@@ -205,8 +205,9 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
           @click="report(markGoalAsOneOff(month.key, goal.id))"
         />
         <button
-          class="row-action remove"
+          class="row-action remove tip"
           type="button"
+          data-tip="Remove from this Month — earlier Months keep their Contributions"
           :aria-label="`Remove ${goal.name}`"
           @click="report(removeGoal(month.key, goal.id))"
         >
