@@ -292,9 +292,11 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
   gap: 4px 8px;
 }
 
+/* A name long enough to need it wraps inside the card. `.line` wrapping is what keeps
+   a name of ordinary length off a second row: the figure drops below it first. */
 .name {
   font-weight: 500;
-  white-space: nowrap;
+  min-width: 0;
 }
 
 .progress {

@@ -238,6 +238,7 @@ const money = (amount: Minor): string => formatAmount(amount, props.household.cu
   color: var(--fire);
 }
 
+.balance .total.negative,
 .negative {
   color: var(--fire-bright);
 }
