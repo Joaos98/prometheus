@@ -172,9 +172,9 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
 
           <div
             v-if="progress.target !== null"
-            class="bar"
+            class="bar tip"
             role="presentation"
-            :title="`${money(progress.remaining!)} left to reach the target`"
+            :data-tip="`${money(progress.remaining!)} left to reach the target`"
           >
             <span
               class="filled"
@@ -314,17 +314,19 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
   color: var(--ice);
 }
 
+/* The fill rounds its own ends rather than the bar clipping them: a bar that clips
+   would clip what it has to say about itself too. */
 .bar {
   height: 4px;
   background: var(--page);
   border-radius: 999px;
-  overflow: hidden;
 }
 
 .filled {
   display: block;
   height: 100%;
   background: var(--ice);
+  border-radius: 999px;
 }
 
 .expansion {

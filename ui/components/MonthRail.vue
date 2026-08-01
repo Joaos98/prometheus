@@ -126,7 +126,17 @@ const money = (amount: Minor): string => formatAmount(amount, props.household.cu
           <span class="figure" :class="{ negative: other.balance < 0 }">
             {{ money(other.balance) }}
           </span>
-          <span v-if="other.incomplete" class="pending-mark" title="Pending rows are not counted">
+          <!--
+            The explanation is on the mark twice over: as the tip anyone hovering reads,
+            and in a label that keeps the visible word so that anyone hearing the row
+            read out gets the same sentence rather than the word on its own.
+          -->
+          <span
+            v-if="other.incomplete"
+            class="pending-mark tip from-left"
+            aria-label="Pending — those rows are not counted in this balance"
+            data-tip="Pending rows are not counted in this balance"
+          >
             Pending
           </span>
         </li>

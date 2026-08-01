@@ -267,6 +267,17 @@ button {
   transition: opacity 90ms ease-out;
 }
 
+/*
+  Growing rightward instead, for a control near the left edge of the window. The rail is
+  the leftmost column and its controls sit only a couple of hundred pixels in, which is
+  less than a tip is wide: anchored the usual way, one would run off the edge and lose
+  its first few words to the window rather than to any element's overflow.
+*/
+.tip.from-left::after {
+  right: auto;
+  left: 0;
+}
+
 .tip:hover::after,
 .tip:focus-visible::after {
   opacity: 1;
