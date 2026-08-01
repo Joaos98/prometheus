@@ -37,5 +37,5 @@ Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
 
 ## Current contents
 
-- `docs/specs/0001-mvp/spec.md` — the MVP spec.
-- `docs/specs/0001-mvp/issues/01…19` — the MVP broken into 19 tracer-bullet tickets, numbered in dependency order. No code exists yet; ticket 01 is the walking skeleton and the only one with no blockers.
+- `docs/specs/0001-mvp/spec.md` — the MVP spec. `done`.
+- `docs/specs/0001-mvp/issues/01…19` — the MVP broken into 19 tracer-bullet tickets, numbered in dependency order. All `done`; each one's criteria and the notes made while building it are the record of what was built.

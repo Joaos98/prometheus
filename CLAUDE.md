@@ -2,7 +2,7 @@
 
 A household finance tracker built on the snapshot model. See `prometheus-system-plan.md` for what it does, `CONTEXT.md` for the binding vocabulary, and `docs/adr/` for the decisions behind the model.
 
-The repo is currently a deliberate clean slate — the design record is complete, no application code exists yet. `docs/specs/0001-mvp.md` is the spec to build from.
+The MVP is built: `docs/specs/0001-mvp/spec.md` is `done`, and so is every one of its nineteen tickets. The code lives in `domain/` (the engine, free of framework and I/O), `storage/` (the port and its two adapters), `ui/` (Vue 3), `server/` (static files plus row CRUD over SQLite) and `demo/` (the seed, which drives the domain as a member would and runs in CI as a test).
 
 ## Agent skills
 

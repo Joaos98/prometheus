@@ -1,6 +1,6 @@
 # Spec 0001 — Prometheus MVP
 
-Status: ready-for-agent
+Status: done
 
 Covers the whole MVP as listed in [the system plan](../../prometheus-system-plan.md) §4. Vocabulary is [CONTEXT.md](../../CONTEXT.md); visual language is [the design brief](../../prometheus-redesign-brief.md); the decisions behind the model, and the alternatives rejected, are in [docs/adr/](../adr/). The repository currently contains no code, so this spec describes a build from nothing.
 

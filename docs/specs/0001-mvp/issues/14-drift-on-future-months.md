@@ -6,7 +6,7 @@ Rather than forbid opening future Months, the failure is made visible: a future 
 
 **Blocked by:** 09, 10
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Opus, high thinking — recomputes a hypothetical open and diffs it against what the Month holds, across every field including membership. Cheaper if 06 and 13 are still in context.
 

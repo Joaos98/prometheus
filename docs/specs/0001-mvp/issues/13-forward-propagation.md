@@ -6,7 +6,7 @@ Propagation means "carry this into the Months still holding the old copied value
 
 **Blocked by:** 08, 09
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Opus, high thinking — walks every later opened Month, decides row by row on review state, and has to report what it skipped and why. Cheaper if ticket 06 is still in context.
 
