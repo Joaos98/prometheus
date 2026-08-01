@@ -66,7 +66,9 @@ export function requireConsistentRule(
  * refused rather than rounded, so a rule that looks like it totals 100 always does.
  */
 export function basisPointsOf(percentage: number): bigint {
-  if (!Number.isFinite(percentage)) throw new DomainError(`${percentage} is not a percentage`)
+  /** A number that is not one. Whoever typed it is long gone by here, so this says the
+      one thing it still knows rather than reading `NaN` back to a member. */
+  if (!Number.isFinite(percentage)) throw new DomainError('That is not a percentage')
   if (percentage < 0) throw new DomainError('A percentage cannot be negative')
 
   const scaled = Math.round(percentage * 100)

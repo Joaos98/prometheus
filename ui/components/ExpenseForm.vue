@@ -7,7 +7,7 @@ import {
   type Minor,
   type SplitRule,
 } from '../../domain/index.js'
-import { editableAmount, readAmount } from '../amount.js'
+import { editableAmount, readAmount, readPercentage } from '../amount.js'
 import { messageOf } from '../changes.js'
 import { RULE_CHOICES, type RuleValues } from '../split-rules.js'
 
@@ -85,7 +85,12 @@ const enteredAmount = computed<Minor | null>(() => {
   }
 })
 
-const chosen = computed<SplitRule>(() => {
+/**
+ * The Split Rule as the fields stand. It refuses what it cannot read rather than passing
+ * a number that is not one along: the engine would have to word its refusal without ever
+ * having seen what was typed, and `NaN is not a percentage` is nobody's sentence.
+ */
+function chosenRule(): SplitRule {
   switch (kind.value) {
     case 'even':
     case 'proportional':
@@ -94,7 +99,10 @@ const chosen = computed<SplitRule>(() => {
       return {
         kind: 'percentage',
         byMember: Object.fromEntries(
-          participants.value.map((member) => [member, Number(percentages.value[member] || 0)]),
+          participants.value.map((member) => [
+            member,
+            readPercentage(percentages.value[member] ?? ''),
+          ]),
         ),
       }
     case 'fixed':
@@ -108,7 +116,7 @@ const chosen = computed<SplitRule>(() => {
         ),
       }
   }
-})
+}
 
 function readAmountOrZero(entered: string): Minor {
   try {
@@ -122,7 +130,7 @@ function readAmountOrZero(entered: string): Minor {
 const standing = computed(() => {
   if (kind.value === 'even' || kind.value === 'proportional') return undefined
   try {
-    requireConsistentRule(chosen.value, enteredAmount.value, participants.value, props.currency)
+    requireConsistentRule(chosenRule(), enteredAmount.value, participants.value, props.currency)
     return { adds: true, said: 'Adds up.' }
   } catch (cause) {
     return { adds: false, said: messageOf(cause) }
@@ -141,7 +149,7 @@ function save(): void {
       category: category.value,
       amount: readAmount(amount.value, props.currency),
       participants: participants.value,
-      splitRule: chosen.value,
+      splitRule: chosenRule(),
     })
   } catch (cause) {
     failure.value = messageOf(cause)
