@@ -8,3 +8,4 @@ dist-server/
 *.db-shm
 .scratch/
 AGENTS.md
+.env

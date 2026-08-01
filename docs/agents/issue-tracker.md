@@ -37,5 +37,6 @@ Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
 
 ## Current contents
 
-- `docs/specs/0001-mvp/spec.md` — the MVP spec. `done`.
+- `docs/specs/0001-mvp/spec.md` — the MVP spec. `done`, shipped as v1.0.
 - `docs/specs/0001-mvp/issues/01…19` — the MVP broken into 19 tracer-bullet tickets, numbered in dependency order. All `done`; each one's criteria and the notes made while building it are the record of what was built.
+- `docs/roadmap.md` — what comes after v1.0, grouped into a rough v1.1/v1.2/… sequence. Every item on it is `needs-triage`: refine one into a proper spec under `docs/specs/` before it is `ready-for-agent`.
