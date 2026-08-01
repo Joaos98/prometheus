@@ -62,7 +62,7 @@ function propagate(): Promise<Propagation> {
 </script>
 
 <template>
-  <section class="carry" role="group" :aria-label="`Carry ${carrying.name} forward`">
+  <section class="inset carry" role="group" :aria-label="`Carry ${carrying.name} forward`">
     <template v-if="!carried">
       <p class="offered">Carry the change to {{ carrying.name }} into the later Months?</p>
       <p class="muted note">
@@ -72,7 +72,7 @@ function propagate(): Promise<Propagation> {
         as it stands.
       </p>
 
-      <div class="answers">
+      <div class="actions">
         <button class="button-primary" type="button" @click="carry()">Carry it forward</button>
         <button class="button-quiet" type="button" @click="emit('done')">Leave them</button>
       </div>
@@ -99,7 +99,7 @@ function propagate(): Promise<Propagation> {
         {{ monthName(skip.month) }} could not take it: {{ skip.because }}
       </p>
 
-      <div class="answers">
+      <div class="actions">
         <button class="button-quiet" type="button" @click="emit('done')">Done</button>
       </div>
     </template>
@@ -109,37 +109,8 @@ function propagate(): Promise<Propagation> {
 </template>
 
 <style scoped>
-.carry {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  background: var(--page);
-  border: 0.5px solid var(--hairline);
-  border-radius: var(--radius-control);
-}
-
 .offered {
   margin: 0;
   font-weight: 500;
-}
-
-.note {
-  margin: 0;
-  font-size: 12px;
-}
-
-.answers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.answers .button-primary {
-  padding: 6px 14px;
-}
-
-.failure {
-  color: var(--fire-bright);
 }
 </style>

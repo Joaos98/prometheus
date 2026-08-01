@@ -1,4 +1,4 @@
-import { formatAmount, toMinor, type Currency, type Minor } from '../domain/index.js'
+import { plainAmount, toMinor, type Currency, type Minor } from '../domain/index.js'
 
 /**
  * What a member typed into an amount field. Nothing typed is Pending — no amount at
@@ -9,7 +9,7 @@ export function readAmount(entered: string, currency: Currency): Minor | null {
   return typed === '' ? null : toMinor(typed, currency)
 }
 
-/** The amount as it goes back into the field: bare digits, no currency symbol. */
+/** The amount as it goes back into the field: bare digits, no symbol and no grouping. */
 export function editableAmount(amount: Minor | null, currency: Currency): string {
-  return amount === null ? '' : formatAmount(amount, { ...currency, symbol: '' })
+  return amount === null ? '' : plainAmount(amount, currency)
 }

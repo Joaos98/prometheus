@@ -40,7 +40,7 @@ function save(): void {
 </script>
 
 <template>
-  <form class="income-form" @submit.prevent="save">
+  <form class="inset income-form" @submit.prevent="save">
     <input v-model="name" aria-label="Source" placeholder="Source" type="text" />
     <input
       v-model="amount"
@@ -53,7 +53,7 @@ function save(): void {
       <input v-model="restrictedUse" type="checkbox" />
       <span>Restricted-Use — never counts toward Spendable Income</span>
     </label>
-    <p v-if="failure" class="failure">{{ failure }}</p>
+    <p v-if="failure" class="failure note">{{ failure }}</p>
     <div class="actions">
       <button class="button-primary" type="submit" :disabled="name.trim() === ''">
         {{ submitLabel }}
@@ -64,41 +64,11 @@ function save(): void {
 </template>
 
 <style scoped>
-.income-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-  background: var(--page);
-  border: 0.5px solid var(--hairline);
-  border-radius: var(--radius-control);
-}
-
 .restricted {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-secondary);
-}
-
-.restricted input {
-  width: auto;
-  accent-color: var(--fire);
-}
-
-.failure {
-  margin: 0;
-  font-size: 12px;
-  color: var(--fire-bright);
-}
-
-.actions {
-  display: flex;
-  gap: 8px;
-}
-
-.actions .button-primary {
-  padding: 6px 14px;
 }
 </style>

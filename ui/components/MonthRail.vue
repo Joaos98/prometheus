@@ -87,13 +87,7 @@ const money = (amount: Minor): string => formatAmount(amount, props.household.cu
 <template>
   <aside class="rail">
     <section class="card">
-      <div class="section-header">
-        <h2 class="section-label">Leftover Balance</h2>
-        <label class="toggle">
-          <input v-model="includeRestrictedUse" type="checkbox" />
-          Count Restricted-Use
-        </label>
-      </div>
+      <h2 class="section-label">Leftover Balance</h2>
 
       <div v-if="viewer" class="viewer">
         <p class="name">{{ viewer.name }}</p>
@@ -111,6 +105,16 @@ const money = (amount: Minor): string => formatAmount(amount, props.household.cu
             {{ money(viewer.balance) }}
           </span>
         </div>
+        <!-- Story 102: the toggle sits with the figure it moves, and nothing else. -->
+        <label class="toggle">
+          <input
+            v-model="includeRestrictedUse"
+            type="checkbox"
+            aria-label="Count Restricted-Use Income in the Leftover Balance"
+          />
+          Count Restricted-Use Income
+        </label>
+
         <p v-if="viewer.incomplete" class="pending note">
           Pending rows are not yet counted — this balance is not final.
         </p>
@@ -179,14 +183,7 @@ const money = (amount: Minor): string => formatAmount(amount, props.household.cu
 .card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-}
-
-.section-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
+  gap: var(--row-gap);
 }
 
 .toggle {
@@ -195,13 +192,12 @@ const money = (amount: Minor): string => formatAmount(amount, props.household.cu
   gap: 6px;
   font-size: 12px;
   color: var(--text-muted);
-  font-weight: normal;
 }
 
 .viewer {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--row-gap);
 }
 
 .viewer .name {
@@ -235,8 +231,11 @@ const money = (amount: Minor): string => formatAmount(amount, props.household.cu
   border-top: 0.5px solid var(--hairline);
 }
 
+/* The figure the whole rail is a subtraction toward, in the accent the brief keeps for
+   key totals. A negative one is brighter still, on top of its own minus sign. */
 .balance .total {
   font-size: 16px;
+  color: var(--fire);
 }
 
 .negative {
@@ -244,7 +243,6 @@ const money = (amount: Minor): string => formatAmount(amount, props.household.cu
 }
 
 .pending {
-  margin: 0;
   color: var(--fire-bright);
 }
 
@@ -267,11 +265,6 @@ const money = (amount: Minor): string => formatAmount(amount, props.household.cu
 .pending-mark {
   font-size: 11px;
   color: var(--fire-bright);
-}
-
-.note {
-  margin: 0;
-  font-size: 13px;
 }
 
 .facts {

@@ -60,7 +60,7 @@ async function begin(): Promise<void> {
 
     <section class="card">
       <h2 class="section-label">Currency</h2>
-      <p class="muted hint">
+      <p class="muted note">
         Every amount in the Household is in this currency. It can be relabelled later, but never
         converted.
       </p>
@@ -74,7 +74,7 @@ async function begin(): Promise<void> {
 
     <section class="card">
       <h2 class="section-label">Roster</h2>
-      <p class="muted hint">Everyone who shares money here. Nobody is ever deleted afterwards.</p>
+      <p class="muted note">Everyone who shares money here. Nobody is ever deleted afterwards.</p>
       <div v-for="(_, index) in memberNames" :key="index" class="member">
         <input
           v-model="memberNames[index]"
@@ -96,7 +96,7 @@ async function begin(): Promise<void> {
 
     <section class="card">
       <h2 class="section-label">Starting Month</h2>
-      <p class="muted hint">
+      <p class="muted note">
         The first Month opens holding the Roster and no rows — nothing precedes it.
       </p>
       <div class="month">
@@ -111,7 +111,7 @@ async function begin(): Promise<void> {
       </div>
     </section>
 
-    <p v-if="failure" class="failure">{{ failure }}</p>
+    <p v-if="failure" class="failure note">{{ failure }}</p>
 
     <button class="button-primary" type="button" :disabled="!ready || working" @click="begin">
       Open {{ monthName(startingMonth) }}
@@ -119,7 +119,7 @@ async function begin(): Promise<void> {
 
     <section class="card">
       <h2 class="section-label">Already have a Household?</h2>
-      <p class="muted hint">
+      <p class="muted note">
         A Household exported from another deployment, or from the demo, arrives whole — there is
         nothing to set up first.
       </p>
@@ -151,11 +151,6 @@ header p {
   gap: 10px;
 }
 
-.hint {
-  margin: 0;
-  font-size: 13px;
-}
-
 .member {
   display: flex;
   gap: 8px;
@@ -169,11 +164,6 @@ header p {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
-}
-
-.failure {
-  margin: 0;
-  color: var(--fire-bright);
 }
 
 .button-primary {

@@ -22,6 +22,7 @@ import { membersOf } from '../members.js'
 import CarryForward from './CarryForward.vue'
 import GoalForm from './GoalForm.vue'
 import MonthPanel from './MonthPanel.vue'
+import OneOffMark from './OneOffMark.vue'
 
 const props = defineProps<{ household: Household; month: Month }>()
 
@@ -119,7 +120,9 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
 <template>
   <MonthPanel title="Savings Goals">
     <template #header>
-      <button v-if="!adding" class="add" type="button" @click="adding = true">+ Add goal</button>
+      <button v-if="!adding" class="link-action" type="button" @click="adding = true">
+        + Add a Savings Goal
+      </button>
     </template>
 
     <p v-if="failure" class="failure note">{{ failure }}</p>
@@ -136,7 +139,7 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
       v-if="adding"
       :currency="household.currency"
       :members="members"
-      submit-label="Add goal"
+      submit-label="Add the Savings Goal"
       @cancel="adding = false"
       @save="(draft) => attempt(addGoal(month.key, draft))"
     />
@@ -148,7 +151,7 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
     <article v-for="{ goal, progress, members: against } in rows" :key="goal.id" class="goal">
       <div class="head">
         <button
-          class="summary"
+          class="row-body summary"
           type="button"
           :aria-expanded="expanded === goal.id"
           :aria-label="`${expanded === goal.id ? 'Collapse' : 'Expand'} ${goal.name}`"
@@ -163,7 +166,7 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
               <span v-if="progress.target !== null" class="muted">
                 of {{ money(progress.target) }}
               </span>
-              <span v-else class="muted">saved</span>
+              <span v-else class="muted">accumulated</span>
             </span>
           </div>
 
@@ -189,24 +192,20 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
 
         <button
           v-if="!isReviewed(goal)"
-          class="confirm"
+          class="row-action accent"
           type="button"
           :aria-label="`Confirm ${goal.name}`"
           @click="report(confirmGoal(month.key, goal.id))"
         >
           Confirm
         </button>
-        <button
+        <OneOffMark
           v-if="!isOneOff(goal)"
-          class="mark-one-off"
-          type="button"
-          :aria-label="`Mark ${goal.name} One-Off`"
+          :name="goal.name"
           @click="report(markGoalAsOneOff(month.key, goal.id))"
-        >
-          One-Off
-        </button>
+        />
         <button
-          class="remove"
+          class="row-action remove"
           type="button"
           :aria-label="`Remove ${goal.name}`"
           @click="report(removeGoal(month.key, goal.id))"
@@ -253,8 +252,8 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
           <dd class="figure">{{ money(progress.thisMonth) }}</dd>
         </dl>
 
-        <button v-if="editing !== goal.id" class="add" type="button" @click="edit(goal)">
-          Edit goal
+        <button v-if="editing !== goal.id" class="link-action" type="button" @click="edit(goal)">
+          Edit this Savings Goal
         </button>
       </div>
     </article>
@@ -265,11 +264,11 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
 .goal {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .goal + .goal {
-  padding-top: 12px;
+  padding-top: 10px;
   border-top: 0.5px solid var(--hairline);
 }
 
@@ -281,28 +280,21 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
 
 .summary {
   flex: 1;
-  display: flex;
-  flex-direction: column;
   gap: 6px;
-  padding: 8px;
-  text-align: left;
-  background: none;
-  border: 0.5px solid transparent;
-  border-radius: var(--radius-control);
 }
 
-.summary:hover {
-  border-color: var(--hairline);
-}
-
+/* Where the line runs out, the figure drops below the name rather than the name being
+   broken up to make room for it. */
 .line {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px;
+  gap: 4px 8px;
 }
 
 .name {
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .progress {
@@ -330,24 +322,6 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
   display: block;
   height: 100%;
   background: var(--ice);
-}
-
-.tag {
-  padding: 1px 6px;
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-  border: 0.5px solid var(--hairline);
-  border-radius: 999px;
-}
-
-.unreviewed {
-  color: var(--fire);
-  border-color: var(--fire);
-}
-
-.one-off {
-  color: var(--text-secondary);
 }
 
 .expansion {
@@ -401,62 +375,12 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
   text-align: right;
 }
 
-.confirm {
-  align-self: flex-start;
-  margin-top: 8px;
-  padding: 4px 8px;
-  font-size: 12px;
-  color: var(--fire);
-  background: none;
-  border: 0.5px solid var(--hairline);
-}
-
-.confirm:hover {
-  border-color: var(--fire);
-}
-
-.mark-one-off {
-  align-self: flex-start;
-  margin-top: 8px;
-  padding: 4px 8px;
-  font-size: 12px;
-  color: var(--text-muted);
-  background: none;
-  border: 0.5px solid transparent;
-}
-
-.mark-one-off:hover {
-  color: var(--text);
-  border-color: var(--hairline);
+/* The goal's own controls line up with its first line, not its middle. */
+.head .row-action {
+  margin-top: 6px;
 }
 
 .remove {
-  padding: 8px;
-  color: var(--text-muted);
-  background: none;
-  border: 0.5px solid transparent;
-}
-
-.remove:hover {
-  color: var(--text);
-  border-color: var(--hairline);
-}
-
-.add {
-  align-self: flex-start;
-  padding: 0;
-  color: var(--fire);
-  background: none;
-  border: none;
-  font-size: 13px;
-}
-
-.failure {
-  margin: 0;
-  color: var(--fire-bright);
-}
-
-.note {
-  font-size: 13px;
+  padding: 4px 7px;
 }
 </style>

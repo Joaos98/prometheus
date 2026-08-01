@@ -51,7 +51,7 @@ const took = (row: RowDrift): string => (row.state === 'missing' ? 'Bring it in'
   <section v-if="showing" class="card drift" aria-label="Drift">
     <header>
       <h2 class="section-label">Drift</h2>
-      <p class="secondary lead">
+      <p class="secondary note lead">
         {{ monthName(viewing) }} was opened before
         {{ drift.from ? monthName(drift.from) : 'the Month it came from' }} last changed, so the two
         no longer say the same thing. Neither reading is the wrong one — what is here may be a
@@ -65,7 +65,7 @@ const took = (row: RowDrift): string => (row.state === 'missing' ? 'Bring it in'
           <span class="name">{{ row.name }}</span>
           <span v-if="row.state !== 'changed'" class="muted state">{{ said(row) }}</span>
           <button
-            class="take"
+            class="row-action take"
             type="button"
             :aria-label="`Refresh ${row.name} from the Previous Month`"
             @click="report(refreshDrifted(viewing, now, row.kind, row.id))"
@@ -123,9 +123,7 @@ const took = (row: RowDrift): string => (row.state === 'missing' ? 'Bring it in'
 }
 
 .lead {
-  margin: 0;
   max-width: 72ch;
-  font-size: 13px;
 }
 
 .differences {
@@ -156,18 +154,11 @@ const took = (row: RowDrift): string => (row.state === 'missing' ? 'Bring it in'
   font-size: 12px;
 }
 
+/* Neutral, not accented: taking the other reading is not the right answer, only one
+   of the two the diff is holding up. */
 .take {
   margin-left: auto;
-  padding: 4px 8px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  background: none;
-  border: 0.5px solid var(--hairline);
-}
-
-.take:hover {
-  color: var(--text);
-  border-color: var(--text-muted);
+  border-color: var(--hairline);
 }
 
 .fields {
@@ -187,12 +178,4 @@ const took = (row: RowDrift): string => (row.state === 'missing' ? 'Bring it in'
   margin: 0 8px;
 }
 
-.note {
-  margin: 0;
-  font-size: 12px;
-}
-
-.failure {
-  color: var(--fire-bright);
-}
 </style>

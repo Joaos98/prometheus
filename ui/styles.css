@@ -1,5 +1,10 @@
 /* The visual language of the design brief: dark only, flat surfaces, hairlines
-   instead of shadows, one warm accent for fire, two font weights. */
+   instead of shadows, one warm accent for fire, two font weights.
+
+   Everything that more than one panel does is here rather than in the panels. The
+   dashboard is assembled from four columns' worth of components, and a tag, a row
+   action or a note that each of them styles for itself is how four panels that sit
+   together stop looking like one surface. */
 
 :root {
   --page: #12141c;
@@ -15,8 +20,10 @@
   --radius-card: 12px;
   --radius-control: 8px;
 
-  --gap: 20px;
-  --pad: 20px;
+  /* One spacing scale: between cards, inside a card, and between a card's rows. */
+  --gap: 16px;
+  --pad: 18px;
+  --row-gap: 8px;
 
   color-scheme: dark;
 }
@@ -41,19 +48,26 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Two weights only, so nothing browser-default reaches for a third. */
 h1,
 h2,
-h3 {
+h3,
+strong {
   margin: 0;
   font-weight: 500;
 }
 
+/* Section labels, letter-spaced uppercase, at the two sizes the dashboard uses. */
 .section-label {
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-muted);
+}
+
+.section-label.small {
+  font-size: 10px;
 }
 
 .card {
@@ -76,6 +90,16 @@ h3 {
   font-variant-numeric: tabular-nums;
 }
 
+/* Explanatory prose inside a card, and the one thing that went wrong. */
+.note {
+  margin: 0;
+  font-size: 13px;
+}
+
+.failure {
+  color: var(--fire-bright);
+}
+
 input,
 select,
 button {
@@ -86,7 +110,7 @@ button {
 input,
 select {
   width: 100%;
-  padding: 9px 11px;
+  padding: 8px 11px;
   background: var(--page);
   border: 0.5px solid var(--hairline);
   border-radius: var(--radius-control);
@@ -102,13 +126,22 @@ select:focus {
   border-color: var(--fire);
 }
 
+/* Checkboxes and radios take the fire accent, like every other thing chosen. */
+input[type='checkbox'],
+input[type='radio'] {
+  width: auto;
+  padding: 0;
+  background: none;
+  accent-color: var(--fire);
+}
+
 button {
   cursor: pointer;
   border-radius: var(--radius-control);
 }
 
 .button-primary {
-  padding: 10px 18px;
+  padding: 9px 16px;
   font-weight: 500;
   color: var(--page);
   background: var(--fire);
@@ -133,4 +166,118 @@ button {
 
 .button-quiet:hover {
   border-color: var(--fire);
+}
+
+/* A row of answers to something asked. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--row-gap);
+}
+
+.actions .button-primary {
+  padding: 6px 14px;
+}
+
+/* A pill saying what a row is: its category, One-Off, Unreviewed, Restricted-Use. */
+.tag {
+  padding: 1px 6px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border: 0.5px solid var(--hairline);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.tag.unreviewed {
+  color: var(--fire);
+  border-color: var(--fire);
+}
+
+.tag.one-off {
+  color: var(--text-secondary);
+}
+
+/* The small controls that sit beside a row — Confirm, One-Off, remove, refresh. */
+.row-action {
+  align-self: flex-start;
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--text-muted);
+  background: none;
+  border: 0.5px solid transparent;
+}
+
+.row-action:hover {
+  color: var(--text);
+  border-color: var(--hairline);
+}
+
+.row-action.accent {
+  color: var(--fire);
+  border-color: var(--hairline);
+}
+
+.row-action.accent:hover {
+  border-color: var(--fire);
+}
+
+/* An action that reads as a link rather than a control: "+ Add an Expense". */
+.link-action {
+  align-self: flex-start;
+  padding: 0;
+  font-size: 13px;
+  color: var(--fire);
+  background: none;
+  border: none;
+}
+
+.link-action:hover {
+  color: var(--fire-bright);
+}
+
+/* The one destructive answer, wherever it is asked. */
+.destructive {
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--fire-bright);
+  background: none;
+  border: 0.5px solid var(--fire-bright);
+}
+
+.destructive:hover {
+  color: var(--page);
+  background: var(--fire-bright);
+}
+
+/* A row that opens a form or expands: the whole line is the target, and it says so
+   on hover with a hairline rather than a fill. */
+.row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px;
+  text-align: left;
+  background: none;
+  border: 0.5px solid transparent;
+  border-radius: var(--radius-control);
+}
+
+.row-body:hover {
+  border-color: var(--hairline);
+}
+
+/* A form opened in place inside a panel: the page colour, set into the surface. */
+.inset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--row-gap);
+  padding: 12px;
+  background: var(--page);
+  border: 0.5px solid var(--hairline);
+  border-radius: var(--radius-control);
 }

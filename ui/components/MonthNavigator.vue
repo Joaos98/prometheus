@@ -79,7 +79,10 @@ function jump(key: MonthKey): void {
         @click="togglePicker"
       >
         <h1>{{ monthName(viewing) }}</h1>
-        <span class="state" :class="{ unopened: !isOpened(household, viewing) }">
+        <span
+          class="section-label small state"
+          :class="{ unopened: !isOpened(household, viewing) }"
+        >
           {{ isOpened(household, viewing) ? 'Opened' : 'Not opened' }}
         </span>
       </button>
@@ -113,7 +116,7 @@ function jump(key: MonthKey): void {
           @click="jump(month.key)"
         >
           <span>{{ month.name }}</span>
-          <span class="mark">{{ month.opened ? 'Opened' : 'Not opened' }}</span>
+          <span class="section-label small mark">{{ month.opened ? 'Opened' : 'Not opened' }}</span>
         </button>
       </div>
 
@@ -121,7 +124,7 @@ function jump(key: MonthKey): void {
         <p class="muted note">
           {{ openedThisYear }} of 12 Months opened in {{ year }}. Looking at one does not open it.
         </p>
-        <button class="today" type="button" @click="jump(thisMonth())">Today</button>
+        <button class="row-action accent" type="button" @click="jump(thisMonth())">Today</button>
       </div>
     </div>
   </div>
@@ -174,13 +177,6 @@ function jump(key: MonthKey): void {
   white-space: nowrap;
 }
 
-.state {
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
 .state.unopened {
   color: var(--fire);
 }
@@ -226,18 +222,14 @@ function jump(key: MonthKey): void {
   border-color: var(--fire);
 }
 
-.month .mark {
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-}
-
 .month.opened .mark {
   color: var(--fire);
 }
 
+/* Where the dashboard is standing, in the accent the brief keeps for active navigation. */
 .month.here {
-  border-color: var(--text-secondary);
+  color: var(--fire);
+  border-color: var(--fire);
 }
 
 .footer {
@@ -250,20 +242,6 @@ function jump(key: MonthKey): void {
 }
 
 .note {
-  margin: 0;
-  font-size: 12px;
   text-align: left;
-}
-
-.today {
-  padding: 4px 10px;
-  font-size: 12px;
-  color: var(--fire);
-  background: none;
-  border: 0.5px solid var(--hairline);
-}
-
-.today:hover {
-  border-color: var(--fire);
 }
 </style>

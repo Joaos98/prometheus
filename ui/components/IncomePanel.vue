@@ -21,6 +21,7 @@ import { nameOf } from '../members.js'
 import CarryForward from './CarryForward.vue'
 import IncomeForm from './IncomeForm.vue'
 import MonthPanel from './MonthPanel.vue'
+import OneOffMark from './OneOffMark.vue'
 
 const props = defineProps<{ household: Household; month: Month }>()
 
@@ -89,7 +90,7 @@ async function saveEdit(source: IncomeSnapshot, edits: IncomeEdits): Promise<voi
         <h3>{{ member.name }}</h3>
         <span class="figure spendable">{{ money(member.spendable) }}</span>
       </header>
-      <p class="section-label spendable-label">Spendable Income</p>
+      <p class="section-label small spendable-label">Spendable Income</p>
 
       <ul class="sources">
         <li v-for="source in member.sources" :key="source.id">
@@ -104,7 +105,7 @@ async function saveEdit(source: IncomeSnapshot, edits: IncomeEdits): Promise<voi
           />
           <template v-else>
             <button
-              class="source"
+              class="row-body source"
               type="button"
               :aria-label="`Edit ${source.name}`"
               @click="editing = source.id"
@@ -122,24 +123,20 @@ async function saveEdit(source: IncomeSnapshot, edits: IncomeEdits): Promise<voi
             </button>
             <button
               v-if="!isReviewed(source)"
-              class="confirm"
+              class="row-action accent"
               type="button"
               :aria-label="`Confirm ${source.name}`"
               @click="report(confirmIncome(month.key, source.id))"
             >
               Confirm
             </button>
-            <button
+            <OneOffMark
               v-if="!isOneOff(source)"
-              class="mark-one-off"
-              type="button"
-              :aria-label="`Mark ${source.name} One-Off`"
+              :name="source.name"
               @click="report(markIncomeAsOneOff(month.key, source.id))"
-            >
-              One-Off
-            </button>
+            />
             <button
-              class="remove"
+              class="row-action"
               type="button"
               :aria-label="`Remove ${source.name}`"
               @click="report(removeIncome(month.key, source.id))"
@@ -157,21 +154,23 @@ async function saveEdit(source: IncomeSnapshot, edits: IncomeEdits): Promise<voi
         @cancel="adding = undefined"
         @save="(draft) => attempt(addIncome(month.key, { ...draft, member: member.id }))"
       />
-      <button v-else class="add" type="button" @click="adding = member.id">+ Add source</button>
+      <button v-else class="link-action" type="button" @click="adding = member.id">
+        + Add a source
+      </button>
     </section>
   </MonthPanel>
 </template>
 
 <style scoped>
 .member + .member {
-  padding-top: 14px;
+  padding-top: 12px;
   border-top: 0.5px solid var(--hairline);
 }
 
 .member {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .member header {
@@ -209,20 +208,14 @@ h3 {
   gap: 4px;
 }
 
+/* One line rather than a stack: a source is a name and an amount. */
 .source {
   flex: 1;
-  display: flex;
+  flex-direction: row;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  padding: 6px 8px;
-  text-align: left;
-  background: none;
-  border: 0.5px solid transparent;
-}
-
-.source:hover {
-  border-color: var(--hairline);
+  padding: 5px 8px;
 }
 
 .name {
@@ -231,26 +224,8 @@ h3 {
   gap: 8px;
 }
 
-.tag {
-  padding: 1px 6px;
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-  border: 0.5px solid var(--hairline);
-  border-radius: 999px;
-}
-
 .restricted {
   color: var(--text-muted);
-}
-
-.unreviewed {
-  color: var(--fire);
-  border-color: var(--fire);
-}
-
-.one-off {
-  color: var(--text-secondary);
 }
 
 .pending {
@@ -258,58 +233,7 @@ h3 {
   font-size: 12px;
 }
 
-.confirm {
-  padding: 4px 8px;
-  font-size: 12px;
-  color: var(--fire);
-  background: none;
-  border: 0.5px solid var(--hairline);
-}
-
-.confirm:hover {
-  border-color: var(--fire);
-}
-
-.mark-one-off {
-  padding: 4px 8px;
-  font-size: 12px;
-  color: var(--text-muted);
-  background: none;
-  border: 0.5px solid transparent;
-}
-
-.mark-one-off:hover {
-  color: var(--text);
-  border-color: var(--hairline);
-}
-
-.remove {
-  padding: 4px 8px;
-  color: var(--text-muted);
-  background: none;
-  border: 0.5px solid transparent;
-}
-
-.remove:hover {
-  color: var(--text);
-  border-color: var(--hairline);
-}
-
-.add {
-  align-self: flex-start;
-  padding: 4px 0;
-  color: var(--fire);
-  background: none;
-  border: none;
-  font-size: 13px;
-}
-
-.failure {
-  margin: 0;
-  color: var(--fire-bright);
-}
-
-.note {
-  font-size: 13px;
+.sources .row-action {
+  align-self: center;
 }
 </style>

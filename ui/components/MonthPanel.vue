@@ -20,7 +20,7 @@ defineProps<{ title: string; empty?: string }>()
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 header {
@@ -33,7 +33,7 @@ header {
 .rows {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--row-gap);
 }
 
 .empty {

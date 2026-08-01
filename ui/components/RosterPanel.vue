@@ -64,11 +64,6 @@ async function add(): Promise<void> {
   gap: 12px;
 }
 
-.note {
-  margin: 0;
-  font-size: 13px;
-}
-
 .members {
   margin: 0;
   padding: 0;
@@ -99,8 +94,4 @@ async function add(): Promise<void> {
   flex: 1;
 }
 
-.failure {
-  margin: 0;
-  color: var(--fire-bright);
-}
 </style>

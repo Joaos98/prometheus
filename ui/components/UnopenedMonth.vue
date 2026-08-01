@@ -77,12 +77,4 @@ const source = computed(() => {
   margin-top: 4px;
 }
 
-.failure {
-  color: var(--fire-bright);
-}
-
-.note {
-  margin: 0;
-  font-size: 13px;
-}
 </style>

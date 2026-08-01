@@ -43,12 +43,12 @@ async function confirm(): Promise<void> {
 
 <template>
   <div class="discard">
-    <button v-if="!asking" class="ask" type="button" @click="asking = true">
+    <button v-if="!asking" class="link-action ask" type="button" @click="asking = true">
       Discard this Month
     </button>
 
     <div v-else class="question">
-      <p class="lead">
+      <p class="note lead">
         Discarding {{ monthName(month.key) }} returns it to unopened. {{ counted }} will be lost.
       </p>
       <p class="muted note">
@@ -68,16 +68,13 @@ async function confirm(): Promise<void> {
 
 <style scoped>
 .discard {
-  padding-top: 12px;
+  padding-top: 10px;
   border-top: 0.5px solid var(--hairline);
 }
 
+/* Muted until it is asked for: the one destructive action does not advertise itself. */
 .ask {
-  padding: 0;
-  font-size: 13px;
   color: var(--text-muted);
-  background: none;
-  border: none;
 }
 
 .ask:hover {
@@ -88,38 +85,5 @@ async function confirm(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.lead {
-  margin: 0;
-  font-size: 13px;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.destructive {
-  padding: 6px 10px;
-  font-size: 13px;
-  color: var(--fire-bright);
-  background: none;
-  border: 0.5px solid var(--fire-bright);
-}
-
-.destructive:hover {
-  color: var(--page);
-  background: var(--fire-bright);
-}
-
-.failure {
-  color: var(--fire-bright);
-}
-
-.note {
-  margin: 0;
-  font-size: 12px;
 }
 </style>

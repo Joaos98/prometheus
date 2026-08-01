@@ -123,7 +123,7 @@ describe('a fixed rule that does not total the amount', () => {
 
     expect(told).toContain('€900.00')
     expect(told).toContain('€100.00')
-    expect(told).toContain('€1000.00')
+    expect(told).toContain('€1,000.00')
   })
 
   it('cannot be attached to a Pending Expense, which has no total to reach', () => {

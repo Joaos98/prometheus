@@ -105,7 +105,7 @@ async function confirm(): Promise<void> {
     </div>
 
     <div v-if="chosen" class="question">
-      <p class="lead">
+      <p class="note lead">
         Importing {{ chosen.name }}
         {{ household ? 'replaces this Household entirely.' : 'brings its Household here.' }}
         {{ replacing }}
@@ -132,23 +132,6 @@ async function confirm(): Promise<void> {
   gap: 12px;
 }
 
-.note {
-  margin: 0;
-  font-size: 13px;
-}
-
-.lead {
-  margin: 0;
-  font-size: 13px;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
 .choose {
   cursor: pointer;
 }
@@ -163,22 +146,5 @@ async function confirm(): Promise<void> {
   gap: 8px;
   padding-top: 12px;
   border-top: 0.5px solid var(--hairline);
-}
-
-.destructive {
-  padding: 6px 10px;
-  font-size: 13px;
-  color: var(--fire-bright);
-  background: none;
-  border: 0.5px solid var(--fire-bright);
-}
-
-.destructive:hover {
-  color: var(--page);
-  background: var(--fire-bright);
-}
-
-.failure {
-  color: var(--fire-bright);
 }
 </style>

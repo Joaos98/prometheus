@@ -5,7 +5,7 @@ const emit = defineEmits<{ continued: []; repurposed: []; cancel: [] }>()
 </script>
 
 <template>
-  <section class="question" role="group" :aria-label="`Renaming ${was}`">
+  <section class="inset question" role="group" :aria-label="`Renaming ${was}`">
     <p class="asked">Is this still the same Expense?</p>
 
     <p class="muted note">
@@ -15,7 +15,7 @@ const emit = defineEmits<{ continued: []; repurposed: []; cancel: [] }>()
       worth asking before its history follows the new name.
     </p>
 
-    <div class="answers">
+    <div class="actions">
       <button class="button-primary" type="button" @click="emit('continued')">
         Same Expense — keep its history
       </button>
@@ -33,33 +33,13 @@ const emit = defineEmits<{ continued: []; repurposed: []; cancel: [] }>()
 </template>
 
 <style scoped>
+/* The one inset the fire accent outlines: nothing else in a panel stops to ask. */
 .question {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  background: var(--page);
-  border: 0.5px solid var(--fire);
-  border-radius: var(--radius-control);
+  border-color: var(--fire);
 }
 
 .asked {
   margin: 0;
   font-weight: 500;
-}
-
-.note {
-  margin: 0;
-  font-size: 12px;
-}
-
-.answers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.answers .button-primary {
-  padding: 6px 14px;
 }
 </style>

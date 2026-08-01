@@ -188,7 +188,7 @@ async function saveCurrency(): Promise<void> {
 <style scoped>
 .dashboard {
   min-height: 100%;
-  padding: 20px 24px 40px;
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
   gap: var(--gap);
@@ -198,22 +198,31 @@ async function saveCurrency(): Promise<void> {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  padding-bottom: 16px;
+  gap: 12px;
+  padding-bottom: 12px;
   border-bottom: 0.5px solid var(--hairline);
 }
 
 .side {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .side.right {
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
+/* A control the masthead holds keeps its own width and its own line: squeezed to fit,
+   the Viewer picker becomes a sliver and the longer labels break across two rows. */
 .side.right select {
-  max-width: 160px;
+  width: 156px;
+  flex: none;
+}
+
+.side.right button {
+  white-space: nowrap;
 }
 
 .mark {
@@ -236,20 +245,12 @@ async function saveCurrency(): Promise<void> {
   max-width: 220px;
 }
 
-.note {
-  margin: 0;
-  font-size: 13px;
-}
-
-.failure {
-  color: var(--fire-bright);
-}
-
 /* ADR-0010: a pinned rail, Expenses widest in the centre, Income and goals sharing
-   the right column. */
+   the right column. The three start level, which is what the centred Month name in
+   the masthead is for. */
 .columns {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 340px;
+  grid-template-columns: 236px minmax(0, 1fr) 372px;
   gap: var(--gap);
   align-items: start;
 }
@@ -262,17 +263,45 @@ async function saveCurrency(): Promise<void> {
 
 .columns > .rail {
   position: sticky;
-  top: 20px;
+  top: 16px;
 }
 
-/* Below about 1240px the three columns collapse to one and the rail unpins. */
+/*
+  Below about 1240px the three columns collapse to one and the rail unpins. The
+  masthead comes apart at the same width and for the same reason: three groups on one
+  line stops being three groups and becomes a squeezed picker beside labels breaking
+  across two rows, so the logo, the Month and the controls each take a line of their
+  own and the Month stays centred between them.
+*/
 @media (max-width: 1240px) {
   .columns {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .columns > .rail {
+  /* Nothing is pinned or beside anything any more, so the panels that were columns
+     spread across the one column's width instead of each taking a full-width band and
+     pushing the rest of the Month a screen further down. */
+  .columns > .rail,
+  .right-column {
     position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .columns > .rail > *,
+  .right-column > * {
+    flex: 1 1 300px;
+  }
+
+  .masthead {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+
+  .side,
+  .side.right {
+    justify-content: center;
   }
 }
 </style>

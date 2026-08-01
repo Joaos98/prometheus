@@ -150,7 +150,7 @@ function save(): void {
 </script>
 
 <template>
-  <form class="expense-form" @submit.prevent="save">
+  <form class="inset expense-form" @submit.prevent="save">
     <div class="line">
       <input v-model="name" aria-label="Expense" placeholder="What is it" type="text" />
       <input v-model="category" aria-label="Category" placeholder="Category" type="text" />
@@ -229,16 +229,6 @@ function save(): void {
 </template>
 
 <style scoped>
-.expense-form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  background: var(--page);
-  border: 0.5px solid var(--hairline);
-  border-radius: var(--radius-control);
-}
-
 .line {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr;
@@ -268,11 +258,6 @@ legend {
   color: var(--text-secondary);
 }
 
-.choice input {
-  width: auto;
-  accent-color: var(--fire);
-}
-
 .custom {
   display: flex;
   flex-wrap: wrap;
@@ -291,29 +276,11 @@ legend {
   padding: 5px 8px;
 }
 
-.note {
-  margin: 0;
-  font-size: 12px;
-}
-
 .standing {
   color: var(--text-muted);
 }
 
 .standing.short {
   color: var(--fire-bright);
-}
-
-.failure {
-  color: var(--fire-bright);
-}
-
-.actions {
-  display: flex;
-  gap: 8px;
-}
-
-.actions .button-primary {
-  padding: 6px 14px;
 }
 </style>

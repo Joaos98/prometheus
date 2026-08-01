@@ -41,7 +41,7 @@ async function putItBack(): Promise<void> {
     </div>
 
     <div v-if="asking" class="question">
-      <p class="lead">
+      <p class="note lead">
         Resetting runs the sample Household afresh. Everything you have changed here goes, and
         nothing of it can be recovered — export it first if you want to keep it.
       </p>
@@ -64,45 +64,11 @@ async function putItBack(): Promise<void> {
   gap: 12px;
 }
 
-.note {
-  margin: 0;
-  font-size: 13px;
-}
-
-.lead {
-  margin: 0;
-  font-size: 13px;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
 .question {
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding-top: 12px;
   border-top: 0.5px solid var(--hairline);
-}
-
-.destructive {
-  padding: 6px 10px;
-  font-size: 13px;
-  color: var(--fire-bright);
-  background: none;
-  border: 0.5px solid var(--fire-bright);
-}
-
-.destructive:hover {
-  color: var(--page);
-  background: var(--fire-bright);
-}
-
-.failure {
-  color: var(--fire-bright);
 }
 </style>

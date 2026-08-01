@@ -91,7 +91,7 @@ export {
   openMonth,
   previousMonthKey,
 } from './month.js'
-export { formatAmount, toMinor } from './money.js'
+export { formatAmount, plainAmount, toMinor } from './money.js'
 export {
   exportHousehold,
   importHousehold,

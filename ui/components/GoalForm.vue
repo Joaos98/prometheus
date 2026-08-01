@@ -50,12 +50,12 @@ function save(): void {
 </script>
 
 <template>
-  <form class="goal-form" @submit.prevent="save">
+  <form class="inset goal-form" @submit.prevent="save">
     <input v-model="name" aria-label="Savings Goal" placeholder="What are we saving for" type="text" />
 
     <div class="line">
       <label class="value">
-        <span class="section-label">Target</span>
+        <span class="section-label small">Target</span>
         <input
           v-model="target"
           aria-label="Target"
@@ -65,7 +65,7 @@ function save(): void {
         />
       </label>
       <label class="value">
-        <span class="section-label">Start amount</span>
+        <span class="section-label small">Start amount</span>
         <input
           v-model="startAmount"
           aria-label="Start amount"
@@ -100,16 +100,6 @@ function save(): void {
 </template>
 
 <style scoped>
-.goal-form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  background: var(--page);
-  border: 0.5px solid var(--hairline);
-  border-radius: var(--radius-control);
-}
-
 .line {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -145,26 +135,4 @@ legend {
   color: var(--text-secondary);
 }
 
-.choice input {
-  width: auto;
-  accent-color: var(--fire);
-}
-
-.note {
-  margin: 0;
-  font-size: 12px;
-}
-
-.failure {
-  color: var(--fire-bright);
-}
-
-.actions {
-  display: flex;
-  gap: 8px;
-}
-
-.actions .button-primary {
-  padding: 6px 14px;
-}
 </style>

@@ -22,6 +22,7 @@ import { ruleName } from '../split-rules.js'
 import CarryForward from './CarryForward.vue'
 import ExpenseForm from './ExpenseForm.vue'
 import MonthPanel from './MonthPanel.vue'
+import OneOffMark from './OneOffMark.vue'
 import RepurposeQuestion from './RepurposeQuestion.vue'
 
 const props = defineProps<{ household: Household; month: Month }>()
@@ -141,7 +142,9 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
 <template>
   <MonthPanel title="Expenses">
     <template #header>
-      <button v-if="!adding" class="add" type="button" @click="adding = true">+ Add expense</button>
+      <button v-if="!adding" class="link-action" type="button" @click="adding = true">
+        + Add an Expense
+      </button>
     </template>
 
     <p v-if="failure" class="failure note">{{ failure }}</p>
@@ -158,7 +161,7 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
       v-if="adding"
       :currency="household.currency"
       :members="members"
-      submit-label="Add expense"
+      submit-label="Add the Expense"
       @cancel="adding = false"
       @save="(draft) => attempt(addExpense(month.key, draft))"
     />
@@ -186,7 +189,7 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
 
       <article v-else class="expense">
         <button
-          class="body"
+          class="row-body body"
           type="button"
           :aria-label="`Edit ${expense.name}`"
           @click="edit(expense)"
@@ -223,24 +226,20 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
 
         <button
           v-if="!isReviewed(expense)"
-          class="confirm"
+          class="row-action accent"
           type="button"
           :aria-label="`Confirm ${expense.name}`"
           @click="report(confirmExpense(month.key, expense.id))"
         >
           Confirm
         </button>
-        <button
+        <OneOffMark
           v-if="!isOneOff(expense)"
-          class="mark-one-off"
-          type="button"
-          :aria-label="`Mark ${expense.name} One-Off`"
+          :name="expense.name"
           @click="report(markExpenseAsOneOff(month.key, expense.id))"
-        >
-          One-Off
-        </button>
+        />
         <button
-          class="remove"
+          class="row-action remove"
           type="button"
           :aria-label="`Remove ${expense.name}`"
           @click="report(removeExpense(month.key, expense.id))"
@@ -261,24 +260,15 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
 
 .body {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px;
-  text-align: left;
-  background: none;
-  border: 0.5px solid transparent;
-  border-radius: var(--radius-control);
 }
 
-.body:hover {
-  border-color: var(--hairline);
-}
-
+/* Where the line runs out, the amount drops below the name rather than the name being
+   broken up to make room for it. */
 .line {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px;
+  gap: 4px 8px;
 }
 
 .name {
@@ -289,26 +279,11 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
   margin-left: auto;
 }
 
-.tag {
-  padding: 1px 6px;
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-  border: 0.5px solid var(--hairline);
-  border-radius: 999px;
-}
-
-.unreviewed {
-  color: var(--fire);
-  border-color: var(--fire);
-}
-
-.one-off {
-  color: var(--text-secondary);
-}
-
+/* The two dense lines under the name sit closer than body text: they are a caption on
+   the row above them, not prose. */
 .rule {
   font-size: 12px;
+  line-height: 1.35;
 }
 
 .fallback {
@@ -324,11 +299,12 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
 .shares {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 18px;
-  margin: 2px 0 0;
+  gap: 4px 18px;
+  margin: 0;
   padding: 0;
   list-style: none;
   font-size: 12px;
+  line-height: 1.35;
 }
 
 .shares li {
@@ -336,61 +312,12 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
   gap: 6px;
 }
 
-.confirm {
-  align-self: flex-start;
-  margin-top: 10px;
-  padding: 4px 8px;
-  font-size: 12px;
-  color: var(--fire);
-  background: none;
-  border: 0.5px solid var(--hairline);
-}
-
-.confirm:hover {
-  border-color: var(--fire);
-}
-
-.mark-one-off {
-  align-self: flex-start;
-  margin-top: 10px;
-  padding: 4px 8px;
-  font-size: 12px;
-  color: var(--text-muted);
-  background: none;
-  border: 0.5px solid transparent;
-}
-
-.mark-one-off:hover {
-  color: var(--text);
-  border-color: var(--hairline);
+/* The row's own controls line up with its first line, not its middle. */
+.expense .row-action {
+  margin-top: 6px;
 }
 
 .remove {
-  padding: 8px;
-  color: var(--text-muted);
-  background: none;
-  border: 0.5px solid transparent;
-}
-
-.remove:hover {
-  color: var(--text);
-  border-color: var(--hairline);
-}
-
-.add {
-  padding: 0;
-  color: var(--fire);
-  background: none;
-  border: none;
-  font-size: 13px;
-}
-
-.failure {
-  margin: 0;
-  color: var(--fire-bright);
-}
-
-.note {
-  font-size: 13px;
+  padding: 4px 7px;
 }
 </style>
