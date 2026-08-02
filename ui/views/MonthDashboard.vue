@@ -97,7 +97,11 @@ onUnmounted(() => {
 /** The one settings modal open over the Month, if any. */
 const settings = ref<SettingsPanel | undefined>(undefined)
 
-function press(button: SettingsPanel): void {
+/** The button pressed last, which is where focus goes back to when its modal closes. */
+const opener = ref<HTMLElement | undefined>(undefined)
+
+function press(button: SettingsPanel, event: MouseEvent): void {
+  opener.value = event.currentTarget instanceof HTMLElement ? event.currentTarget : undefined
   settings.value = toggleSettings(settings.value, button)
 }
 
@@ -128,14 +132,14 @@ async function saveCurrency(): Promise<void> {
             Viewer: {{ member.name }}
           </option>
         </select>
-        <button class="button-quiet" type="button" @click="press('roster')">Roster</button>
-        <button class="button-quiet" type="button" @click="press('household-file')">
+        <button class="button-quiet" type="button" @click="press('roster', $event)">Roster</button>
+        <button class="button-quiet" type="button" @click="press('household-file', $event)">
           Household file
         </button>
-        <button class="button-quiet" type="button" @click="press('currency')">
+        <button class="button-quiet" type="button" @click="press('currency', $event)">
           {{ household.currency.code }} {{ household.currency.symbol.trim() }}
         </button>
-        <button v-if="seeded" class="button-quiet" type="button" @click="press('demo')">
+        <button v-if="seeded" class="button-quiet" type="button" @click="press('demo', $event)">
           Demo
         </button>
       </div>
@@ -146,13 +150,15 @@ async function saveCurrency(): Promise<void> {
       over the page and the Month stays exactly where it was.
 
       One modal element for all four, keyed on which panel is open so that pressing a
-      second button builds a fresh one — the primitive remembers the control that opened
-      it, and reusing an instance would send focus back to the wrong button on close.
+      second button builds a fresh one rather than re-titling the one already there. Which
+      button to hand focus back to is the press's to say, not the modal's — it reads the
+      opener once on mount, so each panel restores focus to the button that opened it.
     -->
     <Modal
       v-if="settings"
       :key="settings"
       :title="SETTINGS_TITLES[settings]"
+      :opener="opener"
       @close="settings = undefined"
     >
       <DemoPanel v-if="settings === 'demo'" />

@@ -40,3 +40,9 @@ Two judgements worth recording.
 **One modal at a time is held in the state, not left to the backdrop.** The four booleans became one `SettingsPanel | undefined` in `ui/settings.ts`, tested in `ui/settings.test.ts`. The backdrop already makes it true on screen; this makes it true for every way in that is not a click.
 
 Verified in the running demo: opening the Roster leaves the Expenses column at the same offset it had before, Escape returns focus to the Roster button and clears the scroll lock, a second button replaces rather than adds, and the backdrop dismisses.
+
+**Two defects found reviewing this and fixed.**
+
+*The focus trap did not hold on the Household file panel.* `stops()` took everything matching the selector, and `HouseholdFile.vue` hides its file input behind a label with `display: none` — so the last stop was a node the browser skips, the forward wrap compared against it and never fired, and two Tabs walked focus out into the masthead behind the backdrop. It now keeps only elements that lay out a box, which is what tells a hidden node from one the browser will actually focus.
+
+*Closing after switching panels put focus on the wrong button.* Reading `document.activeElement` on mount could not work: the outgoing panel's unmount restores focus to its own opener before the incoming one mounts, so the new modal took the old panel's button for its own. The button is now handed in as an `opener` prop, recorded by `press()` from the click that opened it and read once on mount — once, because by the time the outgoing panel unmounts the prop already names the incoming one.

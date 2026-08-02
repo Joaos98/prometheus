@@ -134,15 +134,23 @@ function readAmountOrZero(entered: string): Minor {
  */
 const individual = computed(() => isIndividual(participants.value))
 
-/** The rule this form will actually submit, which is what everything here judges. */
-const submittedRule = computed(() => ruleFor(participants.value, chosenRule()))
+/**
+ * The rule this form will actually submit — the choice as it stands, or Even where one
+ * Participant makes the choice meaningless.
+ *
+ * A function and not a computed, deliberately. `chosenRule` refuses what it cannot read,
+ * so a percentage typed as `abc` throws, and a computed that throws cannot be contained by
+ * whoever reads it: Vue refreshes a computed dependency during its own dirty-checking,
+ * outside any `try` here, and the throw comes back out as a dead render. Called inside the
+ * two `try` blocks that want the refusal, it is caught where it can be worded.
+ */
+const submittedRule = (): SplitRule => ruleFor(participants.value, chosenRule())
 
 /** The same judgement the engine will make on save, said while the split is still wrong. */
 const standing = computed(() => {
-  const rule = submittedRule.value
-  if (rule.kind === 'even' || rule.kind === 'proportional') return undefined
+  if (individual.value || kind.value === 'even' || kind.value === 'proportional') return undefined
   try {
-    requireConsistentRule(rule, enteredAmount.value, participants.value, props.currency)
+    requireConsistentRule(submittedRule(), enteredAmount.value, participants.value, props.currency)
     return { adds: true, said: 'Adds up.' }
   } catch (cause) {
     return { adds: false, said: messageOf(cause) }
@@ -161,7 +169,7 @@ function save(): void {
       category: category.value,
       amount: readAmount(amount.value, props.currency),
       participants: participants.value,
-      splitRule: submittedRule.value,
+      splitRule: submittedRule(),
     })
   } catch (cause) {
     failure.value = messageOf(cause)

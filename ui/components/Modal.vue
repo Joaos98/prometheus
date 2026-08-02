@@ -10,14 +10,23 @@
  */
 import { onMounted, onUnmounted, ref, useId } from 'vue'
 
-defineProps<{ title: string }>()
+const props = defineProps<{ title: string; opener?: HTMLElement }>()
 
 const emit = defineEmits<{ close: [] }>()
 
 const dialog = ref<HTMLElement | undefined>(undefined)
 const titleId = useId()
 
-/** The control that opened this, so that closing puts the member back where they were. */
+/**
+ * The control that opened this, so that closing puts the member back where they were. It
+ * is handed in by whoever opened it and read once, on mount.
+ *
+ * Not `document.activeElement`: replacing one open panel with another unmounts the first
+ * — which restores focus to its own opener — before the second mounts, so a modal reading
+ * the active element would take the previous panel's button for its own and send focus
+ * there on close. Read once rather than off the prop, for the mirror of the same reason:
+ * by the time the outgoing panel unmounts, the prop already names the incoming one.
+ */
 let opener: HTMLElement | undefined
 
 /**
@@ -28,8 +37,18 @@ let opener: HTMLElement | undefined
 const FOCUSABLE =
   'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
 
+/**
+ * Matching the selector is not the same as being reachable. `HouseholdFile.vue` hides its
+ * file input behind a label with `display: none`, and a hidden node taken as the last stop
+ * is a wrap that never fires — Tab walks out of the dialog instead, into a page the
+ * backdrop has put out of reach of the mouse. A hidden element lays out no boxes, so its
+ * client rects are what tell it apart from one the browser will actually focus.
+ */
 function stops(): HTMLElement[] {
-  return dialog.value ? [...dialog.value.querySelectorAll<HTMLElement>(FOCUSABLE)] : []
+  if (!dialog.value) return []
+  return [...dialog.value.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+    (stop) => stop.getClientRects().length > 0,
+  )
 }
 
 /**
@@ -64,8 +83,7 @@ function onKeydown(event: KeyboardEvent): void {
 }
 
 onMounted(() => {
-  const active = document.activeElement
-  opener = active instanceof HTMLElement ? active : undefined
+  opener = props.opener
   /**
    * Focus lands on the dialog rather than its first control, so that what is read out
    * first is what this panel is, not the first thing in it. Tab then starts at the top
