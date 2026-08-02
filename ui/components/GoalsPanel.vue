@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import {
   accumulatedProgress,
+  appearedBefore,
   contributionTo,
   formatAmount,
   isOneOff,
@@ -17,6 +18,7 @@ import {
 import { editableAmount, readAmount } from '../amount.js'
 import { laterOpenedMonths, type Carrying } from '../carry-forward.js'
 import { messageOf, useChanges } from '../changes.js'
+import { endingTag } from '../ending.js'
 import { useHousehold } from '../household.js'
 import { membersOf } from '../members.js'
 import CarryForward from './CarryForward.vue'
@@ -62,6 +64,9 @@ const rows = computed(() =>
 )
 
 const money = (amount: Minor): string => formatAmount(amount, props.household.currency)
+
+/** Whether stopping this goal here ends a run, or marks one that only ever was this Month. */
+const ends = (id: RowId): boolean => appearedBefore(props.household, props.month.key, 'goals', id)
 
 /** How much of the bar is filled. A goal with no target has nothing to fill against. */
 function reachedFraction(accumulated: Minor, target: Minor | null): number {
@@ -161,7 +166,9 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
         >
           <div class="line">
             <span class="name">{{ goal.name }}</span>
-            <span v-if="isOneOff(goal)" class="tag one-off">One-Off</span>
+            <span v-if="isOneOff(goal)" class="tag one-off">
+              {{ endingTag(ends(goal.id)) }}
+            </span>
             <UnreviewedMark v-if="!isReviewed(goal)" :name="goal.name" />
             <span class="figure progress">
               {{ money(progress.accumulated) }}
@@ -200,6 +207,7 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
         <OneOffMark
           v-if="!isOneOff(goal)"
           :name="goal.name"
+          :ending="ends(goal.id)"
           @click="report(markGoalAsOneOff(month.key, goal.id))"
         />
         <button

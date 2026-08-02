@@ -1,7 +1,16 @@
 import { DomainError } from './errors.js'
-import { monthAt } from './month.js'
+import { monthAt, previousMonthKey } from './month.js'
 import { monthName } from './month-key.js'
-import type { Household, MemberId, Minor, Month, MonthKey, RowId } from './types.js'
+import type {
+  Household,
+  MemberId,
+  Minor,
+  Month,
+  MonthKey,
+  MonthRow,
+  RowId,
+  RowKind,
+} from './types.js'
 
 /**
  * What an operation on a single row returns: the Household as it now stands, and the
@@ -20,9 +29,34 @@ export function isPending(row: { amount: Minor | null }): boolean {
   return row.amount === null
 }
 
-/** A row marked as belonging to this Month alone, which the next Month opened will not inherit. */
+/** A row marked so that the next Month opened will not inherit it. */
 export function isOneOff(row: { oneOff: boolean }): boolean {
   return row.oneOff
+}
+
+/**
+ * Whether a row has a past: the Previous Month holds this same identity.
+ *
+ * This is what tells a **One-Off** from a row that **Ends Here**. The two carry the same
+ * mark and have exactly the same effect — the next Month opened inherits neither — but
+ * they are not the same thing to say. A cost that ran for a year and then stopped was
+ * never a one-time cost, and a Month browsed a year later should not claim it was.
+ *
+ * Measured against the Previous Month rather than the whole record, which is how
+ * everything else here reasons: inheritance, propagation and Drift all weigh a Month
+ * against the one a row would have come from. Repurposing mints a new identity, so a
+ * repurposed row correctly reads as one starting here rather than one ending.
+ */
+export function appearedBefore(
+  household: Household,
+  key: MonthKey,
+  kind: RowKind,
+  id: RowId,
+): boolean {
+  const previous = previousMonthKey(household, key)
+  if (!previous) return false
+  const rows: MonthRow[] = monthAt(household, previous)?.[kind] ?? []
+  return rows.some((row) => row.id === id)
 }
 
 /** The Month a row is being recorded on. Nothing can be recorded on an unopened Month. */

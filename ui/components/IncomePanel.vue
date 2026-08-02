@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import {
+  appearedBefore,
   formatAmount,
   isOneOff,
   isPending,
@@ -16,6 +17,7 @@ import {
 } from '../../domain/index.js'
 import { laterOpenedMonths, type Carrying } from '../carry-forward.js'
 import { useChanges } from '../changes.js'
+import { endingTag } from '../ending.js'
 import { useHousehold } from '../household.js'
 import { nameOf } from '../members.js'
 import CarryForward from './CarryForward.vue'
@@ -49,6 +51,9 @@ const members = computed(() =>
 )
 
 const money = (amount: Minor): string => formatAmount(amount, props.household.currency)
+
+/** Whether stopping this row here ends a run, or marks a cost that only ever was this one. */
+const ends = (id: RowId): boolean => appearedBefore(props.household, props.month.key, 'income', id)
 
 /**
  * A change made from a form, which closes once it is accepted and stays open if it is
@@ -115,7 +120,9 @@ async function saveEdit(source: IncomeSnapshot, edits: IncomeEdits): Promise<voi
               <span class="name">
                 {{ source.name }}
                 <span v-if="source.restrictedUse" class="tag">Restricted-Use</span>
-                <span v-if="isOneOff(source)" class="tag one-off">One-Off</span>
+                <span v-if="isOneOff(source)" class="tag one-off">
+                  {{ endingTag(ends(source.id)) }}
+                </span>
                 <UnreviewedMark v-if="!isReviewed(source)" :name="source.name" />
               </span>
               <span v-if="isPending(source)" class="pending">Pending</span>
@@ -131,6 +138,7 @@ async function saveEdit(source: IncomeSnapshot, edits: IncomeEdits): Promise<voi
             <OneOffMark
               v-if="!isOneOff(source)"
               :name="source.name"
+              :ending="ends(source.id)"
               @click="report(markIncomeAsOneOff(month.key, source.id))"
             />
             <button

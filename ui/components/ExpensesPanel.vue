@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import {
+  appearedBefore,
   formatAmount,
   isOneOff,
   isPending,
@@ -16,6 +17,7 @@ import {
 } from '../../domain/index.js'
 import { laterOpenedMonths, type Carrying } from '../carry-forward.js'
 import { useChanges } from '../changes.js'
+import { endingTag } from '../ending.js'
 import { useHousehold } from '../household.js'
 import { membersOf, nameOf } from '../members.js'
 import { ruleName } from '../split-rules.js'
@@ -73,6 +75,10 @@ const rows = computed(() =>
 )
 
 const money = (amount: Minor): string => formatAmount(amount, props.household.currency)
+
+/** Whether stopping this row here ends a run, or marks a cost that only ever was this one. */
+const ends = (id: RowId): boolean =>
+  appearedBefore(props.household, props.month.key, 'expenses', id)
 
 const participantCount = (expense: ExpenseSnapshot): string =>
   expense.participants.length === 1 ? '1 Participant' : `${expense.participants.length} Participants`
@@ -222,7 +228,9 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
           <div class="line">
             <span class="name">{{ expense.name }}</span>
             <span v-if="expense.category" class="tag">{{ expense.category }}</span>
-            <span v-if="isOneOff(expense)" class="tag one-off">One-Off</span>
+            <span v-if="isOneOff(expense)" class="tag one-off">
+              {{ endingTag(ends(expense.id)) }}
+            </span>
             <UnreviewedMark v-if="!isReviewed(expense)" :name="expense.name" />
             <span v-if="isPending(expense)" class="pending">Pending — no amount entered</span>
             <span v-else class="figure total">{{ money(expense.amount!) }}</span>
@@ -257,6 +265,7 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
         <OneOffMark
           v-if="!isOneOff(expense)"
           :name="expense.name"
+          :ending="ends(expense.id)"
           @click="report(markExpenseAsOneOff(month.key, expense.id))"
         />
         <button

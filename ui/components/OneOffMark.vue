@@ -1,23 +1,31 @@
 <script setup lang="ts">
 /**
- * Marking a row One-Off, as the same control in every panel.
+ * Stopping a row being inherited, as the same control in every panel.
  *
  * It is the one row control carrying an icon rather than a word. The design brief asks
  * for outline icons used sparingly and names the flag among them, and this is where the
  * dashboard needs one: spelled out, the label is wider than the whole Income row can
  * give it, and three text controls beside a name and an amount is what pushed that
- * column past its width. The word is still there for anyone who hovers or tabs to it,
+ * column past its width. The words are still there for anyone who hovers or tabs to it,
  * and for anyone reading the row aloud.
+ *
+ * Those words depend on what the row is. Marking a cost that has run for a year One-Off
+ * would say it was a one-time cost, which it never was — so a row with a past Ends Here
+ * instead. Same mark, same effect, and the only honest thing to call each.
  */
-defineProps<{ name: string }>()
+defineProps<{ name: string; ending: boolean }>()
 </script>
 
 <template>
   <button
     class="row-action one-off-mark tip"
     type="button"
-    :aria-label="`Mark ${name} One-Off`"
-    data-tip="Mark One-Off — this Month alone, and the next Month opened does not inherit it"
+    :aria-label="ending ? `Mark ${name} as ending here` : `Mark ${name} One-Off`"
+    :data-tip="
+      ending
+        ? 'Ends Here — its last Month, and the next Month opened does not inherit it'
+        : 'Mark One-Off — this Month alone, and the next Month opened does not inherit it'
+    "
   >
     <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
       <path d="M4 14.5V2.5M4 3h8l-1.8 2.6L12 8.2H4" />

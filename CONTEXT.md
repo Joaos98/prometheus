@@ -45,8 +45,12 @@ Carrying an edit from one Month into the later Months that are already open, rep
 _Avoid_: apply to future, cascade, bulk edit
 
 **One-Off**:
-A row marked as belonging to its Month alone, so the next Month opened does not inherit it. Applies to income and Expense rows alike; marking a recurring row as One-Off in a given Month is also how it stops recurring.
+A row that belongs to its Month alone: it appeared in no earlier Month, and the next Month opened does not inherit it. A one-time cost recorded and done with — an emergency repair, a bonus. Applies to income, Expense and Savings Goal rows alike.
 _Avoid_: temporary, single, non-recurring
+
+**Ends Here**:
+A row that has been running and whose last Month this is: the next Month opened does not inherit it. The same mark as One-Off and the same effect, told apart by whether the row appeared in the Previous Month — because a cost that ran for a year and then stopped was never a one-off, and a Month browsed later should not claim it was.
+_Avoid_: cancelled, discontinued, deleted, One-Off (for a row with a past)
 
 **Share**:
 The portion of an Expense attributed to one Participant, as computed by that month's Split Rule. An Expense with a single Participant yields one Share equal to the full amount — this is how individual expenses are recorded.
@@ -90,7 +94,7 @@ _Avoid_: beneficiaries
 ### Savings Goals
 
 **Savings Goal**:
-A named target the Household saves toward, existing only as its per-Month rows — name, optional target amount, start amount, and Participants — with a stable identity carried between them. Like an Expense, it stops recurring by being marked One-Off in its final Month, and past Months keep their Contributions.
+A named target the Household saves toward, existing only as its per-Month rows — name, optional target amount, start amount, and Participants — with a stable identity carried between them. Like an Expense, it stops recurring by being marked as ending in its final Month, and past Months keep their Contributions.
 _Avoid_: fund, pot
 
 **Contribution**:

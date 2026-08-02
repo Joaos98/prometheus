@@ -19,8 +19,9 @@ const { failure, report } = useChanges()
 /**
  * What opening would copy: the Previous Month, and how much of it would arrive — which
  * is asked of the open itself rather than counted off the Previous Month, because not
- * every row there comes across. One marked One-Off belongs to its Month alone, and one
- * naming somebody who has since left the Roster has nobody here to belong to.
+ * every row there comes across. One that ends there — a One-Off, or a run stopping — is
+ * not passed on, and one naming somebody who has since left the Roster has nobody here
+ * to belong to.
  */
 const source = computed(() => {
   const key = previousMonthKey(props.household, props.viewing)
@@ -44,7 +45,7 @@ const source = computed(() => {
     </p>
     <p v-else-if="source" class="secondary">
       {{ monthName(source.key) }} has nothing to pass on, so it would open with no rows. A row
-      marked One-Off there belongs to that Month alone.
+      that ends there belongs to that Month alone.
     </p>
     <p v-else class="secondary">
       No opened Month precedes it, so it would open with the active Roster and no rows.
