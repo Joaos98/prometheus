@@ -35,10 +35,6 @@ UI change looks small.
   cost is one action instead of two. Changing it after creation stays an edit, as today, however,
   as it currently stands, after an income is marked as One Off, there's no way to un-mark it.
   This should also be addressed.
-- **Payment methods on an Expense** — "Credit Card", "Pix", and so on. Informational only:
-  Prometheus stays a share calculator, and a payment method is not who paid or whether
-  they did. Worth being deliberate that this does not become the payment tracking the
-  spec rules out.
 
 ## v1.3 — needs a design decision before it can be estimated
 
@@ -47,9 +43,14 @@ UI change looks small.
   ADR-0008's row-scoped, last-write-wins writes — a reorder touches many rows at once, and
   what "last write wins" means for that has no answer yet.
 
-## V2 is unchanged
+## V2
 
-None of the above is V2. V2 is still what `prometheus-system-plan.md` §4 and spec 0001's
-*Out of Scope* already name: composite expenses (the main one), savings projections,
-visual trends over time, and categories as first-class entities. This page is the smaller
-work between v1.0 and V2, not a replacement for it.
+V2 is what `prometheus-system-plan.md` §4 and spec 0001's *Out of Scope* already name —
+composite expenses (the main one), savings projections, visual trends over time, and
+categories as first-class entities — together with the item below. Nothing above is V2:
+this page is the smaller work between v1.0 and V2, not a replacement for it.
+
+- **Payment methods on an Expense** — "Credit Card", "Pix", and so on. Informational only:
+  Prometheus stays a share calculator, and a payment method is not who paid or whether
+  they did. Worth being deliberate that this does not become the payment tracking the
+  spec rules out.
