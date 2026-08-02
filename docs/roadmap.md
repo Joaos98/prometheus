@@ -32,20 +32,15 @@ UI change looks small.
 
 - **One-Off, settable at creation.** Today marking an Expense or Income Snapshot One-Off
   is a second step after adding it; this lets it be set on the same form, so a one-time
-  cost is one action instead of two. Changing it after creation stays an edit, as today.
+  cost is one action instead of two. Changing it after creation stays an edit, as today, however,
+  as it currently stands, after an income is marked as One Off, there's no way to un-mark it.
+  This should also be addressed.
 - **Payment methods on an Expense** — "Credit Card", "Pix", and so on. Informational only:
   Prometheus stays a share calculator, and a payment method is not who paid or whether
   they did. Worth being deliberate that this does not become the payment tracking the
   spec rules out.
 
-## v1.3 — a vocabulary change
-
-- **Rename Contribution to Savings.** This is a CONTEXT.md change, not a UI relabel — it
-  needs the domain-modeling skill's attention before anything is renamed. The obvious risk:
-  CONTEXT.md already reserves "Savings" for **Savings Goal**, so the new name for
-  Contribution has to be one nobody would mistake for the goal it is contributed to.
-
-## v1.4 — needs a design decision before it can be estimated
+## v1.3 — needs a design decision before it can be estimated
 
 - **Reordering Expenses, Income sources and Savings Goals.** Before this is a ticket,
   something has to decide how order is stored and persisted, and square that with
