@@ -5,6 +5,7 @@ import {
   addExpenseSnapshot,
   confirmExpenseSnapshot,
   editExpenseSnapshot,
+  markExpenseOneOff,
   removeExpenseSnapshot,
 } from './expenses.js'
 import { addSavingsGoal, editSavingsGoal, recordContribution } from './goals.js'
@@ -130,6 +131,24 @@ describe('a Month opened ahead of time', () => {
     expect(drift.rows).toEqual([
       expect.objectContaining({ id: added.row.id, kind: 'expenses', state: 'missing' }),
     ])
+  })
+
+  /**
+   * Removing a row changes what this Month holds; the recurrence goes on standing in the
+   * Month behind, which is what a fresh open draws from — so the row reads as one this
+   * Month is missing. Ending it there moves the other side of the comparison, and the two
+   * agree again with nothing stored anywhere (ADR-0011).
+   */
+  it('settles a row taken out of it, once the Month it came from stops passing it on', () => {
+    const removed = removeExpenseSnapshot(household, '2026-08', rent)
+
+    expect(driftOf(removed, '2026-08', '2026-07').rows).toEqual([
+      expect.objectContaining({ id: rent, state: 'missing' }),
+    ])
+
+    const ended = markExpenseOneOff(removed, '2026-07', rent).household
+
+    expect(driftOf(ended, '2026-08', '2026-07').rows).toEqual([])
   })
 
   it('reports a row the Month it was copied from has since lost', () => {

@@ -6,6 +6,7 @@ import {
   isOneOff,
   isPending,
   isReviewed,
+  previousMonthKey,
   renamingAsks,
   splitOf,
   type ExpenseEdits,
@@ -13,6 +14,7 @@ import {
   type Household,
   type Minor,
   type Month,
+  type MonthKey,
   type RowId,
 } from '../../domain/index.js'
 import { laterOpenedMonths, type Carrying } from '../carry-forward.js'
@@ -23,6 +25,7 @@ import { membersOf, nameOf } from '../members.js'
 import { ruleName } from '../split-rules.js'
 import CarryForward from './CarryForward.vue'
 import ConfirmMark from './ConfirmMark.vue'
+import EndingQuestion from './EndingQuestion.vue'
 import ExpenseForm from './ExpenseForm.vue'
 import MonthPanel from './MonthPanel.vue'
 import OneOffMark from './OneOffMark.vue'
@@ -55,6 +58,27 @@ const asking = ref(false)
 
 /** An edit that has landed, waiting on whether it should reach the later Months too. */
 const carrying = ref<Carrying | undefined>(undefined)
+
+/** A row just taken out, waiting on whether the run behind it should end as well. */
+const ended = ref<{ id: RowId; name: string; from: MonthKey } | undefined>(undefined)
+
+/**
+ * An Expense taken out of this Month, and then the offer to end the run behind it. Only
+ * one with a past raises it: an Expense recorded here recurs from nowhere, so taking it
+ * out leaves nothing still passing it on.
+ */
+async function remove(expense: ExpenseSnapshot): Promise<void> {
+  const from = previousMonthKey(props.household, props.month.key)
+  const recurring = appearedBefore(props.household, props.month.key, 'expenses', expense.id)
+  if (!(await report(removeExpense(props.month.key, expense.id)))) return
+  ended.value = recurring && from ? { id: expense.id, name: expense.name, from } : undefined
+}
+
+async function endRun(): Promise<void> {
+  if (!ended.value) return
+  await report(markExpenseAsOneOff(ended.value.from, ended.value.id))
+  ended.value = undefined
+}
 
 const members = computed(() => membersOf(props.household, props.month))
 
@@ -188,6 +212,15 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
       @done="carrying = undefined"
     />
 
+    <EndingQuestion
+      v-if="ended"
+      :name="ended.name"
+      :month="month.key"
+      :from="ended.from"
+      @end="endRun()"
+      @leave="ended = undefined"
+    />
+
     <ExpenseForm
       v-if="adding"
       :currency="household.currency"
@@ -273,7 +306,7 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
           type="button"
           data-tip="Remove from this Month — later Months inherit its absence"
           :aria-label="`Remove ${expense.name}`"
-          @click="report(removeExpense(month.key, expense.id))"
+          @click="remove(expense)"
         >
           ×
         </button>

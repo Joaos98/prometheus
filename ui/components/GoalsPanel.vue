@@ -7,11 +7,13 @@ import {
   formatAmount,
   isOneOff,
   isReviewed,
+  previousMonthKey,
   type GoalEdits,
   type Household,
   type MemberId,
   type Minor,
   type Month,
+  type MonthKey,
   type RowId,
   type SavingsGoal,
 } from '../../domain/index.js'
@@ -23,6 +25,7 @@ import { useHousehold } from '../household.js'
 import { membersOf } from '../members.js'
 import CarryForward from './CarryForward.vue'
 import ConfirmMark from './ConfirmMark.vue'
+import EndingQuestion from './EndingQuestion.vue'
 import GoalForm from './GoalForm.vue'
 import MonthPanel from './MonthPanel.vue'
 import OneOffMark from './OneOffMark.vue'
@@ -40,6 +43,27 @@ const expanded = ref<RowId | undefined>(undefined)
 
 /** An edit that has landed, waiting on whether it should reach the later Months too. */
 const carrying = ref<Carrying | undefined>(undefined)
+
+/** A goal just taken out, waiting on whether the run behind it should end as well. */
+const ended = ref<{ id: RowId; name: string; from: MonthKey } | undefined>(undefined)
+
+/**
+ * A goal taken out of this Month, and then the offer to end the run behind it. Only one
+ * with a past raises it: a goal recorded here recurs from nowhere, so taking it out
+ * leaves nothing still passing it on. Earlier Months keep their Contributions regardless.
+ */
+async function remove(goal: SavingsGoal): Promise<void> {
+  const from = previousMonthKey(props.household, props.month.key)
+  const recurring = appearedBefore(props.household, props.month.key, 'goals', goal.id)
+  if (!(await report(removeGoal(props.month.key, goal.id)))) return
+  ended.value = recurring && from ? { id: goal.id, name: goal.name, from } : undefined
+}
+
+async function endRun(): Promise<void> {
+  if (!ended.value) return
+  await report(markGoalAsOneOff(ended.value.from, ended.value.id))
+  ended.value = undefined
+}
 
 const members = computed(() => membersOf(props.household, props.month))
 
@@ -142,6 +166,15 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
       @done="carrying = undefined"
     />
 
+    <EndingQuestion
+      v-if="ended"
+      :name="ended.name"
+      :month="month.key"
+      :from="ended.from"
+      @end="endRun()"
+      @leave="ended = undefined"
+    />
+
     <GoalForm
       v-if="adding"
       :currency="household.currency"
@@ -215,7 +248,7 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
           type="button"
           data-tip="Remove from this Month — earlier Months keep their Contributions"
           :aria-label="`Remove ${goal.name}`"
-          @click="report(removeGoal(month.key, goal.id))"
+          @click="remove(goal)"
         >
           ×
         </button>

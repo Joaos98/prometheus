@@ -6,6 +6,7 @@ import {
   isOneOff,
   isPending,
   isReviewed,
+  previousMonthKey,
   spendableIncome,
   type Household,
   type IncomeEdits,
@@ -13,6 +14,7 @@ import {
   type MemberId,
   type Minor,
   type Month,
+  type MonthKey,
   type RowId,
 } from '../../domain/index.js'
 import { laterOpenedMonths, type Carrying } from '../carry-forward.js'
@@ -22,6 +24,7 @@ import { useHousehold } from '../household.js'
 import { nameOf } from '../members.js'
 import CarryForward from './CarryForward.vue'
 import ConfirmMark from './ConfirmMark.vue'
+import EndingQuestion from './EndingQuestion.vue'
 import IncomeForm from './IncomeForm.vue'
 import MonthPanel from './MonthPanel.vue'
 import OneOffMark from './OneOffMark.vue'
@@ -38,6 +41,9 @@ const editing = ref<RowId | undefined>(undefined)
 
 /** An edit that has landed, waiting on whether it should reach the later Months too. */
 const carrying = ref<Carrying | undefined>(undefined)
+
+/** A row just taken out, waiting on whether the run behind it should end as well. */
+const ended = ref<{ id: RowId; name: string; from: MonthKey } | undefined>(undefined)
 
 const later = computed(() => laterOpenedMonths(props.household, props.month.key))
 
@@ -67,6 +73,24 @@ async function attempt(change: Promise<void>): Promise<void> {
 }
 
 /**
+ * A row taken out of this Month, and then the offer to end the run behind it. Only a row
+ * with a past raises it: one recorded here recurs from nowhere, so taking it out leaves
+ * nothing still passing it on.
+ */
+async function remove(source: IncomeSnapshot): Promise<void> {
+  const from = previousMonthKey(props.household, props.month.key)
+  const recurring = appearedBefore(props.household, props.month.key, 'income', source.id)
+  if (!(await report(removeIncome(props.month.key, source.id)))) return
+  ended.value = recurring && from ? { id: source.id, name: source.name, from } : undefined
+}
+
+async function endRun(): Promise<void> {
+  if (!ended.value) return
+  await report(markIncomeAsOneOff(ended.value.from, ended.value.id))
+  ended.value = undefined
+}
+
+/**
  * An edit that lands, and then the offer to carry it into the Months already open after
  * this one. Only an edit raises it: a source recorded here for the first time is on no
  * later Month's thread, so there is nothing there for it to correct.
@@ -90,6 +114,15 @@ async function saveEdit(source: IncomeSnapshot, edits: IncomeEdits): Promise<voi
       :later="later"
       :carrying="carrying"
       @done="carrying = undefined"
+    />
+
+    <EndingQuestion
+      v-if="ended"
+      :name="ended.name"
+      :month="month.key"
+      :from="ended.from"
+      @end="endRun()"
+      @leave="ended = undefined"
     />
 
     <section v-for="member in members" :key="member.id" class="member">
@@ -146,7 +179,7 @@ async function saveEdit(source: IncomeSnapshot, edits: IncomeEdits): Promise<voi
               type="button"
               data-tip="Remove from this Month — later Months inherit its absence"
               :aria-label="`Remove ${source.name}`"
-              @click="report(removeIncome(month.key, source.id))"
+              @click="remove(source)"
             >
               ×
             </button>
