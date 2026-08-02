@@ -24,24 +24,26 @@ things between versions freely as they get refined.
 - **The household's total Spendable Income, shown beneath the per-member figures** in the
   Income panel, with each member's share of it as a percentage.
 
-## v1.2 — touches the domain and the row shape
+## v1.2 — touches the domain, not the stored shape
 
-A schema change here is paid twice per ADR-0008 — once in the SQLite migration, once in
-the `localStorage` shape migration — so these cost more than v1.1's list even where the
-UI change looks small.
+This changes what the engine offers and what a form can set, but stores nothing new: the
+mark it is about is already on every row. Dearer than v1.1, which is UI alone, and short
+of a migration.
 
-- **One-Off, settable at creation.** Today marking an Expense or Income Snapshot One-Off
-  is a second step after adding it; this lets it be set on the same form, so a one-time
-  cost is one action instead of two. Changing it after creation stays an edit, as today, however,
-  as it currently stands, after an income is marked as One Off, there's no way to un-mark it.
-  This should also be addressed.
+- **One-Off and Ends Here: settable at creation, and clearable.** Marking a row so that
+  the next Month opened does not inherit it is a second step after adding it; this lets it
+  be set on the same form, so a one-time cost is one action instead of two. The other half
+  is that it cannot be taken back off — a row marked by mistake stays marked, and nothing
+  clears it. One mark carries both readings, so whatever clears it clears either.
 
 ## v1.3 — needs a design decision before it can be estimated
 
 - **Reordering Expenses, Income sources and Savings Goals.** Before this is a ticket,
   something has to decide how order is stored and persisted, and square that with
   ADR-0008's row-scoped, last-write-wins writes — a reorder touches many rows at once, and
-  what "last write wins" means for that has no answer yet.
+  what "last write wins" means for that has no answer yet. It is also the only item short
+  of V2 that stores something new, so it is paid twice per ADR-0008: once in the SQLite
+  migration, once in the `localStorage` shape.
 
 ## V2
 
