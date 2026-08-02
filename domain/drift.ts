@@ -8,17 +8,27 @@
  * failure is made visible: the Month reports how it differs from what opening it now
  * would produce.
  *
- * It is a diff and nothing more. Drift cannot tell a value nobody has refreshed from one
- * a member changed on purpose — the two are identical in the data — so it says neither,
- * reports both the same way, and leaves the reading to the member. That is why it is
- * neutral rather than a warning, and why there is nothing here to dismiss: a difference
- * stops being reported when the Months agree again, or when the Month stops being in the
- * future, and never because somebody waved it away.
+ * It reports only rows that are still Unreviewed there. A value nobody has refreshed and
+ * one a member changed on purpose are identical in the data, but the row carrying them is
+ * not: the Unreviewed mark is precisely the record of whether anybody in this Month has
+ * read that row and answered for it (ADR-0011). An answer given here has missed nothing,
+ * and Forward Propagation already refuses to overwrite one — Drift reporting the same row
+ * as a difference was that rule applied in one direction only.
+ *
+ * What is left is still a diff and nothing more: neutral rather than a warning, with
+ * nothing to dismiss. A difference stops being reported when the Months agree again, when
+ * somebody answers for the row, or when the Month stops being in the future — never
+ * because it was waved away.
+ *
+ * One case is deliberately not covered: a row *removed* from this Month leaves no row
+ * behind to carry a mark, so the Previous Month still holding it reads as `missing` as it
+ * always did. ADR-0011 records why that needs its own decision.
  */
 import { DomainError } from './errors.js'
 import { rowForMembers } from './inheritance.js'
 import { monthName } from './month-key.js'
 import { monthAt, monthIfOpened, openedMonthKeys, previousMonthKey } from './month.js'
+import { isReviewed } from './review.js'
 import { openedMonth, replaceRow, withMonth } from './rows.js'
 import type {
   Currency,
@@ -232,6 +242,12 @@ export function driftAhead(household: Household, after: MonthKey, now: MonthKey)
  * Rows matched by their stable identity, which is the only thing that says two Months are
  * talking about the same cost. Held and inherited are walked in the inherited Month's
  * order so the report reads the way the Month would.
+ *
+ * A row this Month has answered for is passed over in both directions. `changed` is the
+ * plain case: the member typed this figure, so it differs from the Previous Month because
+ * they made it differ. `gone` is the one that was actively wrong — a row recorded fresh
+ * here starts Reviewed and has no counterpart behind it, so it read as a row the Previous
+ * Month had lost, and refreshing that difference deleted what had just been added.
  */
 function rowDrift<Row extends MonthRow & { name: string }>(
   kind: RowKind,
@@ -247,6 +263,7 @@ function rowDrift<Row extends MonthRow & { name: string }>(
       drifted.push({ kind, id: row.id, name: row.name, state: 'missing', fields: [], held: undefined, inherited: row })
       continue
     }
+    if (isReviewed(here)) continue
     const fields = fieldsOf(here, row)
     if (fields.length > 0) {
       drifted.push({ kind, id: row.id, name: here.name, state: 'changed', fields, held: here, inherited: row })
@@ -254,6 +271,7 @@ function rowDrift<Row extends MonthRow & { name: string }>(
   }
 
   for (const row of held) {
+    if (isReviewed(row)) continue
     if (!inherited.some((candidate) => candidate.id === row.id)) {
       drifted.push({ kind, id: row.id, name: row.name, state: 'gone', fields: [], held: row, inherited: undefined })
     }

@@ -37,7 +37,7 @@ The most recent opened Month before a given Month — not necessarily the preced
 _Avoid_: last month, prior month
 
 **Drift**:
-The difference between a future Month's values and its Previous Month's values as they now stand — what a Month opened ahead of time missed when an earlier Month was later corrected. Reported neutrally as a diff the member may refresh from; it is not an error state, and it ceases once the Month becomes current.
+The difference between a future Month's values and its Previous Month's values as they now stand — what a Month opened ahead of time missed when an earlier Month was later corrected. Covers only rows that are still Unreviewed there: a row somebody has answered for in that Month has missed nothing, and is left alone by Drift exactly as it is by Forward Propagation. Reported neutrally as a diff the member may refresh from; it is not an error state, and it ceases once the Month becomes current.
 _Avoid_: staleness, outdated, mismatch
 
 **Forward Propagation**:

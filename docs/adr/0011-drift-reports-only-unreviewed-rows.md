@@ -1,0 +1,17 @@
+# Drift reports only rows nobody has answered for
+
+ADR-0001 accepted that Drift "cannot distinguish a stale value from a deliberate edit", and so reported both. That was true of Drift as ADR-0001 defined it — a diff against standing Profiles and Templates, which carried no per-row state. It stopped being true at ADR-0005: the **Unreviewed** mark records exactly the missing fact, that a member of *this* Month has read this row and answered for it. Drift simply never consulted it.
+
+So **Drift reports a difference only where the row in the future Month is still Unreviewed.** This supersedes ADR-0001's claim that the distinction cannot be made.
+
+The mark was already carrying this weight in the other direction. Forward Propagation replaces Unreviewed values in later Months and skips any a member has touched, "so correcting an earlier Month cannot silently undo a decision deliberately made in a later one" (ADR-0005). Propagation refusing to *overwrite* an answered row while Drift went on *reporting* it as a difference was one rule applied in one direction only. Now: an answer given in a Month stands — it is neither overwritten from behind nor reported as something that Month has missed.
+
+This also removes a genuine trap rather than only noise. A row recorded fresh in a future Month starts Reviewed and has no counterpart in the Previous Month, so Drift read it as a row the Previous Month had *lost* — and refreshing that difference deleted the row the member had just added.
+
+## Consequences
+
+- Drift's coverage now depends on review state, exactly as propagation's does (ADR-0005's own consequence), and for the same reason: the alternative is reporting deliberate decisions back as mistakes.
+- Refreshing a difference leaves the row Unreviewed, so a refreshed row is immediately eligible to drift again. That is intended — a copied value is a copied value, and nobody has read this one either.
+- Confirming a row without changing it silences Drift on it. The member vouched for the figure in this Month; propagation already treats that as an answer.
+- **Recording a Contribution no longer clears the Unreviewed mark**, reversing a decision made when the mark only governed propagation. Making the mark govern Drift too exposed how much weight it was carrying: a Contribution would have silenced Drift on the goal's target, start amount and Participants, and — since a Month can only be refreshed where it drifts — made refreshing such a goal unreachable, along with the logic that carries its Contributions through a refresh. The mark is about the fields a goal *inherits*, and a Contribution is none of them: opening a Month starts Contributions at nothing, the diff never compares them, and a goal's edits never carry them. Putting money in says nothing about whether anybody checked the target it is measured against. Consequences of that reversal: the review meter no longer counts a goal as read because somebody contributed to it, and Forward Propagation now reaches goals it used to skip — carrying the corrected target while leaving that Month's own Contributions untouched.
+- **A row removed from a future Month is not covered.** It leaves no row behind, so there is no mark to read, and the Previous Month still holding it reads as a row this Month is missing — with refresh, which puts it back, as the only offered resolution. Distinguishing that from a row the Previous Month has genuinely gained since needs a record of what was removed, which is new state on a Month and a separate decision.

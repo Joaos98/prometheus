@@ -54,8 +54,9 @@ const took = (row: RowDrift): string => (row.state === 'missing' ? 'Bring it in'
       <p class="secondary note lead">
         {{ monthName(viewing) }} was opened before
         {{ drift.from ? monthName(drift.from) : 'the Month it came from' }} last changed, so the two
-        no longer say the same thing. Neither reading is the wrong one — what is here may be a
-        figure nobody has refreshed, or one somebody meant.
+        no longer say the same thing. Every row below is one nobody has answered for here —
+        anything edited or confirmed in {{ monthName(viewing) }} is this Month's own answer, and is
+        left alone.
       </p>
     </header>
 
@@ -113,8 +114,9 @@ const took = (row: RowDrift): string => (row.state === 'missing' ? 'Bring it in'
 <style scoped>
 /*
   Deliberately not styled as a warning: ADR-0001 reserves that for Pending, which is a
-  genuine error state. Drift cannot tell a stale figure from a deliberate one, so it is
-  rendered as a plain hairline card and says both readings without favouring either.
+  genuine error state. What is reported is a row nobody has read yet (ADR-0011), not one
+  known to be wrong, so it is a plain hairline card that says both readings without
+  favouring either.
 */
 .drift {
   display: flex;

@@ -3,13 +3,14 @@ import { driftAhead, driftOf, refreshFromPreviousMonth, type DriftField } from '
 import { DomainError } from './errors.js'
 import {
   addExpenseSnapshot,
+  confirmExpenseSnapshot,
   editExpenseSnapshot,
   removeExpenseSnapshot,
 } from './expenses.js'
 import { addSavingsGoal, editSavingsGoal, recordContribution } from './goals.js'
 import { addMember, deactivateMember, setUpHousehold } from './household.js'
 import { addIncomeSnapshot, editIncomeSnapshot } from './income.js'
-import { monthAt, openMonth } from './month.js'
+import { discardMonth, monthAt, openMonth } from './month.js'
 import { isReviewed } from './review.js'
 import { sharesOf } from './shares.js'
 import type { Household, MemberId, MonthKey, RowId } from './types.js'
@@ -76,14 +77,44 @@ describe('a Month opened ahead of time', () => {
     expect(driftOf(household, '2026-08', '2026-07').rows).toEqual([])
   })
 
-  it('reports an edit made in it, on the same neutral terms as a stale value', () => {
+  it('says nothing of an edit made in it — the member answered for that row', () => {
     const planned = editExpenseSnapshot(household, '2026-08', rent, { amount: 90000 }).household
 
-    const drift = driftOf(planned, '2026-08', '2026-07')
+    expect(driftOf(planned, '2026-08', '2026-07').rows).toEqual([])
+  })
 
-    expect(drift.rows).toHaveLength(1)
-    expect(drift.rows[0]!.fields).toEqual(['amount'])
-    expect(drift.rows[0]!.state).toBe('changed')
+  it('says nothing of a row confirmed in it, though the Month it copied from moved on', () => {
+    const answered = confirmExpenseSnapshot(household, '2026-08', rent).household
+    const corrected = editExpenseSnapshot(answered, '2026-07', rent, { amount: 125000 }).household
+
+    expect(driftOf(corrected, '2026-08', '2026-07').rows).toEqual([])
+  })
+
+  /**
+   * A row recorded here has no counterpart behind it to have come from, so before the row
+   * was read for its answer this reported it as one the Previous Month had lost — and
+   * refreshing that difference took out what had just been added.
+   */
+  it('says nothing of a row recorded in it, which was never copied from anywhere', () => {
+    const added = addIncomeSnapshot(household, '2026-08', {
+      name: 'Freelance work',
+      member: bruno,
+      amount: 40000,
+    })
+
+    expect(driftOf(added.household, '2026-08', '2026-07').rows).toEqual([])
+  })
+
+  /**
+   * Refreshing leaves what it took Unreviewed, so the row is back to one nobody has read
+   * and drifts again the next time the Month it came from moves.
+   */
+  it('reports a refreshed row again, once the Month it came from moves again', () => {
+    const corrected = editExpenseSnapshot(household, '2026-07', rent, { amount: 125000 }).household
+    const refreshed = refreshFromPreviousMonth(corrected, '2026-08', '2026-07', 'expenses', rent)
+    const again = editExpenseSnapshot(refreshed, '2026-07', rent, { amount: 130000 }).household
+
+    expect(fieldsOf(again, rent)).toEqual(['amount'])
   })
 
   it('reports a row the Month it was copied from has gained since', () => {
@@ -153,15 +184,21 @@ describe('the diff covers every field the copy covers', () => {
     expect(fieldsOf(changed, holiday)).toEqual(['name', 'target', 'startAmount', 'participants'])
   })
 
+  /**
+   * Both Months have to hold a `percentage` rule for the figures to be what differs, and
+   * August's has to be one nobody has answered for — so it is inherited from a July that
+   * already said 50/50, and July moves afterwards.
+   */
   it('covers a Split Rule’s per-member figures, not only its kind', () => {
-    const changed = editExpenseSnapshot(household, '2026-07', rent, {
-      splitRule: { kind: 'percentage', byMember: { [ana]: 40, [bruno]: 60 } },
-    }).household
-    const again = editExpenseSnapshot(changed, '2026-08', rent, {
+    const even = editExpenseSnapshot(household, '2026-07', rent, {
       splitRule: { kind: 'percentage', byMember: { [ana]: 50, [bruno]: 50 } },
     }).household
+    const inherited = openMonth(discardMonth(even, '2026-08'), '2026-08')
+    const changed = editExpenseSnapshot(inherited, '2026-07', rent, {
+      splitRule: { kind: 'percentage', byMember: { [ana]: 40, [bruno]: 60 } },
+    }).household
 
-    expect(fieldsOf(again, rent)).toEqual(['splitRule'])
+    expect(fieldsOf(changed, rent)).toEqual(['splitRule'])
   })
 
   it('covers who the Month is for', () => {
@@ -182,12 +219,22 @@ describe('the diff covers every field the copy covers', () => {
 })
 
 describe('the Drift standing against later opened Months', () => {
+  /**
+   * Each Month is measured against the one before it, so the two need their own causes:
+   * July's correction is what August missed, and the row recorded in August is what
+   * September would now be opened with and does not have.
+   */
   it('reports every later opened Month that has drifted, in calendar order', () => {
     const september = openMonth(household, '2026-09')
     const corrected = editExpenseSnapshot(september, '2026-07', rent, { amount: 125000 }).household
-    const planned = editExpenseSnapshot(corrected, '2026-09', rent, { amount: 90000 }).household
+    const water = addExpenseSnapshot(corrected, '2026-08', {
+      name: 'Water',
+      category: 'Home',
+      amount: 4000,
+      participants: [ana],
+    }).household
 
-    const ahead = driftAhead(planned, '2026-07', '2026-07')
+    const ahead = driftAhead(water, '2026-07', '2026-07')
 
     expect(ahead.map((drift) => drift.month)).toEqual(['2026-08', '2026-09'])
   })
