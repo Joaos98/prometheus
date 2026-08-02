@@ -6,7 +6,7 @@ import {
   editExpenseSnapshot,
   removeExpenseSnapshot,
 } from './expenses.js'
-import { addSavingsGoal, recordContribution } from './goals.js'
+import { addSavingsGoal, confirmSavingsGoal, recordContribution } from './goals.js'
 import { deactivateMember, setUpHousehold } from './household.js'
 import { addIncomeSnapshot, confirmIncomeSnapshot } from './income.js'
 import { monthAt, openedMonthKeys, openMonth } from './month.js'
@@ -271,14 +271,30 @@ describe('a correction to a Savings Goal', () => {
     expect(holidayIn(after, '2026-08')!.target).toBe(400000)
   })
 
+  /**
+   * A Contribution answers for none of the fields a goal inherits, so the correction
+   * reaches this Month like any other — and what anybody put in here stays as they put it.
+   */
   it('leaves the later Months’ own Contributions alone', () => {
     const contributed = recordContribution(household, '2026-08', holiday, ana, 5000).household
 
-    const { household: after, skipped } = propagateGoalEdit(contributed, '2026-07', holiday, {
+    const { household: after, changed } = propagateGoalEdit(contributed, '2026-07', holiday, {
       target: 400000,
     })
 
+    expect(changed).toContain('2026-08')
+    expect(holidayIn(after, '2026-08')!.target).toBe(400000)
     expect(holidayIn(after, '2026-08')!.contributions).toEqual({ [ana]: 5000 })
+  })
+
+  it('leaves alone a goal a member has answered for, and says so', () => {
+    const decided = confirmSavingsGoal(household, '2026-08', holiday).household
+
+    const { household: after, skipped } = propagateGoalEdit(decided, '2026-07', holiday, {
+      target: 400000,
+    })
+
+    expect(holidayIn(after, '2026-08')!.target).toBe(300000)
     expect(skipped).toContainEqual(expect.objectContaining({ month: '2026-08', reason: 'reviewed' }))
   })
 })

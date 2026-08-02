@@ -129,6 +129,14 @@ export function removeSavingsGoal(household: Household, key: MonthKey, id: RowId
  * What one Participant puts toward one goal in one Month, entered directly rather than
  * derived from anything: goals have no Split Rule. An amount of `null` takes the
  * Contribution back to nothing entered at all.
+ *
+ * It leaves the Unreviewed mark exactly as it found it. The mark is about the fields a
+ * goal *inherits* — its name, target, start amount and Participants — and a Contribution
+ * is none of them: opening a Month starts Contributions at nothing, the Drift diff never
+ * compares them, and a goal's edits do not carry them. Putting money in says nothing
+ * about whether anybody has checked the target it is measured against, and clearing the
+ * mark on the strength of it would tell both the review meter and Drift that somebody
+ * had.
  */
 export function recordContribution(
   household: Household,
@@ -148,7 +156,7 @@ export function recordContribution(
   if (amount === null) delete contributions[member]
   else contributions[member] = requireContribution(amount)
 
-  const row: SavingsGoal = { ...existing, contributions, reviewed: true }
+  const row: SavingsGoal = { ...existing, contributions }
   return { household: withGoals(household, month, replaceRow(month.goals, id, row)), row }
 }
 

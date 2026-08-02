@@ -260,12 +260,17 @@ describe('a Contribution', () => {
     expect(row.contributions).toEqual({})
   })
 
-  it('clears the Unreviewed mark — entering one is looking at the row', () => {
+  /**
+   * The mark is about the fields a goal inherits, and a Contribution is not one of them:
+   * putting money in says nothing about whether anybody has checked the target it is
+   * measured against.
+   */
+  it('leaves the Unreviewed mark alone — it answers for none of the inherited fields', () => {
     const opened = openMonth(household, '2026-08')
 
     const { row } = recordContribution(opened, '2026-08', id, ana, 5000)
 
-    expect(row.reviewed).toBe(true)
+    expect(row.reviewed).toBe(false)
   })
 
   it('is refused from somebody who is not a Participant of the goal', () => {
