@@ -3,6 +3,7 @@ import type { MemberId } from '../domain/index.js'
 
 const VIEWER_KEY = 'prometheus.viewer'
 const LEFTOVER_DISPLAY_KEY = 'prometheus.leftover-display'
+const EXPENSE_FILTER_KEY = 'prometheus.expense-filter'
 
 /** Which figure the Leftover Balance card leads with. */
 export type LeftoverDisplay = 'spendable' | 'total'
@@ -48,18 +49,47 @@ export function writeLeftoverDisplay(storage: Storage, display: LeftoverDisplay)
 }
 
 /**
- * The Viewer and the Leftover Balance display choice: two comforts for a shared machine,
- * held on this device alone. Read once at start-up and written straight back on every
- * change — there is no queue and no store, because neither is Household data.
+ * The Participant the Expenses list is narrowed to, or nothing for everyone. Held beside
+ * the Viewer and entirely apart from it: this asks what one member is in, which is a
+ * question anybody can ask about anybody without claiming to be them.
+ *
+ * It persists across Months on purpose. `MonthDashboard.vue` rebuilds its panels for each
+ * Month so that a half-typed edit cannot land in the wrong one, but a lens carries no such
+ * risk, and re-picking it every Month would defeat the cross-Month review it exists for.
+ */
+export function readExpenseFilter(storage: Storage): MemberId | undefined {
+  try {
+    return storage.getItem(EXPENSE_FILTER_KEY) ?? undefined
+  } catch {
+    return undefined
+  }
+}
+
+export function writeExpenseFilter(storage: Storage, member: MemberId | undefined): void {
+  try {
+    if (member) storage.setItem(EXPENSE_FILTER_KEY, member)
+    else storage.removeItem(EXPENSE_FILTER_KEY)
+  } catch {
+    // Left unwritten. The choice only fails to persist; nothing else depends on it.
+  }
+}
+
+/**
+ * The Viewer, the Leftover Balance display choice and the Expenses filter: comforts for a
+ * shared machine, held on this device alone. Read once at start-up and written straight
+ * back on every change — there is no queue and no store, because none of it is Household
+ * data, and none of it reaches an export.
  */
 export function devicePreferencesOver(storage: Storage) {
   const viewer = ref<MemberId | undefined>(readViewer(storage))
   const leftoverDisplay = ref<LeftoverDisplay>(readLeftoverDisplay(storage))
+  const expenseFilter = ref<MemberId | undefined>(readExpenseFilter(storage))
 
   watch(viewer, (member) => writeViewer(storage, member))
   watch(leftoverDisplay, (display) => writeLeftoverDisplay(storage, display))
+  watch(expenseFilter, (member) => writeExpenseFilter(storage, member))
 
-  return { viewer, leftoverDisplay }
+  return { viewer, leftoverDisplay, expenseFilter }
 }
 
 let preferences: ReturnType<typeof devicePreferencesOver> | undefined

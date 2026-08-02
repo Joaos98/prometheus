@@ -66,6 +66,9 @@ const source = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* Centred in the space beneath the masthead, so the width is claimed rather than
+     inherited from a column that is no longer there. */
+  width: 100%;
   max-width: 560px;
 }
 

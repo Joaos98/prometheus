@@ -9,7 +9,7 @@ import {
 } from '../../domain/index.js'
 import { editableAmount, readAmount, readPercentage } from '../amount.js'
 import { messageOf } from '../changes.js'
-import { RULE_CHOICES, type RuleValues } from '../split-rules.js'
+import { isIndividual, RULE_CHOICES, ruleFor, type RuleValues } from '../split-rules.js'
 
 const props = withDefaults(
   defineProps<{
@@ -126,11 +126,23 @@ function readAmountOrZero(entered: string): Minor {
   }
 }
 
+/**
+ * An Expense with exactly one Participant. Their Share is the whole of it whatever the
+ * rule says, so the choice is not offered and Even is what gets saved — the question has
+ * one possible answer, and asking it is how a member ends up in front of a complaint
+ * about a split with nothing left to divide.
+ */
+const individual = computed(() => isIndividual(participants.value))
+
+/** The rule this form will actually submit, which is what everything here judges. */
+const submittedRule = computed(() => ruleFor(participants.value, chosenRule()))
+
 /** The same judgement the engine will make on save, said while the split is still wrong. */
 const standing = computed(() => {
-  if (kind.value === 'even' || kind.value === 'proportional') return undefined
+  const rule = submittedRule.value
+  if (rule.kind === 'even' || rule.kind === 'proportional') return undefined
   try {
-    requireConsistentRule(chosenRule(), enteredAmount.value, participants.value, props.currency)
+    requireConsistentRule(rule, enteredAmount.value, participants.value, props.currency)
     return { adds: true, said: 'Adds up.' }
   } catch (cause) {
     return { adds: false, said: messageOf(cause) }
@@ -149,7 +161,7 @@ function save(): void {
       category: category.value,
       amount: readAmount(amount.value, props.currency),
       participants: participants.value,
-      splitRule: chosenRule(),
+      splitRule: submittedRule.value,
     })
   } catch (cause) {
     failure.value = messageOf(cause)
@@ -184,7 +196,9 @@ function save(): void {
       </label>
     </fieldset>
 
-    <fieldset>
+    <!-- Not asked of an individual expense: one Participant takes the whole of it under
+         every rule, so the choice would have one possible answer. -->
+    <fieldset v-if="!individual">
       <legend class="section-label">Split Rule</legend>
       <label v-for="choice in RULE_CHOICES" :key="choice.kind" class="choice" :title="choice.note">
         <input v-model="kind" :value="choice.kind" name="split-rule" type="radio" />
@@ -192,7 +206,7 @@ function save(): void {
       </label>
     </fieldset>
 
-    <div v-if="kind === 'percentage' || kind === 'fixed'" class="custom">
+    <div v-if="!individual && (kind === 'percentage' || kind === 'fixed')" class="custom">
       <label v-for="member in participantsIn" :key="member.id" class="value">
         <span class="secondary">{{ member.name }}</span>
         <input
@@ -217,7 +231,7 @@ function save(): void {
     <p v-if="standing" class="standing note" :class="{ short: !standing.adds }">
       {{ standing.said }}
     </p>
-    <p v-else-if="kind === 'proportional'" class="muted note">
+    <p v-else-if="!individual && kind === 'proportional'" class="muted note">
       Weighted by Spendable Income. Nobody earning this Month means it divides evenly instead.
     </p>
 

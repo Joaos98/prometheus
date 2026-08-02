@@ -22,3 +22,7 @@ And a toggle beside the Leftover Balance for whether Restricted-Use Income count
 - [x] The toggle changes no member's Share, and no proportional Split Rule reweights
 - [x] The toggle is a per-device display preference, not Household data
 - [x] Neither the Viewer nor the toggle appears in an export
+
+## Comments
+
+**Superseded in part by spec 0002, ticket 03.** The criterion "The Viewer defaults to nobody, and the dashboard is fully usable with no Viewer set" no longer holds: the picker never described the screen, since the rail already led with the Month's first member whenever nobody was picked. v1.1 removes the option and defaults to that same member. The other nine criteria stand unchanged — the Viewer is still per-device, still grants nothing, still hides nobody, and still appears in no export.

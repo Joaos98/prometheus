@@ -51,8 +51,10 @@ const incomeLabel = computed(() => (leftoverDisplay.value === 'total' ? 'Income'
 
 /**
  * The Viewer leads the rail, sorted first, when this device has picked one who is in
- * this Month. With no Viewer picked, the Month's own order stands in — the rail looked
- * exactly like this before ticket 17, and stays fully usable with nobody chosen.
+ * this Month. Where the picked Viewer is not among this Month's members, the Month's own
+ * order stands in — and the picker in the masthead reads that fallback back, so the
+ * control always names whoever is leading here. `ui/viewer.ts` holds the same rule from
+ * the picker's side; this is the side that decides it.
  */
 const ordered = computed(() => {
   const chosen = balances.value.find((balance) => balance.member === viewerId.value)

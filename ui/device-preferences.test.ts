@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   devicePreferencesOver,
+  readExpenseFilter,
   readLeftoverDisplay,
   readViewer,
+  writeExpenseFilter,
   writeLeftoverDisplay,
   writeViewer,
 } from './device-preferences.js'
@@ -71,6 +73,44 @@ describe('the Leftover Balance display', () => {
   })
 })
 
+describe('the Expenses filter', () => {
+  it('is everyone until this device picks a Participant', () => {
+    expect(readExpenseFilter(fakeStorage())).toBeUndefined()
+  })
+
+  it('is what was last written, read back', () => {
+    const storage = fakeStorage()
+    writeExpenseFilter(storage, 'ana')
+
+    expect(readExpenseFilter(storage)).toBe('ana')
+  })
+
+  it('goes back to everyone when written as nothing', () => {
+    const storage = fakeStorage()
+    writeExpenseFilter(storage, 'ana')
+    writeExpenseFilter(storage, undefined)
+
+    expect(readExpenseFilter(storage)).toBeUndefined()
+  })
+
+  it('is nothing to do with the Viewer — writing one leaves the other alone', () => {
+    const storage = fakeStorage()
+    writeViewer(storage, 'ana')
+    writeExpenseFilter(storage, 'bruno')
+
+    expect(readViewer(storage)).toBe('ana')
+    expect(readExpenseFilter(storage)).toBe('bruno')
+  })
+
+  it('does not touch a second device’s storage', () => {
+    const here = fakeStorage()
+    const there = fakeStorage()
+    writeExpenseFilter(here, 'ana')
+
+    expect(readExpenseFilter(there)).toBeUndefined()
+  })
+})
+
 describe('device preferences, reactively', () => {
   it('starts from what the device already has stored', () => {
     const storage = fakeStorage()
@@ -101,5 +141,27 @@ describe('device preferences, reactively', () => {
     await Promise.resolve()
 
     expect(readLeftoverDisplay(storage)).toBe('total')
+  })
+
+  it('writes the Expenses filter back to storage as it changes', async () => {
+    const storage = fakeStorage()
+    const preferences = devicePreferencesOver(storage)
+
+    preferences.expenseFilter.value = 'bruno'
+    await Promise.resolve()
+
+    expect(readExpenseFilter(storage)).toBe('bruno')
+  })
+
+  it('leaves the Viewer where it was when the filter changes', async () => {
+    const storage = fakeStorage()
+    writeViewer(storage, 'ana')
+    const preferences = devicePreferencesOver(storage)
+
+    preferences.expenseFilter.value = 'bruno'
+    await Promise.resolve()
+
+    expect(preferences.viewer.value).toBe('ana')
+    expect(readViewer(storage)).toBe('ana')
   })
 })

@@ -19,10 +19,12 @@ import {
 } from '../../domain/index.js'
 import { laterOpenedMonths, type Carrying } from '../carry-forward.js'
 import { useChanges } from '../changes.js'
+import { useDevicePreferences } from '../device-preferences.js'
 import { endingTag } from '../ending.js'
+import { filterNote, participantChoices, participantsIn } from '../expense-filter.js'
 import { useHousehold } from '../household.js'
 import { membersOf, nameOf } from '../members.js'
-import { ruleName } from '../split-rules.js'
+import { expenseCaption } from '../split-rules.js'
 import CarryForward from './CarryForward.vue'
 import ConfirmMark from './ConfirmMark.vue'
 import EndingQuestion from './EndingQuestion.vue'
@@ -84,12 +86,25 @@ const members = computed(() => membersOf(props.household, props.month))
 
 const later = computed(() => laterOpenedMonths(props.household, props.month.key))
 
+const { expenseFilter } = useDevicePreferences()
+
+/**
+ * The list narrowed to one Participant, and nothing else narrowed with it. This is a lens
+ * over this panel: the rail's Leftover Balances, its review meter and its entry count are
+ * facts about the Month and stay Month-wide, which is why the header has to say how much
+ * it is hiding.
+ *
+ * The filter never moves on its own. An Expense saved with Participants outside it leaves
+ * the list, and the count is what explains where it went.
+ */
+const shown = computed(() => participantsIn(props.month.expenses, expenseFilter.value))
+
 const rows = computed(() =>
-  props.month.expenses.map((expense) => {
+  shown.value.map((expense) => {
     const split = splitOf(props.month, expense)
     return {
       expense,
-      dividedEvenlyInstead: split.dividedEvenlyInstead,
+      caption: expenseCaption(expense, split.dividedEvenlyInstead),
       shares: split.shares.map((share) => ({
         name: nameOf(props.household, share.member),
         amount: share.amount,
@@ -98,14 +113,27 @@ const rows = computed(() =>
   }),
 )
 
+/** This Month's members, plus whoever is filtered on where this Month has not got them. */
+const choices = computed(() =>
+  participantChoices(members.value, expenseFilter.value, (member) =>
+    nameOf(props.household, member),
+  ),
+)
+
+const narrowed = computed(() =>
+  filterNote(expenseFilter.value, shown.value.length, props.month.expenses.length),
+)
+
+/** Whoever the list is narrowed to, named — for the sentence an empty list leaves behind. */
+const filteredName = computed(() =>
+  expenseFilter.value ? nameOf(props.household, expenseFilter.value) : undefined,
+)
+
 const money = (amount: Minor): string => formatAmount(amount, props.household.currency)
 
 /** Whether stopping this row here ends a run, or marks a cost that only ever was this one. */
 const ends = (id: RowId): boolean =>
   appearedBefore(props.household, props.month.key, 'expenses', id)
-
-const participantCount = (expense: ExpenseSnapshot): string =>
-  expense.participants.length === 1 ? '1 Participant' : `${expense.participants.length} Participants`
 
 /**
  * A change made from a form — or from the question a rename asks — which closes once it
@@ -197,9 +225,20 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
 <template>
   <MonthPanel title="Expenses">
     <template #header>
-      <button v-if="!adding" class="link-action" type="button" @click="adding = true">
-        + Add an Expense
-      </button>
+      <div class="lens">
+        <span v-if="narrowed" class="muted note">{{ narrowed }}</span>
+        <!-- Its own control, not the Viewer: this asks what one member is in, which is a
+             question anybody can ask about anybody. -->
+        <select v-model="expenseFilter" class="filter" aria-label="Show Expenses for">
+          <option :value="undefined">Everyone</option>
+          <option v-for="member in choices" :key="member.id" :value="member.id">
+            {{ member.name }}
+          </option>
+        </select>
+        <button v-if="!adding" class="link-action" type="button" @click="adding = true">
+          + Add an Expense
+        </button>
+      </div>
     </template>
 
     <p v-if="failure" class="failure note">{{ failure }}</p>
@@ -230,9 +269,16 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
       @save="(draft) => attempt(addExpense(month.key, draft))"
     />
 
-    <p v-if="rows.length === 0 && !adding" class="muted note">No Expenses in this Month yet.</p>
+    <p v-if="month.expenses.length === 0 && !adding" class="muted note">
+      No Expenses in this Month yet.
+    </p>
+    <!-- The filter stays where it was put, so an empty list says whose it is rather than
+         quietly clearing itself. -->
+    <p v-else-if="rows.length === 0 && !adding" class="muted note">
+      No Expenses in this Month have {{ filteredName }} as a Participant.
+    </p>
 
-    <template v-for="{ expense, shares, dividedEvenlyInstead } in rows" :key="expense.id">
+    <template v-for="{ expense, shares, caption } in rows" :key="expense.id">
       <RepurposeQuestion
         v-if="asking && held?.id === expense.id"
         :was="held.was"
@@ -270,16 +316,10 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
           </div>
 
           <div class="line rule">
-            <span class="muted">{{ ruleName(expense.splitRule) }}</span>
+            <span class="muted">{{ caption.lead }}</span>
             <span class="muted">·</span>
-            <span class="muted">{{ participantCount(expense) }}</span>
-            <span v-if="dividedEvenlyInstead" class="fallback">
-              {{
-                expense.splitRule.kind === 'fixed'
-                  ? 'The fixed amounts do not total the Expense — divided evenly'
-                  : 'No Spendable Income this Month — divided evenly'
-              }}
-            </span>
+            <span class="muted">{{ caption.participants }}</span>
+            <span v-if="caption.warning" class="fallback">{{ caption.warning }}</span>
           </div>
 
           <ul v-if="shares.length" class="shares">
@@ -316,6 +356,23 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
 </template>
 
 <style scoped>
+/* The panel's own controls: what is being hidden, the lens hiding it, and the way to add
+   a row. They wrap to a second line rather than squeezing the picker to a sliver. */
+.lens {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 6px 10px;
+}
+
+.filter {
+  width: auto;
+  max-width: 160px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
 .expense {
   display: flex;
   align-items: flex-start;

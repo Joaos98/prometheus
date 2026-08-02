@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { monthAt, type Household, type MonthKey } from '../../domain/index.js'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { monthAt, type Household, type MemberId, type MonthKey } from '../../domain/index.js'
 import DemoPanel from '../components/DemoPanel.vue'
 import ExpensesPanel from '../components/ExpensesPanel.vue'
 import GoalsPanel from '../components/GoalsPanel.vue'
@@ -9,6 +9,7 @@ import IncomePanel from '../components/IncomePanel.vue'
 import MonthDrift from '../components/MonthDrift.vue'
 import MonthNavigator from '../components/MonthNavigator.vue'
 import MonthRail from '../components/MonthRail.vue'
+import Modal from '../components/Modal.vue'
 import RosterPanel from '../components/RosterPanel.vue'
 import UnopenedMonth from '../components/UnopenedMonth.vue'
 import { useChanges } from '../changes.js'
@@ -16,6 +17,8 @@ import { CURRENCIES } from '../currencies.js'
 import { useDevicePreferences } from '../device-preferences.js'
 import { useHousehold } from '../household.js'
 import { thisMonth } from '../months.js'
+import { SETTINGS_TITLES, toggleSettings, type SettingsPanel } from '../settings.js'
+import { displayedViewer, viewerOptions, viewerToPin } from '../viewer.js'
 import logo from '../../prometheus-logo.svg'
 
 const props = defineProps<{ household: Household; viewing: MonthKey }>()
@@ -27,22 +30,44 @@ const { viewer } = useDevicePreferences()
 const month = computed(() => monthAt(props.household, props.viewing))
 
 /**
- * Only an active member can be picked as the Viewer — a Month past their departure
- * still names them, but this device's own preference is a Roster concern, not a Month
- * one. The already-picked Viewer stays listed even if deactivated since, so the
- * dropdown never shows "nobody" for a choice that is still standing.
+ * Whoever the rail is leading with: this device's pick where the Month has them, and the
+ * Month's own first member where it does not. The picker names that and nothing else, so
+ * it is never wrong about the screen. It is read, never written — a Month the pick is
+ * absent from substitutes on display and leaves storage alone.
  */
-const viewerOptions = computed(() =>
-  props.household.roster.filter((member) => member.active || member.id === viewer.value),
-)
+const naming = computed(() => displayedViewer(viewer.value, month.value, props.household.roster))
 
-/** Bridges the select's empty-string "nobody" option to the Viewer's own undefined. */
+/**
+ * Every active member, plus whoever is being named — a member deactivated since being
+ * picked, or a past Month's own member — so the control never shows a blank. There is no
+ * option for nobody: with nobody picked the rail still led with somebody, so the option
+ * named an absence that was never on screen.
+ */
+const options = computed(() => viewerOptions(props.household.roster, naming.value))
+
+/** Reads the rail's leader back; writes only what a member has actually picked. */
 const chosenViewer = computed({
-  get: () => viewer.value ?? '',
-  set: (value: string) => {
-    viewer.value = value === '' ? undefined : value
+  get: () => naming.value,
+  set: (value: MemberId) => {
+    viewer.value = value
   },
 })
+
+/**
+ * The one rule that pins a Viewer without anybody picking: the first load with an opened
+ * Month on screen names the member the rail was already leading with, so that the picker
+ * holds still afterwards rather than changing as a member steps between Months. It fires
+ * at most once — the moment anything is stored, there is nothing left to pin — and waits
+ * where the first Month seen is unopened.
+ */
+watch(
+  month,
+  (opened) => {
+    const pin = viewerToPin(viewer.value, opened)
+    if (pin) viewer.value = pin
+  },
+  { immediate: true },
+)
 
 /**
  * The Month the calendar is on. The engine will not guess it — only a Month after this one
@@ -69,10 +94,13 @@ onUnmounted(() => {
   document.removeEventListener('visibilitychange', catchUpWithTheCalendar)
 })
 
-const managingRoster = ref(false)
-const relabelling = ref(false)
-const transferring = ref(false)
-const explainingTheDemo = ref(false)
+/** The one settings modal open over the Month, if any. */
+const settings = ref<SettingsPanel | undefined>(undefined)
+
+function press(button: SettingsPanel): void {
+  settings.value = toggleSettings(settings.value, button)
+}
+
 const chosen = ref(props.household.currency.code)
 
 /** The chooser closes once the currency is relabelled, and stays open to say why not. */
@@ -80,7 +108,7 @@ async function saveCurrency(): Promise<void> {
   const currency = CURRENCIES.find((candidate) => candidate.code === chosen.value)
   if (!currency) return
   if (!(await report(relabel(currency)))) return
-  relabelling.value = false
+  settings.value = undefined
 }
 </script>
 
@@ -96,60 +124,71 @@ async function saveCurrency(): Promise<void> {
 
       <div class="side right">
         <select v-model="chosenViewer" aria-label="Viewer">
-          <option value="">Viewer: nobody</option>
-          <option v-for="member in viewerOptions" :key="member.id" :value="member.id">
+          <option v-for="member in options" :key="member.id" :value="member.id">
             Viewer: {{ member.name }}
           </option>
         </select>
-        <button class="button-quiet" type="button" @click="managingRoster = !managingRoster">
-          Roster
-        </button>
-        <button class="button-quiet" type="button" @click="transferring = !transferring">
+        <button class="button-quiet" type="button" @click="press('roster')">Roster</button>
+        <button class="button-quiet" type="button" @click="press('household-file')">
           Household file
         </button>
-        <button class="button-quiet" type="button" @click="relabelling = !relabelling">
+        <button class="button-quiet" type="button" @click="press('currency')">
           {{ household.currency.code }} {{ household.currency.symbol.trim() }}
         </button>
-        <button
-          v-if="seeded"
-          class="button-quiet"
-          type="button"
-          @click="explainingTheDemo = !explainingTheDemo"
-        >
+        <button v-if="seeded" class="button-quiet" type="button" @click="press('demo')">
           Demo
         </button>
       </div>
     </header>
 
-    <div v-if="explainingTheDemo" class="card">
-      <DemoPanel />
-    </div>
+    <!--
+      None of these is about the Month, so none of them renders in its flow. They open
+      over the page and the Month stays exactly where it was.
 
-    <div v-if="managingRoster" class="card">
-      <RosterPanel :household="household" />
-    </div>
+      One modal element for all four, keyed on which panel is open so that pressing a
+      second button builds a fresh one — the primitive remembers the control that opened
+      it, and reusing an instance would send focus back to the wrong button on close.
+    -->
+    <Modal
+      v-if="settings"
+      :key="settings"
+      :title="SETTINGS_TITLES[settings]"
+      @close="settings = undefined"
+    >
+      <DemoPanel v-if="settings === 'demo'" />
 
-    <div v-if="transferring" class="card">
-      <HouseholdFile :household="household" />
-    </div>
+      <RosterPanel v-else-if="settings === 'roster'" :household="household" />
 
-    <div v-if="relabelling" class="card relabel">
-      <p class="muted note">
-        Relabelling converts no amount, so a currency held to a different number of decimals is
-        refused.
-      </p>
-      <div class="relabel-controls">
-        <select v-model="chosen" aria-label="Currency">
-          <option v-for="currency in CURRENCIES" :key="currency.code" :value="currency.code">
-            {{ currency.code }} — {{ currency.symbol.trim() }}
-          </option>
-        </select>
-        <button class="button-primary" type="button" @click="saveCurrency">Relabel</button>
+      <!-- An import that lands leaves this open, still carrying the sentence
+           `HouseholdFile.vue` prints. Dismissing it reveals the Household that arrived. -->
+      <HouseholdFile v-else-if="settings === 'household-file'" :household="household" />
+
+      <div v-else class="relabel">
+        <p class="muted note">
+          Relabelling converts no amount, so a currency held to a different number of decimals is
+          refused.
+        </p>
+        <div class="relabel-controls">
+          <select v-model="chosen" aria-label="Currency">
+            <option v-for="currency in CURRENCIES" :key="currency.code" :value="currency.code">
+              {{ currency.code }} — {{ currency.symbol.trim() }}
+            </option>
+          </select>
+          <button class="button-primary" type="button" @click="saveCurrency">Relabel</button>
+        </div>
+        <p v-if="failure" class="failure note">{{ failure }}</p>
       </div>
-      <p v-if="failure" class="failure note">{{ failure }}</p>
-    </div>
+    </Modal>
 
-    <UnopenedMonth v-if="!month" :household="household" :viewing="viewing" />
+    <!--
+      The card is the only thing on this page — no rail, no columns — so it takes the
+      whole of what is left beneath the masthead and sits in the middle of it. Anchored
+      to the corner instead, a Month nobody has opened reads as a layout that failed to
+      load rather than a Month that is genuinely empty.
+    -->
+    <div v-if="!month" class="empty-month">
+      <UnopenedMonth :household="household" :viewing="viewing" />
+    </div>
 
     <template v-else>
       <MonthDrift :household="household" :viewing="viewing" :now="now" />
@@ -187,7 +226,7 @@ async function saveCurrency(): Promise<void> {
 
 <style scoped>
 .dashboard {
-  min-height: 100%;
+  flex: 1;
   padding: 16px 20px;
   display: flex;
   flex-direction: column;
@@ -228,6 +267,13 @@ async function saveCurrency(): Promise<void> {
 .mark {
   width: 22px;
   height: 22px;
+}
+
+.empty-month {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .relabel {
