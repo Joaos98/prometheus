@@ -362,7 +362,6 @@ export function householdOver(store: HouseholdStore, seed?: Seed) {
     })
   }
 
-  /** Sets a row's One-Off mark, one row at a time. */
   function markIncomeAsOneOff(month: MonthKey, id: RowId, oneOff: boolean): Promise<void> {
     return changing(async (loaded) => {
       const { household: after, row } = setIncomeOneOff(loaded, month, id, oneOff)
@@ -433,7 +432,6 @@ export function householdOver(store: HouseholdStore, seed?: Seed) {
     })
   }
 
-  /** Sets an Expense's One-Off mark, one row at a time. */
   function markExpenseAsOneOff(month: MonthKey, id: RowId, oneOff: boolean): Promise<void> {
     return changing(async (loaded) => {
       const { household: after, row } = setExpenseOneOff(loaded, month, id, oneOff)
@@ -476,7 +474,6 @@ export function householdOver(store: HouseholdStore, seed?: Seed) {
     })
   }
 
-  /** Sets a goal's One-Off mark, one row at a time. */
   function markGoalAsOneOff(month: MonthKey, id: RowId, oneOff: boolean): Promise<void> {
     return changing(async (loaded) => {
       const { household: after, row } = setGoalOneOff(loaded, month, id, oneOff)

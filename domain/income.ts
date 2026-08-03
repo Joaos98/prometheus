@@ -167,9 +167,8 @@ export function spendableIncomeShares(
   month: Month,
 ): { member: MemberId; percent: number }[] | undefined {
   const incomes = month.members.map((member) => spendableIncome(month, member))
-  if (householdSpendableIncome(month) <= 0 || incomes.some((income) => income < 0)) {
-    return undefined
-  }
+  const total = incomes.reduce((running, income) => running + income, 0)
+  if (total <= 0 || incomes.some((income) => income < 0)) return undefined
 
   const percentages = apportion(100, incomes.map((income) => BigInt(income)))
   return month.members.map((member, at) => ({ member, percent: percentages[at]! }))
