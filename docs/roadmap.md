@@ -1,14 +1,13 @@
 # Roadmap
 
 Spec 0001 is the MVP, and it shipped as **v1.0**; spec 0002 is the first five items below,
-and it shipped as **v1.1**; spec 0003 is the v1.2 block, refined and waiting to be built.
+and it shipped as **v1.1**; spec 0003 is the v1.2 block, and it shipped as **v1.2**.
 This is the list of what comes after v1.0 — not a set of tickets. Except where an item
 names a spec, nothing here is `ready-for-agent`: it still has to be written up under
 `docs/specs/`, with acceptance criteria, before an agent can pick it up.
 
 **Status:** needs-triage — every item on this page that has not been promoted to a spec.
-The v1.1 block is kept for the record: it is `done`, not work waiting. So is the v1.2
-block, which is `ready-for-agent` as spec 0003 and includes one item refinement rejected.
+The v1.1 and v1.2 blocks are kept for the record: both are `done`, not work waiting.
 
 The grouping into v1.1, v1.2 and so on is a first guess at sequencing, not a commitment:
 items are grouped by what they touch, roughly cheapest and most contained first. Move
@@ -31,15 +30,15 @@ record what was built and how it was checked. In brief:
 - **Remove the "Viewer: nobody" option**, which never described a screen the rail was
   already leading with somebody on.
 
-## v1.2 — touches the domain, not the stored shape
+## v1.2 — touches the domain, not the stored shape — **shipped**
 
 This changes what the engine offers and what a form can set, but stores nothing new.
 Dearer than v1.1, which is UI alone, and short of a migration.
 
-**Promoted to [spec 0003](specs/0003-v1-2-one-off-marks-and-income-totals/spec.md),
-`ready-for-agent`, four tickets** — two items, not the three below: the third was rejected
-during refinement and is kept here with its reasoning. The spec records what was decided
-and what was declined.
+**Built as [spec 0003](specs/0003-v1-2-one-off-marks-and-income-totals/spec.md), `done`,
+all four tickets `done`** — two items, not the three below: the third was rejected during
+refinement and is kept here with its reasoning. The spec records what was decided and what
+was declined; each ticket's comments record what was built and how it was checked.
 
 - **One-Off and Ends Here: settable at creation, and clearable.** Marking a row so that
   the next Month opened does not inherit it is a second step after adding it; this lets it

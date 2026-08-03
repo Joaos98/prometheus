@@ -1,6 +1,6 @@
 # Spec 0003 — v1.2: One-Off marks and the household's income total
 
-Status: ready-for-agent — four tickets, `01`–`04`
+Status: done — shipped as v1.2, all four tickets `done`
 
 The v1.2 block of [the roadmap](../../roadmap.md), refined into a spec. Vocabulary is
 [CONTEXT.md](../../../CONTEXT.md); the dashboard layout this works within is

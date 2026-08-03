@@ -2,7 +2,7 @@
 
 A household finance tracker built on the snapshot model. See `prometheus-system-plan.md` for what it does, `CONTEXT.md` for the binding vocabulary, and `docs/adr/` for the decisions behind the model.
 
-The MVP is built and shipped as v1.0: `docs/specs/0001-mvp/spec.md` is `done`, and so is every one of its nineteen tickets. `docs/specs/0002-v1-1-dashboard-refinements/` is `done` too, shipped as v1.1 — five UI refinements to the dashboard, with no domain or storage change between them. What comes next is `docs/roadmap.md`, from v1.2 down. The code lives in `domain/` (the engine, free of framework and I/O), `storage/` (the port and its two adapters), `ui/` (Vue 3), `server/` (static files plus row CRUD over SQLite) and `demo/` (the seed, which drives the domain as a member would and runs in CI as a test).
+The MVP is built and shipped as v1.0: `docs/specs/0001-mvp/spec.md` is `done`, and so is every one of its nineteen tickets. `docs/specs/0002-v1-1-dashboard-refinements/` is `done` too, shipped as v1.1 — five UI refinements to the dashboard, with no domain or storage change between them. `docs/specs/0003-v1-2-one-off-marks-and-income-totals/` is `done` as well, shipped as v1.2 — the One-Off mark made two-way and settable at creation, and the Income panel's household total and per-member percentages — both changing what the engine offers without storing anything new. What comes next is `docs/roadmap.md`, from v1.3 down. The code lives in `domain/` (the engine, free of framework and I/O), `storage/` (the port and its two adapters), `ui/` (Vue 3), `server/` (static files plus row CRUD over SQLite) and `demo/` (the seed, which drives the domain as a member would and runs in CI as a test).
 
 ## Agent skills
 
