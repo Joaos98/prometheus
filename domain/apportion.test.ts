@@ -64,4 +64,8 @@ describe('apportion', () => {
   it('is each zero for a total of zero, which is an answer', () => {
     expect(apportion(0, [1n, 1n])).toEqual([0, 0])
   })
+
+  it('refuses weights that all come to nothing, rather than dividing by zero', () => {
+    expect(() => apportion(100, [0n, 0n])).toThrow('weights must not all be zero')
+  })
 })

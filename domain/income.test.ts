@@ -34,6 +34,21 @@ beforeEach(() => {
 
 const incomeIn = (of: Household, month = '2026-07') => monthAt(of, month)!.income
 
+/** A three-member Household, for the tests that need more than Ana and Bruno. */
+function setUpThreeMembers(): { household: Household; ada: MemberId; bruno: MemberId; cleo: MemberId } {
+  const household = setUpHousehold({
+    currency: euro,
+    memberNames: ['Ada', 'Bruno', 'Cleo'],
+    startingMonth: '2026-07',
+  })
+  const [ada, bruno, cleo] = household.roster.map((member) => member.id) as [
+    MemberId,
+    MemberId,
+    MemberId,
+  ]
+  return { household, ada, bruno, cleo }
+}
+
 describe('recording income', () => {
   it('records one named source, the member it belongs to, its amount and its use', () => {
     const { household: after } = addIncomeSnapshot(household, '2026-07', {
@@ -327,16 +342,7 @@ describe('the Household’s Spendable Income', () => {
 
 describe('shares of the Household’s Spendable Income', () => {
   it('sum to exactly 100, in the Month’s member order, including a member at zero', () => {
-    const threeMembers = setUpHousehold({
-      currency: euro,
-      memberNames: ['Ada', 'Bruno', 'Cleo'],
-      startingMonth: '2026-07',
-    })
-    const [ada, brunoId, cleo] = threeMembers.roster.map((member) => member.id) as [
-      MemberId,
-      MemberId,
-      MemberId,
-    ]
+    const { household: threeMembers, ada, bruno: brunoId, cleo } = setUpThreeMembers()
     const after = addIncomeSnapshot(threeMembers, '2026-07', {
       name: 'Salary',
       member: ada,
@@ -353,16 +359,7 @@ describe('shares of the Household’s Spendable Income', () => {
   })
 
   it('gives three equal incomes 34, 33 and 33, the extra point falling to the first by member order — the same determinism sharesOf relies on', () => {
-    const threeMembers = setUpHousehold({
-      currency: euro,
-      memberNames: ['Ada', 'Bruno', 'Cleo'],
-      startingMonth: '2026-07',
-    })
-    const [ada, brunoId, cleo] = threeMembers.roster.map((member) => member.id) as [
-      MemberId,
-      MemberId,
-      MemberId,
-    ]
+    const { household: threeMembers, ada, bruno: brunoId, cleo } = setUpThreeMembers()
     let after = addIncomeSnapshot(threeMembers, '2026-07', {
       name: 'Salary',
       member: ada,

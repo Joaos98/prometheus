@@ -105,3 +105,18 @@ numbers.
 
 Checked with `npx vue-tsc --noEmit` (clean) and `npx vitest run` (622 tests passing, up from
 606), including `demo/seed.test.ts`.
+
+**A self-review pass after the first commit found and fixed four things.** `apportion`
+divided by zero (a native, opaque `RangeError`) when its weights summed to zero; both current
+call sites already guard against reaching it, but it is now a shared, publicly-exported
+function per this ticket's own design, so a future caller has no reason to know that
+precondition exists. It now throws a named error instead, with a test locking in the message.
+`floorDivide` and `compare` had been left `export`ed during the extraction though nothing
+outside `apportion.ts` uses them — they went back to module-private, as they were in `shares.ts`
+before. `spendableIncomeShares` recomputed the Household's total independently of
+`householdSpendableIncome` sitting five lines above it; it now calls it, so there is one
+definition of the total rather than two that could drift apart. And the negative-amount
+arithmetic case that moved out of `shares.test.ts` into `apportion.test.ts` left `divide`'s
+own participant-pairing zip unexercised at the `sharesOf` level — a negative-amount test was
+added back to `shares.test.ts` to close that. Re-checked after: `npx vue-tsc --noEmit` clean,
+`npx vitest run` 624 tests passing.

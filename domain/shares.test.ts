@@ -62,6 +62,13 @@ describe('the Shares of an Expense', () => {
     ])
   })
 
+  it('divides a negative amount exactly, as a correction against a cost, and sums to it', () => {
+    const shares = sharesOf(month, expenseOf(-10000, [ana, bruno, cleo]))
+
+    expect(amountsOf(shares)).toEqual([-3333, -3333, -3334])
+    expect(shares.reduce((total, share) => total + share.amount, 0)).toBe(-10000)
+  })
+
   it('are each zero for an Expense of zero, which is an answer', () => {
     const shares = sharesOf(month, expenseOf(0, [ana, bruno]))
 
