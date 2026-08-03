@@ -1,3 +1,4 @@
+import { apportion } from './apportion.js'
 import { spendableIncome } from './income.js'
 import { basisPointsOf } from './split-rules.js'
 import type { ExpenseSnapshot, MemberId, Minor, Month } from './types.js'
@@ -94,42 +95,13 @@ export function splitOf(month: Month, expense: ExpenseSnapshot): Split {
 }
 
 /**
- * Largest remainder, in exact integer arithmetic — no floating point anywhere near a
- * Share. With every weight equal this is an even division; the weighted rules of ticket
- * 04 hand it different weights and inherit the same exactness.
+ * The amount apportioned by largest remainder and paired with each Participant, in the
+ * Month's own member order — which is what makes a tie between equal fractional parts
+ * fall the same way every time the Month is rendered.
  */
 function divide(amount: Minor, participants: MemberId[], weights: bigint[]): Share[] {
-  const total = weights.reduce((running, weight) => running + weight, 0n)
-  const scaled = BigInt(amount)
-
-  const floors = weights.map((weight) => floorDivide(scaled * weight, total))
-  const placed = floors.reduce((running, share) => running + share, 0n)
-
-  /** What the floors left behind, and who has the strongest claim to each unit of it. */
-  const claims = weights
-    .map((weight, at) => ({ at, remainder: scaled * weight - floors[at]! * total }))
-    .sort((one, other) => compare(other.remainder, one.remainder))
-
-  const shares = floors.slice()
-  let leftover = scaled - placed
-  for (const claim of claims) {
-    if (leftover <= 0n) break
-    shares[claim.at] = shares[claim.at]! + 1n
-    leftover -= 1n
-  }
-
-  return participants.map((member, at) => ({ member, amount: Number(shares[at]!) }))
-}
-
-/** Integer division that rounds toward negative infinity, so remainders stay positive. */
-function floorDivide(dividend: bigint, divisor: bigint): bigint {
-  const quotient = dividend / divisor
-  const inexact = dividend % divisor !== 0n
-  return inexact && dividend < 0n !== divisor < 0n ? quotient - 1n : quotient
-}
-
-function compare(one: bigint, other: bigint): number {
-  return one === other ? 0 : one > other ? 1 : -1
+  const amounts = apportion(amount, weights)
+  return participants.map((member, at) => ({ member, amount: amounts[at]! }))
 }
 
 /**

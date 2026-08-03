@@ -39,8 +39,6 @@ function expenseOf(amount: Minor | null, participants: MemberId[]): ExpenseSnaps
 
 const amountsOf = (shares: { amount: Minor }[]): Minor[] => shares.map((share) => share.amount)
 
-const sum = (amounts: Minor[]): Minor => amounts.reduce((total, amount) => total + amount, 0)
-
 describe('the Shares of an Expense', () => {
   it('give a single Participant the whole amount — this is how an individual cost is recorded', () => {
     const shares = sharesOf(month, expenseOf(4599, [ana]))
@@ -54,19 +52,6 @@ describe('the Shares of an Expense', () => {
     expect(amountsOf(shares)).toEqual([3000, 3000, 3000])
   })
 
-  it('sum to exactly the amount when it does not divide evenly', () => {
-    const shares = sharesOf(month, expenseOf(10000, [ana, bruno, cleo]))
-
-    expect(amountsOf(shares)).toEqual([3334, 3333, 3333])
-    expect(sum(amountsOf(shares))).toBe(10000)
-  })
-
-  it('place the leftover cents one each, never all on the same Participant', () => {
-    const shares = sharesOf(month, expenseOf(10001, [ana, bruno, cleo]))
-
-    expect(amountsOf(shares)).toEqual([3334, 3334, 3333])
-  })
-
   it('break the tie by the Month’s member order, whatever order the Participants were given in', () => {
     const shares = sharesOf(month, expenseOf(10000, [cleo, bruno, ana]))
 
@@ -75,39 +60,6 @@ describe('the Shares of an Expense', () => {
       { member: bruno, amount: 3333 },
       { member: cleo, amount: 3333 },
     ])
-  })
-
-  it('sum to exactly the amount for every amount and every number of Participants', () => {
-    const everyone = [ana, bruno, cleo]
-
-    for (let amount = 0; amount <= 500; amount++) {
-      for (let count = 1; count <= everyone.length; count++) {
-        const participants = everyone.slice(0, count)
-        const total = sum(amountsOf(sharesOf(month, expenseOf(amount, participants))))
-        expect(total, `${amount} among ${count}`).toBe(amount)
-      }
-    }
-  })
-
-  it('divide a negative amount exactly, as a correction against a cost', () => {
-    const shares = sharesOf(month, expenseOf(-10000, [ana, bruno, cleo]))
-
-    expect(amountsOf(shares)).toEqual([-3333, -3333, -3334])
-    expect(sum(amountsOf(shares))).toBe(-10000)
-  })
-
-  it('never leave any Participant more than a cent from their exact share', () => {
-    const shares = sharesOf(month, expenseOf(10000, [ana, bruno, cleo]))
-
-    for (const share of shares) {
-      expect(Math.abs(share.amount - 10000 / 3)).toBeLessThan(1)
-    }
-  })
-
-  it('are the same twice over for the same Month data', () => {
-    const expense = expenseOf(10000, [ana, bruno, cleo])
-
-    expect(sharesOf(month, expense)).toEqual(sharesOf(month, expense))
   })
 
   it('are each zero for an Expense of zero, which is an answer', () => {

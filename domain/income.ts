@@ -1,3 +1,4 @@
+import { apportion } from './apportion.js'
 import { DomainError } from './errors.js'
 import { mintId } from './identity.js'
 import {
@@ -140,6 +141,38 @@ export function totalIncome(month: Month, member: MemberId): Minor {
   return month.income
     .filter((row) => row.member === member)
     .reduce((total, row) => total + (row.amount ?? 0), 0)
+}
+
+/**
+ * The Household's Spendable Income for the Month — the sum of every member's, excluding
+ * Restricted-Use throughout and counting a Pending row as nothing, exactly as
+ * `spendableIncome` already has it. So the total understates while any income is Pending.
+ */
+export function householdSpendableIncome(month: Month): Minor {
+  return month.members.reduce((total, member) => total + spendableIncome(month, member), 0)
+}
+
+/**
+ * Each member's share of the Household's Spendable Income as a whole percent, apportioned
+ * by largest remainder so the percentages sum to exactly 100. One entry per member of the
+ * Month, in the Month's own member order, including any at zero.
+ *
+ * Returns `undefined` when there are no percentages that could be true: when the total is
+ * not positive, or when any member's Spendable Income is negative. Clamping a negative
+ * income to zero, the way a proportional Split Rule does when weighting, would give that
+ * member 100% beside a figure larger than the total it is supposedly a share of — right
+ * for a weighting, wrong for a readout. This figure is a readout, so it refuses instead.
+ */
+export function spendableIncomeShares(
+  month: Month,
+): { member: MemberId; percent: number }[] | undefined {
+  const incomes = month.members.map((member) => spendableIncome(month, member))
+  const total = incomes.reduce((running, income) => running + income, 0)
+
+  if (total <= 0 || incomes.some((income) => income < 0)) return undefined
+
+  const percentages = apportion(100, incomes.map((income) => BigInt(income)))
+  return month.members.map((member, at) => ({ member, percent: percentages[at]! }))
 }
 
 /** The Month's income row of that identity, or nothing if this Month is not on its thread. */

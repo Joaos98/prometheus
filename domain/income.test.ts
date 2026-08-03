@@ -4,9 +4,11 @@ import { setUpHousehold } from './household.js'
 import {
   addIncomeSnapshot,
   editIncomeSnapshot,
+  householdSpendableIncome,
   setIncomeOneOff,
   removeIncomeSnapshot,
   spendableIncome,
+  spendableIncomeShares,
   totalIncome,
 } from './income.js'
 import { monthAt, openMonth } from './month.js'
@@ -273,6 +275,175 @@ describe('total Income', () => {
 
   it('is nothing for a member with no income at all', () => {
     expect(totalIncome(monthAt(household, '2026-07')!, ana)).toBe(0)
+  })
+})
+
+describe('the Household’s Spendable Income', () => {
+  it('is the sum of every member’s Spendable Income', () => {
+    let after = addIncomeSnapshot(household, '2026-07', {
+      name: 'Salary',
+      member: ana,
+      amount: 320000,
+    }).household
+    after = addIncomeSnapshot(after, '2026-07', {
+      name: 'Salary',
+      member: bruno,
+      amount: 180000,
+    }).household
+
+    expect(householdSpendableIncome(monthAt(after, '2026-07')!)).toBe(500000)
+  })
+
+  it('excludes Restricted-Use Income, as spendableIncome already does', () => {
+    let after = addIncomeSnapshot(household, '2026-07', {
+      name: 'Salary',
+      member: ana,
+      amount: 320000,
+    }).household
+    after = addIncomeSnapshot(after, '2026-07', {
+      name: 'Meal vouchers',
+      member: bruno,
+      amount: 22000,
+      restrictedUse: true,
+    }).household
+
+    expect(householdSpendableIncome(monthAt(after, '2026-07')!)).toBe(320000)
+  })
+
+  it('counts a Pending row as nothing, so it understates while any income is Pending', () => {
+    const after = addIncomeSnapshot(household, '2026-07', {
+      name: 'Bonus',
+      member: ana,
+      amount: null,
+    }).household
+
+    expect(householdSpendableIncome(monthAt(after, '2026-07')!)).toBe(0)
+  })
+
+  it('is nothing for a Household with no income at all', () => {
+    expect(householdSpendableIncome(monthAt(household, '2026-07')!)).toBe(0)
+  })
+})
+
+describe('shares of the Household’s Spendable Income', () => {
+  it('sum to exactly 100, in the Month’s member order, including a member at zero', () => {
+    const threeMembers = setUpHousehold({
+      currency: euro,
+      memberNames: ['Ada', 'Bruno', 'Cleo'],
+      startingMonth: '2026-07',
+    })
+    const [ada, brunoId, cleo] = threeMembers.roster.map((member) => member.id) as [
+      MemberId,
+      MemberId,
+      MemberId,
+    ]
+    const after = addIncomeSnapshot(threeMembers, '2026-07', {
+      name: 'Salary',
+      member: ada,
+      amount: 100000,
+    }).household
+
+    const shares = spendableIncomeShares(monthAt(after, '2026-07')!)
+
+    expect(shares).toEqual([
+      { member: ada, percent: 100 },
+      { member: brunoId, percent: 0 },
+      { member: cleo, percent: 0 },
+    ])
+  })
+
+  it('gives three equal incomes 34, 33 and 33, the extra point falling to the first by member order — the same determinism sharesOf relies on', () => {
+    const threeMembers = setUpHousehold({
+      currency: euro,
+      memberNames: ['Ada', 'Bruno', 'Cleo'],
+      startingMonth: '2026-07',
+    })
+    const [ada, brunoId, cleo] = threeMembers.roster.map((member) => member.id) as [
+      MemberId,
+      MemberId,
+      MemberId,
+    ]
+    let after = addIncomeSnapshot(threeMembers, '2026-07', {
+      name: 'Salary',
+      member: ada,
+      amount: 100000,
+    }).household
+    after = addIncomeSnapshot(after, '2026-07', {
+      name: 'Salary',
+      member: brunoId,
+      amount: 100000,
+    }).household
+    after = addIncomeSnapshot(after, '2026-07', {
+      name: 'Salary',
+      member: cleo,
+      amount: 100000,
+    }).household
+
+    const shares = spendableIncomeShares(monthAt(after, '2026-07')!)
+
+    expect(shares).toEqual([
+      { member: ada, percent: 34 },
+      { member: brunoId, percent: 33 },
+      { member: cleo, percent: 33 },
+    ])
+  })
+
+  it('is the same on every call', () => {
+    const after = addIncomeSnapshot(household, '2026-07', {
+      name: 'Salary',
+      member: ana,
+      amount: 100000,
+    }).household
+    const month = monthAt(after, '2026-07')!
+
+    expect(spendableIncomeShares(month)).toEqual(spendableIncomeShares(month))
+  })
+
+  it('is undefined when the Household has no Spendable Income at all', () => {
+    expect(spendableIncomeShares(monthAt(household, '2026-07')!)).toBeUndefined()
+  })
+
+  it('is undefined when the total is negative', () => {
+    const after = addIncomeSnapshot(household, '2026-07', {
+      name: 'Correction',
+      member: ana,
+      amount: -5000,
+    }).household
+
+    expect(spendableIncomeShares(monthAt(after, '2026-07')!)).toBeUndefined()
+  })
+
+  it('is undefined when any one member’s Spendable Income is negative, even though the total is positive', () => {
+    let after = addIncomeSnapshot(household, '2026-07', {
+      name: 'Salary',
+      member: ana,
+      amount: 100000,
+    }).household
+    after = addIncomeSnapshot(after, '2026-07', {
+      name: 'Correction',
+      member: bruno,
+      amount: -20000,
+    }).household
+
+    expect(spendableIncomeShares(monthAt(after, '2026-07')!)).toBeUndefined()
+  })
+
+  it('gives a one-member Household a single entry of 100', () => {
+    const solo = setUpHousehold({
+      currency: euro,
+      memberNames: ['Ana'],
+      startingMonth: '2026-07',
+    })
+    const soloAna = solo.roster[0]!.id
+    const after = addIncomeSnapshot(solo, '2026-07', {
+      name: 'Salary',
+      member: soloAna,
+      amount: 100000,
+    }).household
+
+    expect(spendableIncomeShares(monthAt(after, '2026-07')!)).toEqual([
+      { member: soloAna, percent: 100 },
+    ])
   })
 })
 

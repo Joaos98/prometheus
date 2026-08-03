@@ -15,6 +15,7 @@ export {
   type RowDrift,
   type RowDriftState,
 } from './drift.js'
+export { apportion } from './apportion.js'
 export { DomainError } from './errors.js'
 export {
   addExpenseSnapshot,
@@ -51,9 +52,11 @@ export {
   addIncomeSnapshot,
   confirmIncomeSnapshot,
   editIncomeSnapshot,
+  householdSpendableIncome,
   setIncomeOneOff,
   removeIncomeSnapshot,
   spendableIncome,
+  spendableIncomeShares,
   totalIncome,
   type IncomeDraft,
   type IncomeEdits,
