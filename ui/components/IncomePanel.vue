@@ -86,7 +86,7 @@ async function remove(source: IncomeSnapshot): Promise<void> {
 
 async function endRun(): Promise<void> {
   if (!ended.value) return
-  await report(markIncomeAsOneOff(ended.value.from, ended.value.id))
+  await report(markIncomeAsOneOff(ended.value.from, ended.value.id, true))
   ended.value = undefined
 }
 
@@ -172,7 +172,7 @@ async function saveEdit(source: IncomeSnapshot, edits: IncomeEdits): Promise<voi
               v-if="!isOneOff(source)"
               :name="source.name"
               :ending="ends(source.id)"
-              @click="report(markIncomeAsOneOff(month.key, source.id))"
+              @click="report(markIncomeAsOneOff(month.key, source.id, true))"
             />
             <button
               class="row-action tip"

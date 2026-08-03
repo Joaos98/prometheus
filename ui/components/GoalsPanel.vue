@@ -61,7 +61,7 @@ async function remove(goal: SavingsGoal): Promise<void> {
 
 async function endRun(): Promise<void> {
   if (!ended.value) return
-  await report(markGoalAsOneOff(ended.value.from, ended.value.id))
+  await report(markGoalAsOneOff(ended.value.from, ended.value.id, true))
   ended.value = undefined
 }
 
@@ -241,7 +241,7 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
           v-if="!isOneOff(goal)"
           :name="goal.name"
           :ending="ends(goal.id)"
-          @click="report(markGoalAsOneOff(month.key, goal.id))"
+          @click="report(markGoalAsOneOff(month.key, goal.id, true))"
         />
         <button
           class="row-action remove tip"

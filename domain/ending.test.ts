@@ -6,7 +6,7 @@
  * is why this is a question asked of the record rather than a second flag stored on it.
  */
 import { beforeEach, describe, expect, it } from 'vitest'
-import { addExpenseSnapshot, markExpenseOneOff, removeExpenseSnapshot } from './expenses.js'
+import { addExpenseSnapshot, setExpenseOneOff, removeExpenseSnapshot } from './expenses.js'
 import { setUpHousehold } from './household.js'
 import { addIncomeSnapshot } from './income.js'
 import { discardMonth, openMonth } from './month.js'
@@ -45,7 +45,7 @@ describe('a row that has been running', () => {
   })
 
   it('still has a past once the mark is on it — the mark says nothing about where it began', () => {
-    const ending = markExpenseOneOff(household, '2026-08', rent).household
+    const ending = setExpenseOneOff(household, '2026-08', rent, true).household
 
     expect(appearedBefore(ending, '2026-08', 'expenses', rent)).toBe(true)
   })
@@ -68,6 +68,18 @@ describe('a row recorded in this Month', () => {
     })
 
     expect(appearedBefore(plumber.household, '2026-08', 'expenses', plumber.row.id)).toBe(false)
+  })
+
+  it('is a One-Off rather than Ends Here even when marked at creation', () => {
+    const deposit = addExpenseSnapshot(household, '2026-08', {
+      name: 'Flight deposit',
+      category: 'Travel',
+      amount: 24000,
+      participants: [ana],
+      oneOff: true,
+    })
+
+    expect(appearedBefore(deposit.household, '2026-08', 'expenses', deposit.row.id)).toBe(false)
   })
 
   it('has no past in the Household’s earliest Month, which has nothing before it', () => {

@@ -4,7 +4,7 @@ import { setUpHousehold } from './household.js'
 import {
   addIncomeSnapshot,
   editIncomeSnapshot,
-  markIncomeOneOff,
+  setIncomeOneOff,
   removeIncomeSnapshot,
   spendableIncome,
   totalIncome,
@@ -373,19 +373,44 @@ describe('marking income One-Off', () => {
     expect(isOneOff(row)).toBe(false)
   })
 
-  it('marks a row One-Off without changing any other field', () => {
+  it('sets a row One-Off without changing any other field', () => {
     const { household: after, row } = addIncomeSnapshot(household, '2026-07', {
       name: 'Bonus',
       member: ana,
       amount: 50000,
     })
 
-    const marked = markIncomeOneOff(after, '2026-07', row.id)
+    const marked = setIncomeOneOff(after, '2026-07', row.id, true)
 
     expect(marked.row).toEqual({ ...row, oneOff: true })
   })
 
-  it('leaves the Unreviewed mark exactly as it found it', () => {
+  it('clears the mark, changing no other field', () => {
+    const { household: after, row } = addIncomeSnapshot(household, '2026-07', {
+      name: 'Bonus',
+      member: ana,
+      amount: 50000,
+      oneOff: true,
+    })
+
+    const cleared = setIncomeOneOff(after, '2026-07', row.id, false)
+
+    expect(cleared.row).toEqual({ ...row, oneOff: false })
+  })
+
+  it('succeeds and changes nothing else when the row is already in that state', () => {
+    const { household: after, row } = addIncomeSnapshot(household, '2026-07', {
+      name: 'Bonus',
+      member: ana,
+      amount: 50000,
+    })
+
+    const marked = setIncomeOneOff(after, '2026-07', row.id, false)
+
+    expect(marked.row).toEqual(row)
+  })
+
+  it('leaves the Unreviewed mark exactly as it found it, setting or clearing', () => {
     const july = addIncomeSnapshot(household, '2026-07', {
       name: 'Bonus',
       member: ana,
@@ -395,13 +420,41 @@ describe('marking income One-Off', () => {
     const row = monthAt(august, '2026-08')!.income[0]!
     expect(isReviewed(row)).toBe(false)
 
-    const marked = markIncomeOneOff(august, '2026-08', row.id)
-
+    const marked = setIncomeOneOff(august, '2026-08', row.id, true)
     expect(isReviewed(marked.row)).toBe(false)
+
+    const cleared = setIncomeOneOff(marked.household, '2026-08', row.id, false)
+    expect(isReviewed(cleared.row)).toBe(false)
   })
 
   it('refuses a row that is not in that Month', () => {
-    expect(() => markIncomeOneOff(household, '2026-07', 'no-such-row')).toThrow(DomainError)
+    expect(() => setIncomeOneOff(household, '2026-07', 'no-such-row', true)).toThrow(DomainError)
+  })
+})
+
+describe('income drafted One-Off', () => {
+  it('is recorded One-Off when the draft asks for it', () => {
+    const { row } = addIncomeSnapshot(household, '2026-07', {
+      name: 'Freelance gig',
+      member: ana,
+      amount: 40000,
+      oneOff: true,
+    })
+
+    expect(isOneOff(row)).toBe(true)
+  })
+
+  it('is not inherited when the next Month opens', () => {
+    const july = addIncomeSnapshot(household, '2026-07', {
+      name: 'Freelance gig',
+      member: ana,
+      amount: 40000,
+      oneOff: true,
+    }).household
+
+    const august = openMonth(july, '2026-08')
+
+    expect(monthAt(august, '2026-08')!.income).toEqual([])
   })
 })
 

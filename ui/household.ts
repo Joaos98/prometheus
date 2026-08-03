@@ -15,9 +15,9 @@ import {
   editIncomeSnapshot,
   editSavingsGoal,
   isOpened,
-  markExpenseOneOff,
-  markGoalOneOff,
-  markIncomeOneOff,
+  setExpenseOneOff,
+  setGoalOneOff,
+  setIncomeOneOff,
   reactivateMember,
   recordContribution,
   refreshFromPreviousMonth,
@@ -362,10 +362,10 @@ export function householdOver(store: HouseholdStore, seed?: Seed) {
     })
   }
 
-  /** Marks a row One-Off, one row at a time. */
-  function markIncomeAsOneOff(month: MonthKey, id: RowId): Promise<void> {
+  /** Sets a row's One-Off mark, one row at a time. */
+  function markIncomeAsOneOff(month: MonthKey, id: RowId, oneOff: boolean): Promise<void> {
     return changing(async (loaded) => {
-      const { household: after, row } = markIncomeOneOff(loaded, month, id)
+      const { household: after, row } = setIncomeOneOff(loaded, month, id, oneOff)
       await store.writeRow(month, 'income', row)
       return after
     })
@@ -433,10 +433,10 @@ export function householdOver(store: HouseholdStore, seed?: Seed) {
     })
   }
 
-  /** Marks an Expense One-Off, one row at a time. */
-  function markExpenseAsOneOff(month: MonthKey, id: RowId): Promise<void> {
+  /** Sets an Expense's One-Off mark, one row at a time. */
+  function markExpenseAsOneOff(month: MonthKey, id: RowId, oneOff: boolean): Promise<void> {
     return changing(async (loaded) => {
-      const { household: after, row } = markExpenseOneOff(loaded, month, id)
+      const { household: after, row } = setExpenseOneOff(loaded, month, id, oneOff)
       await store.writeRow(month, 'expenses', row)
       return after
     })
@@ -476,10 +476,10 @@ export function householdOver(store: HouseholdStore, seed?: Seed) {
     })
   }
 
-  /** Marks a goal One-Off, one row at a time. */
-  function markGoalAsOneOff(month: MonthKey, id: RowId): Promise<void> {
+  /** Sets a goal's One-Off mark, one row at a time. */
+  function markGoalAsOneOff(month: MonthKey, id: RowId, oneOff: boolean): Promise<void> {
     return changing(async (loaded) => {
-      const { household: after, row } = markGoalOneOff(loaded, month, id)
+      const { household: after, row } = setGoalOneOff(loaded, month, id, oneOff)
       await store.writeRow(month, 'goals', row)
       return after
     })

@@ -27,6 +27,7 @@ export interface ExpenseDraft {
   amount: Minor | null
   participants: MemberId[]
   splitRule?: SplitRule
+  oneOff?: boolean
 }
 
 /**
@@ -56,7 +57,7 @@ export function addExpenseSnapshot(
     participants: requireParticipants(household, month, draft.participants),
     splitRule: draft.splitRule ?? { kind: 'even' },
     reviewed: true,
-    oneOff: false,
+    oneOff: draft.oneOff ?? false,
   })
   return { household: withExpenses(household, month, [...month.expenses, row]), row }
 }
@@ -105,18 +106,20 @@ export function confirmExpenseSnapshot(
 }
 
 /**
- * Marks an Expense as belonging to this Month alone: opening the next Month will not
- * inherit it. This is also how a long-running Expense stops recurring while keeping
- * this Month's record intact. Marking One-Off says nothing about whether the Expense's
- * other fields have been reviewed, so it leaves the Unreviewed mark exactly as it found it.
+ * Sets whether an Expense belongs to this Month alone: while `true`, opening the next
+ * Month will not inherit it. This is also how a long-running Expense stops recurring
+ * while keeping this Month's record intact, and how that is undone. Setting it either
+ * way says nothing about whether the Expense's other fields have been reviewed, so it
+ * leaves the Unreviewed mark exactly as it found it.
  */
-export function markExpenseOneOff(
+export function setExpenseOneOff(
   household: Household,
   key: MonthKey,
   id: RowId,
+  oneOff: boolean,
 ): RowChange<ExpenseSnapshot> {
   const month = openedMonth(household, key)
-  const row: ExpenseSnapshot = { ...expenseRow(month, id), oneOff: true }
+  const row: ExpenseSnapshot = { ...expenseRow(month, id), oneOff }
   return { household: withExpenses(household, month, replaceRow(month.expenses, id, row)), row }
 }
 

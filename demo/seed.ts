@@ -25,7 +25,7 @@ import {
   confirmIncomeSnapshot,
   editExpenseSnapshot,
   editIncomeSnapshot,
-  markExpenseOneOff,
+  setExpenseOneOff,
   monthAfter,
   monthAt,
   monthBefore,
@@ -264,10 +264,11 @@ function reviewTheSettledMonth(household: Household, record: Months, sharers: Sh
     participants: everyone,
     splitRule: { kind: 'even' },
   }).household
-  household = markExpenseOneOff(
+  household = setExpenseOneOff(
     household,
     settled,
     rowIdOf(household, settled, 'expenses', 'Flight deposit'),
+    true,
   ).household
 
   const trip = rowIdOf(household, settled, 'goals', 'Trip to Lisbon')

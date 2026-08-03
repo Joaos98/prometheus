@@ -17,6 +17,7 @@ export interface GoalDraft {
   target?: Minor | null
   startAmount?: Minor
   participants: MemberId[]
+  oneOff?: boolean
 }
 
 /**
@@ -45,7 +46,7 @@ export function addSavingsGoal(
     participants: requireParticipants(household, month, draft.participants),
     contributions: {},
     reviewed: true,
-    oneOff: false,
+    oneOff: draft.oneOff ?? false,
   }
   return { household: withGoals(household, month, [...month.goals, row]), row }
 }
@@ -98,19 +99,20 @@ export function confirmSavingsGoal(
 }
 
 /**
- * Marks a goal as belonging to this Month alone: opening the next Month will not
- * inherit it. This is also how a goal that has been reached stops recurring while
- * keeping this Month's record intact. Marking One-Off says nothing about whether the
- * goal's other fields have been reviewed, so it leaves the Unreviewed mark exactly as
- * it found it.
+ * Sets whether a goal belongs to this Month alone: while `true`, opening the next Month
+ * will not inherit it. This is also how a goal that has been reached stops recurring
+ * while keeping this Month's record intact, and how that is undone. Setting it either
+ * way says nothing about whether the goal's other fields have been reviewed, so it
+ * leaves the Unreviewed mark exactly as it found it.
  */
-export function markGoalOneOff(
+export function setGoalOneOff(
   household: Household,
   key: MonthKey,
   id: RowId,
+  oneOff: boolean,
 ): RowChange<SavingsGoal> {
   const month = openedMonth(household, key)
-  const row: SavingsGoal = { ...goalRow(month, id), oneOff: true }
+  const row: SavingsGoal = { ...goalRow(month, id), oneOff }
   return { household: withGoals(household, month, replaceRow(month.goals, id, row)), row }
 }
 

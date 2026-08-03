@@ -16,6 +16,7 @@ export interface IncomeDraft {
   member: MemberId
   amount: Minor | null
   restrictedUse?: boolean
+  oneOff?: boolean
 }
 
 /**
@@ -43,7 +44,7 @@ export function addIncomeSnapshot(
     amount: requireAmount(draft.amount),
     restrictedUse: draft.restrictedUse ?? false,
     reviewed: true,
-    oneOff: false,
+    oneOff: draft.oneOff ?? false,
   }
   return { household: withIncome(household, month, [...month.income, row]), row }
 }
@@ -88,18 +89,20 @@ export function confirmIncomeSnapshot(
 }
 
 /**
- * Marks an income source as belonging to this Month alone: opening the next Month will
- * not inherit it. This is also how a long-running source stops recurring while keeping
- * this Month's record intact. Marking One-Off says nothing about whether the row's other
- * fields have been reviewed, so it leaves the Unreviewed mark exactly as it found it.
+ * Sets whether an income source belongs to this Month alone: while `true`, opening the
+ * next Month will not inherit it. This is also how a long-running source stops
+ * recurring while keeping this Month's record intact, and how that is undone. Setting
+ * it either way says nothing about whether the row's other fields have been reviewed,
+ * so it leaves the Unreviewed mark exactly as it found it.
  */
-export function markIncomeOneOff(
+export function setIncomeOneOff(
   household: Household,
   key: MonthKey,
   id: RowId,
+  oneOff: boolean,
 ): RowChange<IncomeSnapshot> {
   const month = openedMonth(household, key)
-  const row: IncomeSnapshot = { ...incomeRow(month, id), oneOff: true }
+  const row: IncomeSnapshot = { ...incomeRow(month, id), oneOff }
   return { household: withIncome(household, month, replaceRow(month.income, id, row)), row }
 }
 

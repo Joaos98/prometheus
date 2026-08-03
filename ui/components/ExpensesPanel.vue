@@ -78,7 +78,7 @@ async function remove(expense: ExpenseSnapshot): Promise<void> {
 
 async function endRun(): Promise<void> {
   if (!ended.value) return
-  await report(markExpenseAsOneOff(ended.value.from, ended.value.id))
+  await report(markExpenseAsOneOff(ended.value.from, ended.value.id, true))
   ended.value = undefined
 }
 
@@ -339,7 +339,7 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
           v-if="!isOneOff(expense)"
           :name="expense.name"
           :ending="ends(expense.id)"
-          @click="report(markExpenseAsOneOff(month.key, expense.id))"
+          @click="report(markExpenseAsOneOff(month.key, expense.id, true))"
         />
         <button
           class="row-action remove tip"

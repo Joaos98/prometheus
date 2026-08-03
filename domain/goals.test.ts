@@ -6,7 +6,7 @@ import {
   contributionTo,
   contributionsOf,
   editSavingsGoal,
-  markGoalOneOff,
+  setGoalOneOff,
   recordContribution,
   removeSavingsGoal,
   totalContributedTo,
@@ -188,27 +188,67 @@ describe('marking a Savings Goal One-Off', () => {
     expect(isOneOff(row)).toBe(false)
   })
 
-  it('marks a goal One-Off without changing any other field', () => {
+  it('sets a goal One-Off without changing any other field', () => {
     const { household: after, row } = addSavingsGoal(household, '2026-07', holiday([ana]))
 
-    const marked = markGoalOneOff(after, '2026-07', row.id)
+    const marked = setGoalOneOff(after, '2026-07', row.id, true)
 
     expect(marked.row).toEqual({ ...row, oneOff: true })
   })
 
-  it('leaves the Unreviewed mark exactly as it found it', () => {
+  it('clears the mark, changing no other field', () => {
+    const { household: after, row } = addSavingsGoal(household, '2026-07', {
+      ...holiday([ana]),
+      oneOff: true,
+    })
+
+    const cleared = setGoalOneOff(after, '2026-07', row.id, false)
+
+    expect(cleared.row).toEqual({ ...row, oneOff: false })
+  })
+
+  it('succeeds and changes nothing else when the row is already in that state', () => {
+    const { household: after, row } = addSavingsGoal(household, '2026-07', holiday([ana]))
+
+    const marked = setGoalOneOff(after, '2026-07', row.id, false)
+
+    expect(marked.row).toEqual(row)
+  })
+
+  it('leaves the Unreviewed mark exactly as it found it, setting or clearing', () => {
     const july = addSavingsGoal(household, '2026-07', holiday([ana])).household
     const august = openMonth(july, '2026-08')
     const row = monthAt(august, '2026-08')!.goals[0]!
     expect(isReviewed(row)).toBe(false)
 
-    const marked = markGoalOneOff(august, '2026-08', row.id)
-
+    const marked = setGoalOneOff(august, '2026-08', row.id, true)
     expect(isReviewed(marked.row)).toBe(false)
+
+    const cleared = setGoalOneOff(marked.household, '2026-08', row.id, false)
+    expect(isReviewed(cleared.row)).toBe(false)
   })
 
   it('refuses a row that is not in that Month', () => {
-    expect(() => markGoalOneOff(household, '2026-07', 'no-such-row')).toThrow(DomainError)
+    expect(() => setGoalOneOff(household, '2026-07', 'no-such-row', true)).toThrow(DomainError)
+  })
+})
+
+describe('a Savings Goal drafted One-Off', () => {
+  it('is recorded One-Off when the draft asks for it', () => {
+    const { row } = addSavingsGoal(household, '2026-07', { ...holiday([ana]), oneOff: true })
+
+    expect(isOneOff(row)).toBe(true)
+  })
+
+  it('is not inherited when the next Month opens', () => {
+    const july = addSavingsGoal(household, '2026-07', {
+      ...holiday([ana]),
+      oneOff: true,
+    }).household
+
+    const august = openMonth(july, '2026-08')
+
+    expect(monthAt(august, '2026-08')!.goals).toEqual([])
   })
 })
 

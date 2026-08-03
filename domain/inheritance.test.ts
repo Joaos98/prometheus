@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   addExpenseSnapshot,
   editExpenseSnapshot,
-  markExpenseOneOff,
+  setExpenseOneOff,
   removeExpenseSnapshot,
 } from './expenses.js'
-import { addSavingsGoal, markGoalOneOff, recordContribution } from './goals.js'
+import { addSavingsGoal, setGoalOneOff, recordContribution } from './goals.js'
 import { deactivateMember, setUpHousehold } from './household.js'
-import { addIncomeSnapshot, markIncomeOneOff } from './income.js'
+import { addIncomeSnapshot, setIncomeOneOff } from './income.js'
 import { monthAt, openMonth } from './month.js'
 import { unreviewedCount } from './review.js'
 import { isOneOff, isPending } from './rows.js'
@@ -367,7 +367,7 @@ describe('a row marked One-Off', () => {
       amount: 40000,
       participants: [ana],
     })
-    const marked = markExpenseOneOff(july.household, '2026-07', july.row.id).household
+    const marked = setExpenseOneOff(july.household, '2026-07', july.row.id, true).household
 
     const august = openMonth(marked, '2026-08')
 
@@ -388,7 +388,7 @@ describe('a row marked One-Off', () => {
       amount: 40000,
       participants: [ana],
     })
-    const marked = markExpenseOneOff(repair.household, '2026-07', repair.row.id).household
+    const marked = setExpenseOneOff(repair.household, '2026-07', repair.row.id, true).household
 
     const august = openMonth(marked, '2026-08')
 
@@ -401,7 +401,7 @@ describe('a row marked One-Off', () => {
       member: ana,
       amount: 320000,
     })
-    const marked = markIncomeOneOff(salary.household, '2026-07', salary.row.id).household
+    const marked = setIncomeOneOff(salary.household, '2026-07', salary.row.id, true).household
 
     const august = openMonth(marked, '2026-08')
 
@@ -415,7 +415,7 @@ describe('a row marked One-Off', () => {
       target: 200000,
       participants: [ana],
     })
-    const marked = markGoalOneOff(goal.household, '2026-07', goal.row.id).household
+    const marked = setGoalOneOff(goal.household, '2026-07', goal.row.id, true).household
 
     const august = openMonth(marked, '2026-08')
 
@@ -433,6 +433,24 @@ describe('a row marked One-Off', () => {
     const inherited = expensesIn(openMonth(july, '2026-08'), '2026-08')[0]!
 
     expect(isOneOff(inherited)).toBe(false)
+  })
+
+  it('is inherited again, Unreviewed, once the mark is cleared', () => {
+    const july = addExpenseSnapshot(household, '2026-07', {
+      name: 'Repair',
+      category: 'Home',
+      amount: 40000,
+      participants: [ana],
+    })
+    const marked = setExpenseOneOff(july.household, '2026-07', july.row.id, true).household
+    const cleared = setExpenseOneOff(marked, '2026-07', july.row.id, false).household
+
+    const august = openMonth(cleared, '2026-08')
+    const inherited = expensesIn(august, '2026-08')[0]!
+
+    expect(inherited.name).toBe('Repair')
+    expect(isOneOff(inherited)).toBe(false)
+    expect(unreviewedCount(monthAt(august, '2026-08')!)).toBe(1)
   })
 })
 

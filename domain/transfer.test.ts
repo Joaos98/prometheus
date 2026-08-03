@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { addExpenseSnapshot, markExpenseOneOff, removeExpenseSnapshot } from './expenses.js'
+import { addExpenseSnapshot, setExpenseOneOff, removeExpenseSnapshot } from './expenses.js'
 import { addSavingsGoal, recordContribution } from './goals.js'
 import { setUpHousehold } from './household.js'
 import { addIncomeSnapshot } from './income.js'
@@ -166,7 +166,7 @@ describe('importing a Household that was exported', () => {
 
   it('keeps One-Off and Restricted-Use flags, Participants and Split Rules', () => {
     const gym = monthAt(household, '2026-07')!.expenses[2]!
-    household = markExpenseOneOff(household, '2026-07', gym.id).household
+    household = setExpenseOneOff(household, '2026-07', gym.id, true).household
 
     const july = monthAt(exported(), '2026-07')!
 

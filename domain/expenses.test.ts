@@ -3,7 +3,7 @@ import { DomainError } from './errors.js'
 import {
   addExpenseSnapshot,
   editExpenseSnapshot,
-  markExpenseOneOff,
+  setExpenseOneOff,
   removeExpenseSnapshot,
 } from './expenses.js'
 import { setUpHousehold } from './household.js'
@@ -301,7 +301,7 @@ describe('marking an Expense One-Off', () => {
     expect(isOneOff(row)).toBe(false)
   })
 
-  it('marks an Expense One-Off without changing any other field', () => {
+  it('sets an Expense One-Off without changing any other field', () => {
     const { household: after, row } = addExpenseSnapshot(household, '2026-07', {
       name: 'Repair',
       category: 'Home',
@@ -309,12 +309,39 @@ describe('marking an Expense One-Off', () => {
       participants: [ana],
     })
 
-    const marked = markExpenseOneOff(after, '2026-07', row.id)
+    const marked = setExpenseOneOff(after, '2026-07', row.id, true)
 
     expect(marked.row).toEqual({ ...row, oneOff: true })
   })
 
-  it('leaves the Unreviewed mark exactly as it found it', () => {
+  it('clears the mark, changing no other field', () => {
+    const { household: after, row } = addExpenseSnapshot(household, '2026-07', {
+      name: 'Repair',
+      category: 'Home',
+      amount: 40000,
+      participants: [ana],
+      oneOff: true,
+    })
+
+    const cleared = setExpenseOneOff(after, '2026-07', row.id, false)
+
+    expect(cleared.row).toEqual({ ...row, oneOff: false })
+  })
+
+  it('succeeds and changes nothing else when the row is already in that state', () => {
+    const { household: after, row } = addExpenseSnapshot(household, '2026-07', {
+      name: 'Repair',
+      category: 'Home',
+      amount: 40000,
+      participants: [ana],
+    })
+
+    const marked = setExpenseOneOff(after, '2026-07', row.id, false)
+
+    expect(marked.row).toEqual(row)
+  })
+
+  it('leaves the Unreviewed mark exactly as it found it, setting or clearing', () => {
     const july = addExpenseSnapshot(household, '2026-07', {
       name: 'Repair',
       category: 'Home',
@@ -325,13 +352,43 @@ describe('marking an Expense One-Off', () => {
     const row = monthAt(august, '2026-08')!.expenses[0]!
     expect(isReviewed(row)).toBe(false)
 
-    const marked = markExpenseOneOff(august, '2026-08', row.id)
-
+    const marked = setExpenseOneOff(august, '2026-08', row.id, true)
     expect(isReviewed(marked.row)).toBe(false)
+
+    const cleared = setExpenseOneOff(marked.household, '2026-08', row.id, false)
+    expect(isReviewed(cleared.row)).toBe(false)
   })
 
   it('refuses a row that is not in that Month', () => {
-    expect(() => markExpenseOneOff(household, '2026-07', 'no-such-row')).toThrow(DomainError)
+    expect(() => setExpenseOneOff(household, '2026-07', 'no-such-row', true)).toThrow(DomainError)
+  })
+})
+
+describe('an Expense drafted One-Off', () => {
+  it('is recorded One-Off when the draft asks for it', () => {
+    const { row } = addExpenseSnapshot(household, '2026-07', {
+      name: 'Flight deposit',
+      category: 'Travel',
+      amount: 24000,
+      participants: [ana],
+      oneOff: true,
+    })
+
+    expect(isOneOff(row)).toBe(true)
+  })
+
+  it('is not inherited when the next Month opens', () => {
+    const july = addExpenseSnapshot(household, '2026-07', {
+      name: 'Flight deposit',
+      category: 'Travel',
+      amount: 24000,
+      participants: [ana],
+      oneOff: true,
+    }).household
+
+    const august = openMonth(july, '2026-08')
+
+    expect(monthAt(august, '2026-08')!.expenses).toEqual([])
   })
 })
 

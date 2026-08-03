@@ -3,7 +3,7 @@ import { DomainError } from './errors.js'
 import {
   addExpenseSnapshot,
   editExpenseSnapshot,
-  markExpenseOneOff,
+  setExpenseOneOff,
   removeExpenseSnapshot,
 } from './expenses.js'
 import { setUpHousehold } from './household.js'
@@ -162,7 +162,7 @@ describe('repurposing the Expense', () => {
   })
 
   it('mints the new identity without the One-Off mark, however the old identity carried it', () => {
-    const markedOneOff = markExpenseOneOff(household, '2026-08', netflix).household
+    const markedOneOff = setExpenseOneOff(household, '2026-08', netflix, true).household
 
     const { household: after, row } = repurposeExpenseSnapshot(markedOneOff, '2026-08', netflix, {
       name: 'Gym',

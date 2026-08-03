@@ -5,7 +5,7 @@ import {
   addExpenseSnapshot,
   confirmExpenseSnapshot,
   editExpenseSnapshot,
-  markExpenseOneOff,
+  setExpenseOneOff,
   removeExpenseSnapshot,
 } from './expenses.js'
 import { addSavingsGoal, editSavingsGoal, recordContribution } from './goals.js'
@@ -146,7 +146,7 @@ describe('a Month opened ahead of time', () => {
       expect.objectContaining({ id: rent, state: 'missing' }),
     ])
 
-    const ended = markExpenseOneOff(removed, '2026-07', rent).household
+    const ended = setExpenseOneOff(removed, '2026-07', rent, true).household
 
     expect(driftOf(ended, '2026-08', '2026-07').rows).toEqual([])
   })
