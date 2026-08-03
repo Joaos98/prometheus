@@ -11,18 +11,21 @@ const props = withDefaults(
     amount?: Minor | null
     restrictedUse?: boolean
     submitLabel?: string
+    /** Only an add form asks whether the row is One-Off; an existing row uses its own flag. */
+    adding?: boolean
   }>(),
-  { name: '', amount: null, restrictedUse: false, submitLabel: 'Save' },
+  { name: '', amount: null, restrictedUse: false, submitLabel: 'Save', adding: false },
 )
 
 const emit = defineEmits<{
-  save: [{ name: string; amount: Minor | null; restrictedUse: boolean }]
+  save: [{ name: string; amount: Minor | null; restrictedUse: boolean; oneOff: boolean }]
   cancel: []
 }>()
 
 const name = ref(props.name)
 const amount = ref(editableAmount(props.amount, props.currency))
 const restrictedUse = ref(props.restrictedUse)
+const oneOff = ref(false)
 const failure = ref<string | undefined>(undefined)
 
 function save(): void {
@@ -32,6 +35,7 @@ function save(): void {
       name: name.value,
       amount: readAmount(amount.value, props.currency),
       restrictedUse: restrictedUse.value,
+      oneOff: oneOff.value,
     })
   } catch (cause) {
     failure.value = messageOf(cause)
@@ -53,6 +57,10 @@ function save(): void {
       <input v-model="restrictedUse" type="checkbox" />
       <span>Restricted-Use — never counts toward Spendable Income</span>
     </label>
+    <label v-if="adding" class="one-off-option">
+      <input v-model="oneOff" type="checkbox" />
+      <span>One-Off — this Month alone; the next Month opened will not inherit it</span>
+    </label>
     <p v-if="failure" class="failure note">{{ failure }}</p>
     <div class="actions">
       <button class="button-primary" type="submit" :disabled="name.trim() === ''">
@@ -64,7 +72,8 @@ function save(): void {
 </template>
 
 <style scoped>
-.restricted {
+.restricted,
+.one-off-option {
   display: flex;
   align-items: center;
   gap: 8px;

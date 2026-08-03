@@ -180,6 +180,7 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
       :currency="household.currency"
       :members="members"
       submit-label="Add the Savings Goal"
+      adding
       @cancel="adding = false"
       @save="(draft) => attempt(addGoal(month.key, draft))"
     />
@@ -238,10 +239,10 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
           @click="report(confirmGoal(month.key, goal.id))"
         />
         <OneOffMark
-          v-if="!isOneOff(goal)"
           :name="goal.name"
           :ending="ends(goal.id)"
-          @click="report(markGoalAsOneOff(month.key, goal.id, true))"
+          :marked="isOneOff(goal)"
+          @click="report(markGoalAsOneOff(month.key, goal.id, !isOneOff(goal)))"
         />
         <button
           class="row-action remove tip"

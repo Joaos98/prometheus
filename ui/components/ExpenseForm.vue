@@ -21,6 +21,8 @@ const props = withDefaults(
     participants?: MemberId[]
     splitRule?: SplitRule
     submitLabel?: string
+    /** Only an add form asks whether the Expense is One-Off; an existing row uses its own flag. */
+    adding?: boolean
   }>(),
   {
     name: '',
@@ -29,6 +31,7 @@ const props = withDefaults(
     participants: undefined,
     splitRule: () => ({ kind: 'even' }),
     submitLabel: 'Save',
+    adding: false,
   },
 )
 
@@ -40,6 +43,7 @@ const emit = defineEmits<{
       amount: Minor | null
       participants: MemberId[]
       splitRule: SplitRule
+      oneOff: boolean
     },
   ]
   cancel: []
@@ -52,6 +56,7 @@ const participants = ref<MemberId[]>(props.participants ?? props.members.map((on
 const kind = ref<SplitRule['kind']>(props.splitRule.kind)
 const percentages = ref<RuleValues>(startingPercentages())
 const fixedAmounts = ref<RuleValues>(startingFixedAmounts())
+const oneOff = ref(false)
 const failure = ref<string | undefined>(undefined)
 
 function startingPercentages(): RuleValues {
@@ -170,6 +175,7 @@ function save(): void {
       amount: readAmount(amount.value, props.currency),
       participants: participants.value,
       splitRule: submittedRule(),
+      oneOff: oneOff.value,
     })
   } catch (cause) {
     failure.value = messageOf(cause)
@@ -213,6 +219,11 @@ function save(): void {
         <span>{{ choice.name }}</span>
       </label>
     </fieldset>
+
+    <label v-if="adding" class="one-off-option">
+      <input v-model="oneOff" type="checkbox" />
+      <span>One-Off — this Month alone; the next Month opened will not inherit it</span>
+    </label>
 
     <div v-if="!individual && (kind === 'percentage' || kind === 'fixed')" class="custom">
       <label v-for="member in participantsIn" :key="member.id" class="value">
@@ -280,7 +291,8 @@ legend {
   margin-bottom: 6px;
 }
 
-.choice {
+.choice,
+.one-off-option {
   display: flex;
   align-items: center;
   gap: 6px;

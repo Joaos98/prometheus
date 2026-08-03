@@ -169,10 +169,10 @@ async function saveEdit(source: IncomeSnapshot, edits: IncomeEdits): Promise<voi
               @click="report(confirmIncome(month.key, source.id))"
             />
             <OneOffMark
-              v-if="!isOneOff(source)"
               :name="source.name"
               :ending="ends(source.id)"
-              @click="report(markIncomeAsOneOff(month.key, source.id, true))"
+              :marked="isOneOff(source)"
+              @click="report(markIncomeAsOneOff(month.key, source.id, !isOneOff(source)))"
             />
             <button
               class="row-action tip"
@@ -191,6 +191,7 @@ async function saveEdit(source: IncomeSnapshot, edits: IncomeEdits): Promise<voi
         v-if="adding === member.id"
         :currency="household.currency"
         submit-label="Add source"
+        adding
         @cancel="adding = undefined"
         @save="(draft) => attempt(addIncome(month.key, { ...draft, member: member.id }))"
       />

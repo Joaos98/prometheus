@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
- * Stopping a row being inherited, as the same control in every panel.
+ * Stopping a row being inherited, or letting it be inherited again — the same control in
+ * every panel, and a toggle rather than a one-way switch.
  *
  * It is the one row control carrying an icon rather than a word. The design brief asks
  * for outline icons used sparingly and names the flag among them, and this is where the
@@ -11,20 +12,32 @@
  *
  * Those words depend on what the row is. Marking a cost that has run for a year One-Off
  * would say it was a one-time cost, which it never was — so a row with a past Ends Here
- * instead. Same mark, same effect, and the only honest thing to call each.
+ * instead. Same mark, same effect, and the only honest thing to call each. That reading
+ * only applies to the unmarked wording: once marked, the control's job is undoing it, and
+ * says so regardless of which of the two the row is.
  */
-defineProps<{ name: string; ending: boolean }>()
+defineProps<{ name: string; ending: boolean; marked: boolean }>()
 </script>
 
 <template>
   <button
     class="row-action one-off-mark tip"
+    :class="{ accent: marked }"
     type="button"
-    :aria-label="ending ? `Mark ${name} as ending here` : `Mark ${name} One-Off`"
+    :aria-pressed="marked"
+    :aria-label="
+      marked
+        ? `Unmark ${name}, so the next Month opened inherits it again`
+        : ending
+          ? `Mark ${name} as ending here`
+          : `Mark ${name} One-Off`
+    "
     :data-tip="
-      ending
-        ? 'Ends Here — its last Month, and the next Month opened does not inherit it'
-        : 'Mark One-Off — this Month alone, and the next Month opened does not inherit it'
+      marked
+        ? 'Marked — click to let the next Month opened inherit it again'
+        : ending
+          ? 'Ends Here — its last Month, and the next Month opened does not inherit it'
+          : 'Mark One-Off — this Month alone, and the next Month opened does not inherit it'
     "
   >
     <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">

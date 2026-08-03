@@ -13,6 +13,8 @@ const props = withDefaults(
     startAmount?: Minor
     participants?: MemberId[]
     submitLabel?: string
+    /** Only an add form asks whether the goal is One-Off; an existing row uses its own flag. */
+    adding?: boolean
   }>(),
   {
     name: '',
@@ -20,11 +22,20 @@ const props = withDefaults(
     startAmount: 0,
     participants: undefined,
     submitLabel: 'Save',
+    adding: false,
   },
 )
 
 const emit = defineEmits<{
-  save: [{ name: string; target: Minor | null; startAmount: Minor; participants: MemberId[] }]
+  save: [
+    {
+      name: string
+      target: Minor | null
+      startAmount: Minor
+      participants: MemberId[]
+      oneOff: boolean
+    },
+  ]
   cancel: []
 }>()
 
@@ -32,6 +43,7 @@ const name = ref(props.name)
 const target = ref(editableAmount(props.target, props.currency))
 const startAmount = ref(editableAmount(props.startAmount, props.currency))
 const participants = ref<MemberId[]>(props.participants ?? props.members.map((one) => one.id))
+const oneOff = ref(false)
 const failure = ref<string | undefined>(undefined)
 
 function save(): void {
@@ -42,6 +54,7 @@ function save(): void {
       target: readAmount(target.value, props.currency),
       startAmount: readAmount(startAmount.value, props.currency) ?? 0,
       participants: participants.value,
+      oneOff: oneOff.value,
     })
   } catch (cause) {
     failure.value = messageOf(cause)
@@ -79,6 +92,11 @@ function save(): void {
     <p class="muted note">
       A target is optional. The start amount is what was already saved before Prometheus.
     </p>
+
+    <label v-if="adding" class="one-off-option">
+      <input v-model="oneOff" type="checkbox" />
+      <span>One-Off — this Month alone; the next Month opened will not inherit it</span>
+    </label>
 
     <fieldset>
       <legend class="section-label">Participants</legend>
@@ -127,12 +145,12 @@ legend {
   margin-bottom: 6px;
 }
 
-.choice {
+.choice,
+.one-off-option {
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 13px;
   color: var(--text-secondary);
 }
-
 </style>

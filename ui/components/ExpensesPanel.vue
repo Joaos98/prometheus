@@ -265,6 +265,7 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
       :currency="household.currency"
       :members="members"
       submit-label="Add the Expense"
+      adding
       @cancel="adding = false"
       @save="(draft) => attempt(addExpense(month.key, draft))"
     />
@@ -336,10 +337,10 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
           @click="report(confirmExpense(month.key, expense.id))"
         />
         <OneOffMark
-          v-if="!isOneOff(expense)"
           :name="expense.name"
           :ending="ends(expense.id)"
-          @click="report(markExpenseAsOneOff(month.key, expense.id, true))"
+          :marked="isOneOff(expense)"
+          @click="report(markExpenseAsOneOff(month.key, expense.id, !isOneOff(expense)))"
         />
         <button
           class="row-action remove tip"
