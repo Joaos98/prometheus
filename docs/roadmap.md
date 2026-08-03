@@ -7,7 +7,8 @@ names a spec, nothing here is `ready-for-agent`: it still has to be written up u
 `docs/specs/`, with acceptance criteria, before an agent can pick it up.
 
 **Status:** needs-triage — every item on this page that has not been promoted to a spec.
-The v1.1 and v1.2 blocks are kept for the record: both are `done`, not work waiting.
+The v1.1 and v1.2 blocks are kept for the record: both are `done`, not work waiting. So is
+the Dropped section at the foot of the page, which is `wontfix` and not waiting either.
 
 The grouping into v1.1, v1.2 and so on is a first guess at sequencing, not a commitment:
 items are grouped by what they touch, roughly cheapest and most contained first. Move
@@ -70,23 +71,41 @@ was declined; each ticket's comments record what was built and how it was checke
   nothing, so the total understates while any income is Pending and says so the way the
   rail already does; with no Spendable Income at all there are no percentages to show.
 
-## v1.3 — needs a design decision before it can be estimated
-
-- **Reordering Expenses, Income sources and Savings Goals.** Before this is a ticket,
-  something has to decide how order is stored and persisted, and square that with
-  ADR-0008's row-scoped, last-write-wins writes — a reorder touches many rows at once, and
-  what "last write wins" means for that has no answer yet. It is also the only item short
-  of V2 that stores something new, so it is paid twice per ADR-0008: once in the SQLite
-  migration, once in the `localStorage` shape.
-
 ## V2
 
 V2 is what `prometheus-system-plan.md` §4 and spec 0001's *Out of Scope* already name —
-composite expenses (the main one), savings projections, visual trends over time, and
-categories as first-class entities — together with the item below. Nothing above is V2:
-this page is the smaller work between v1.0 and V2, not a replacement for it.
+composite expenses (the main one), visual trends over time, and categories as first-class
+entities — together with the item below. Nothing above is V2: this page is the smaller work
+between v1.0 and V2, not a replacement for it.
 
 - **Payment methods on an Expense** — "Credit Card", "Pix", and so on. Informational only:
   Prometheus stays a share calculator, and a payment method is not who paid or whether
   they did. Worth being deliberate that this does not become the payment tracking the
   spec rules out.
+
+## Dropped
+
+Considered and decided against. Both are `wontfix` — not deferred, and not waiting on
+anything.
+
+- ~~**Reordering Expenses, Income sources and Savings Goals**~~, and with it ~~**Roster
+  reordering**~~. Dropped as a scope decision, *not* for being blocked — and this page's
+  account of it was wrong twice over, which is worth keeping straight. It previously said
+  the item was stuck on squaring a reorder with ADR-0008's row-scoped, last-write-wins
+  writes, and that it would be paid twice, "once in the SQLite migration, once in the
+  `localStorage` shape". Neither held up. A sparse sort key — a fractional index or a
+  lexical rank — makes a move a **one-row write**, so ADR-0008's row-scoped invariant is
+  preserved rather than broken, and two members moving different rows do not collide at
+  all. `DriftField` (`domain/drift.ts`) is an opt-in union and each row kind's comparison
+  lists the fields it checks, so a new field is ignored by Drift with nothing to exclude.
+  And `month_rows` stores each row as a JSON blob (`storage/sqlite-store.ts`), with
+  `localStorage` holding the whole Household as JSON, so a new row field needs a read-side
+  default and no schema migration at all. It was buildable, and cheaper than advertised.
+  It is simply not wanted. This supersedes the *Out of Scope* entries in
+  `specs/0002-v1-1-dashboard-refinements/spec.md` ("Roster reordering") and
+  `specs/0003-v1-2-one-off-marks-and-income-totals/spec.md` ("Reordering rows"), both of
+  which park the question against a v1.3 that no longer exists.
+- ~~**Savings projections**~~ (estimated time to target from recent contributions). Dropped
+  from V2. Removed from `prometheus-system-plan.md` §4 per that document's own instruction
+  that it must not disagree with the rest of the design record; spec 0001 stands unedited
+  as the record of what was out of scope for the MVP.

@@ -65,7 +65,6 @@ This is the feature worth being deliberate about:
 ### V2
 
 - Composite expenses (multiple variable sub-items rolling up into one total)
-- Savings projections (estimated time to reach target based on recent contributions)
 - Visual trends over time (income vs. expenses, spending by category, goal progress)
 - Categories for expenses, income sources, and goals
 
