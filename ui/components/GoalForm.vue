@@ -33,7 +33,7 @@ const emit = defineEmits<{
       target: Minor | null
       startAmount: Minor
       participants: MemberId[]
-      oneOff: boolean
+      oneOff?: boolean
     },
   ]
   cancel: []
@@ -54,7 +54,7 @@ function save(): void {
       target: readAmount(target.value, props.currency),
       startAmount: readAmount(startAmount.value, props.currency) ?? 0,
       participants: participants.value,
-      oneOff: oneOff.value,
+      ...(props.adding && { oneOff: oneOff.value }),
     })
   } catch (cause) {
     failure.value = messageOf(cause)

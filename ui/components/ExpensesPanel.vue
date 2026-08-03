@@ -340,7 +340,7 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
           :name="expense.name"
           :ending="ends(expense.id)"
           :marked="isOneOff(expense)"
-          @click="report(markExpenseAsOneOff(month.key, expense.id, !isOneOff(expense)))"
+          @toggle="(oneOff) => report(markExpenseAsOneOff(month.key, expense.id, oneOff))"
         />
         <button
           class="row-action remove tip"

@@ -242,7 +242,7 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
           :name="goal.name"
           :ending="ends(goal.id)"
           :marked="isOneOff(goal)"
-          @click="report(markGoalAsOneOff(month.key, goal.id, !isOneOff(goal)))"
+          @toggle="(oneOff) => report(markGoalAsOneOff(month.key, goal.id, oneOff))"
         />
         <button
           class="row-action remove tip"

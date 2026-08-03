@@ -17,6 +17,8 @@
  * says so regardless of which of the two the row is.
  */
 defineProps<{ name: string; ending: boolean; marked: boolean }>()
+
+const emit = defineEmits<{ toggle: [oneOff: boolean] }>()
 </script>
 
 <template>
@@ -39,6 +41,7 @@ defineProps<{ name: string; ending: boolean; marked: boolean }>()
           ? 'Ends Here — its last Month, and the next Month opened does not inherit it'
           : 'Mark One-Off — this Month alone, and the next Month opened does not inherit it'
     "
+    @click="emit('toggle', !marked)"
   >
     <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
       <path d="M4 14.5V2.5M4 3h8l-1.8 2.6L12 8.2H4" />
@@ -51,6 +54,17 @@ defineProps<{ name: string; ending: boolean; marked: boolean }>()
   display: flex;
   align-items: center;
   padding: 5px 6px;
+}
+
+/* Marked is a different fact from Unreviewed, so it takes a different accent — otherwise
+   a row that is both would show two controls in the same fire color, one signal reading
+   as two. */
+.one-off-mark.accent {
+  color: var(--ice);
+}
+
+.one-off-mark.accent:hover {
+  border-color: var(--ice);
 }
 
 svg {

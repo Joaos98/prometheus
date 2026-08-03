@@ -43,7 +43,7 @@ const emit = defineEmits<{
       amount: Minor | null
       participants: MemberId[]
       splitRule: SplitRule
-      oneOff: boolean
+      oneOff?: boolean
     },
   ]
   cancel: []
@@ -175,7 +175,7 @@ function save(): void {
       amount: readAmount(amount.value, props.currency),
       participants: participants.value,
       splitRule: submittedRule(),
-      oneOff: oneOff.value,
+      ...(props.adding && { oneOff: oneOff.value }),
     })
   } catch (cause) {
     failure.value = messageOf(cause)

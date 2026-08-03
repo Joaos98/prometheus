@@ -18,7 +18,7 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{
-  save: [{ name: string; amount: Minor | null; restrictedUse: boolean; oneOff: boolean }]
+  save: [{ name: string; amount: Minor | null; restrictedUse: boolean; oneOff?: boolean }]
   cancel: []
 }>()
 
@@ -35,7 +35,7 @@ function save(): void {
       name: name.value,
       amount: readAmount(amount.value, props.currency),
       restrictedUse: restrictedUse.value,
-      oneOff: oneOff.value,
+      ...(props.adding && { oneOff: oneOff.value }),
     })
   } catch (cause) {
     failure.value = messageOf(cause)

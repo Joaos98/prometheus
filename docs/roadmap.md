@@ -1,13 +1,14 @@
 # Roadmap
 
 Spec 0001 is the MVP, and it shipped as **v1.0**; spec 0002 is the first five items below,
-and it shipped as **v1.1**. This is the list of what comes after it —
-not a set of tickets. Except where an item names a spec, nothing here is `ready-for-agent`:
-it still has to be written up under `docs/specs/`, with acceptance criteria, before an
-agent can pick it up.
+and it shipped as **v1.1**; spec 0003 is the v1.2 block, refined and waiting to be built.
+This is the list of what comes after v1.0 — not a set of tickets. Except where an item
+names a spec, nothing here is `ready-for-agent`: it still has to be written up under
+`docs/specs/`, with acceptance criteria, before an agent can pick it up.
 
 **Status:** needs-triage — every item on this page that has not been promoted to a spec.
-The v1.1 block is kept for the record: it is `done`, not work waiting.
+The v1.1 block is kept for the record: it is `done`, not work waiting. So is the v1.2
+block, which is `ready-for-agent` as spec 0003 and includes one item refinement rejected.
 
 The grouping into v1.1, v1.2 and so on is a first guess at sequencing, not a commitment:
 items are grouped by what they touch, roughly cheapest and most contained first. Move
@@ -35,17 +36,30 @@ record what was built and how it was checked. In brief:
 This changes what the engine offers and what a form can set, but stores nothing new.
 Dearer than v1.1, which is UI alone, and short of a migration.
 
+**Promoted to [spec 0003](specs/0003-v1-2-one-off-marks-and-income-totals/spec.md),
+`ready-for-agent`, four tickets** — two items, not the three below: the third was rejected
+during refinement and is kept here with its reasoning. The spec records what was decided
+and what was declined.
+
 - **One-Off and Ends Here: settable at creation, and clearable.** Marking a row so that
   the next Month opened does not inherit it is a second step after adding it; this lets it
   be set on the same form, so a one-time cost is one action instead of two. The other half
   is that it cannot be taken back off — a row marked by mistake stays marked, and nothing
   clears it. One mark carries both readings, so whatever clears it clears either. The mark
-  itself is already on every row, which is why this stores nothing new.
-- **Open an empty Month instead of copying the Previous Month.** Opening is currently
-  wholesale-only, per CONTEXT.md's definition of Open — this adds a second way to open
-  that skips inheritance, so a Month can start from nothing when copying forward makes no
-  sense (a new Household, a clean slate after a big change). Needs to be squared with
-  Forward Propagation and Drift, which assume the copy happened.
+  itself is already on every row, which is why this stores nothing new. (Refined: at
+  creation the mark can only ever read One-Off, since a row being added has a minted
+  identity and so has no Previous Month to have ended a run in.)
+- ~~**Open an empty Month instead of copying the Previous Month.**~~ **Rejected.** A future
+  Month opened empty reports every row of the Previous Month as Drift `missing`, so the
+  rail offers to refresh them in one at a time — the empty open undone by the feature next
+  to it. Suppressing that means storing that the Month was opened empty, which is the one
+  thing this item exists not to do, and which ADR-0008 prices twice: once in the SQLite
+  migration, once in the `localStorage` shape. Restricting it to Months that are not in the
+  future would dodge Drift for nothing stored, but by then both cases it named are already
+  served: a Household's very first Month opens empty already (`firstMonth` in
+  `domain/month.ts`), and a clean slate is removing the rows, whose absence every later
+  Month inherits. What was on offer was a shortcut, not a capability. CONTEXT.md's
+  definition of **Opening a Month** therefore stands unamended.
 - **The household's total Spendable Income, shown beneath the per-member figures** in the
   Income panel, with each member's share of it as a percentage sitting beside their own
   figure in their section header. It is in v1.2 rather than v1.1 because the percentages
