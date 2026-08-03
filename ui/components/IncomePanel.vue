@@ -49,30 +49,28 @@ const ended = ref<{ id: RowId; name: string; from: MonthKey } | undefined>(undef
 
 const later = computed(() => laterOpenedMonths(props.household, props.month.key))
 
-const members = computed(() =>
-  props.month.members.map((id) => ({
+/**
+ * The Household's total and its members' shares of it are only worth showing once there
+ * is more than one member to divide it between — a Household of one restates the figure
+ * directly above it and can only ever be 100%. `percent` is left `undefined` for the same
+ * reason `spendableIncomeShares` itself is never consulted below one member.
+ */
+const showHouseholdTotal = computed(() => props.month.members.length > 1)
+
+const members = computed(() => {
+  const shares = showHouseholdTotal.value ? spendableIncomeShares(props.month) : undefined
+  return props.month.members.map((id) => ({
     id,
     name: nameOf(props.household, id),
     sources: props.month.income.filter((row) => row.member === id),
     spendable: spendableIncome(props.month, id),
-  })),
-)
+    percent: shares?.find((share) => share.member === id)?.percent,
+  }))
+})
 
 const money = (amount: Minor): string => formatAmount(amount, props.household.currency)
 
-/**
- * The Household's total and its members' shares of it are only worth showing once there
- * is more than one member to divide it between — a Household of one restates the figure
- * directly above it and can only ever be 100%.
- */
-const showHouseholdTotal = computed(() => members.value.length > 1)
-
 const householdTotal = computed(() => householdSpendableIncome(props.month))
-
-const shares = computed(() => spendableIncomeShares(props.month))
-
-const percentOf = (id: MemberId): number | undefined =>
-  shares.value?.find((share) => share.member === id)?.percent
 
 const incomePending = computed(() => props.month.income.some((row) => isPending(row)))
 
@@ -147,8 +145,8 @@ async function saveEdit(source: IncomeSnapshot, edits: IncomeEdits): Promise<voi
       <header>
         <h3>{{ member.name }}</h3>
         <span class="figures">
-          <span v-if="percentOf(member.id) !== undefined" class="figure percent">
-            {{ percentOf(member.id) }}%
+          <span v-if="member.percent !== undefined" class="figure percent">
+            {{ member.percent }}%
           </span>
           <span class="figure spendable">{{ money(member.spendable) }}</span>
         </span>

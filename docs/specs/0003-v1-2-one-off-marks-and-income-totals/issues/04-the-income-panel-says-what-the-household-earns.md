@@ -99,3 +99,17 @@ Checked in the browser against the demo build (`npm run dev -- --mode demo`): Ad
 note, since nothing in that Month's income is Pending. No horizontal scroll at 1240px or
 1000px viewport widths. No console errors. Checked with `npx vue-tsc --noEmit` (clean) and
 `npx vitest run` (625 tests passing, up from 624).
+
+**A self-review pass found and fixed a real defect.** The percent badge in each member's
+header was gated only by `spendableIncomeShares` returning a defined entry for that member,
+not by member count — the total row correctly checked `showHouseholdTotal`, but the badge
+did not. `spendableIncomeShares` is spec'd and tested to correctly answer `100` for a lone
+member, so a one-member Household would have shown a "100%" badge, directly violating this
+ticket's own acceptance criterion. The demo seed always has three members, so the manual
+browser check above never exercised the single-member case. Fixed by folding `percent` into
+the existing `members` computed, only consulting `spendableIncomeShares` at all when
+`showHouseholdTotal` is true — one gate instead of two that could disagree — which also
+removed a template-level inefficiency where `percentOf(member.id)` was called twice per
+member per render, each doing its own linear scan. Re-checked after: `npx vue-tsc --noEmit`
+clean, `npx vitest run` 625 tests passing, browser regression check against the three-member
+seed unchanged (49%/30%/21%, €6,965.00 total).
