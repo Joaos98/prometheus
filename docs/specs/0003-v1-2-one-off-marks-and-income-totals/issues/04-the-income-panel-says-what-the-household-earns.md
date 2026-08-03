@@ -47,25 +47,55 @@ Balance**. Nothing in the rail changes. No new `localStorage` key, no per-device
 
 **Blocked by:** 03 — `householdSpendableIncome` and `spendableIncomeShares`
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Sonnet, low thinking — one component, one new row and one new figure
 per header, with the conditions already decided.
 
-- [ ] The Income panel shows a Household total Spendable Income row beneath the member
+- [x] The Income panel shows a Household total Spendable Income row beneath the member
       sections, labelled **Total Spendable Income**
-- [ ] Each member's section header shows their whole-percent share beside their figure
-- [ ] The percentages shown on screen add up to exactly 100
-- [ ] No percentages render when any member's Spendable Income is negative or the total is
+- [x] Each member's section header shows their whole-percent share beside their figure
+- [x] The percentages shown on screen add up to exactly 100
+- [x] No percentages render when any member's Spendable Income is negative or the total is
       not positive, and the total row still renders in those cases
-- [ ] With one member in the Month, neither the total row nor a percentage renders, and the
+- [x] With one member in the Month, neither the total row nor a percentage renders, and the
       panel is visually identical to v1.1
-- [ ] With any income row Pending, a note beneath the total reads "Pending rows are not yet
+- [x] With any income row Pending, a note beneath the total reads "Pending rows are not yet
       counted — this total is not final.", and both the total and the percentages still show
-- [ ] The note is absent when nothing in the Month is Pending
-- [ ] The per-member figure and the rest of the panel are otherwise unchanged, including the
+- [x] The note is absent when nothing in the Month is Pending
+- [x] The per-member figure and the rest of the panel are otherwise unchanged, including the
       Restricted-Use tag and the row controls
-- [ ] The layout holds at the 1240px collapse and below without the page scrolling
+- [x] The layout holds at the 1240px collapse and below without the page scrolling
       horizontally
-- [ ] `demo/seed.ts` renders the total and three percentages for Ada, Bruno and Mira, and
+- [x] `demo/seed.ts` renders the total and three percentages for Ada, Bruno and Mira, and
       `demo/seed.test.ts` asserts that the three percentages sum to exactly 100
+
+## Comments
+
+Built as planned. `IncomePanel.vue` gained `householdSpendableIncome(props.month)` and
+`spendableIncomeShares(props.month)`, both wired through `computed()`. Each member's header
+grew a `.figures` wrapper holding an optional percent span (`percentOf(member.id)`, rendered
+only when `spendableIncomeShares` returns a defined entry for that member) beside the
+existing Spendable Income figure. A new `section.member.household-total` sits after the
+member sections, reusing the existing `.member` class so it picks up the same top-border
+separator via the `.member + .member` selector, with the total in the same `.figure.spendable`
+style and the label in the same `.section-label small spendable-label` style the per-member
+sections use.
+
+The total row and every percentage are gated on `members.value.length > 1` — with one member
+the panel renders exactly as it did before this ticket, per the ticket's own reasoning that
+`spendableIncomeShares` will correctly answer 100 for a lone member but that is not
+information worth showing. The Pending note checks `props.month.income.some(isPending)`
+directly (not tied to whether percentages render, since both the total and percentages stay
+visible while Pending, per the ticket) and uses the rail's exact wording with `.note.muted`
+styling.
+
+`demo/seed.ts` already had three members (Ada, Bruno, Mira) with different incomes from the
+MVP, so no seed change was needed; `demo/seed.test.ts` gained one assertion that
+`spendableIncomeShares` on the arrival Month returns three entries summing to exactly 100.
+
+Checked in the browser against the demo build (`npm run dev -- --mode demo`): Ada 49%
+(€3,440.00), Bruno 30% (€2,100.00), Mira 21% (€1,425.00), Household €6,965.00 — no Pending
+note, since nothing in that Month's income is Pending. No horizontal scroll at 1240px or
+1000px viewport widths. No console errors. Checked with `npx vue-tsc --noEmit` (clean) and
+`npx vitest run` (625 tests passing, up from 624).

@@ -3,11 +3,13 @@ import { computed, ref } from 'vue'
 import {
   appearedBefore,
   formatAmount,
+  householdSpendableIncome,
   isOneOff,
   isPending,
   isReviewed,
   previousMonthKey,
   spendableIncome,
+  spendableIncomeShares,
   type Household,
   type IncomeEdits,
   type IncomeSnapshot,
@@ -57,6 +59,22 @@ const members = computed(() =>
 )
 
 const money = (amount: Minor): string => formatAmount(amount, props.household.currency)
+
+/**
+ * The Household's total and its members' shares of it are only worth showing once there
+ * is more than one member to divide it between — a Household of one restates the figure
+ * directly above it and can only ever be 100%.
+ */
+const showHouseholdTotal = computed(() => members.value.length > 1)
+
+const householdTotal = computed(() => householdSpendableIncome(props.month))
+
+const shares = computed(() => spendableIncomeShares(props.month))
+
+const percentOf = (id: MemberId): number | undefined =>
+  shares.value?.find((share) => share.member === id)?.percent
+
+const incomePending = computed(() => props.month.income.some((row) => isPending(row)))
 
 /** Whether stopping this row here ends a run, or marks a cost that only ever was this one. */
 const ends = (id: RowId): boolean => appearedBefore(props.household, props.month.key, 'income', id)
@@ -128,7 +146,12 @@ async function saveEdit(source: IncomeSnapshot, edits: IncomeEdits): Promise<voi
     <section v-for="member in members" :key="member.id" class="member">
       <header>
         <h3>{{ member.name }}</h3>
-        <span class="figure spendable">{{ money(member.spendable) }}</span>
+        <span class="figures">
+          <span v-if="percentOf(member.id) !== undefined" class="figure percent">
+            {{ percentOf(member.id) }}%
+          </span>
+          <span class="figure spendable">{{ money(member.spendable) }}</span>
+        </span>
       </header>
       <p class="section-label small spendable-label">Spendable Income</p>
 
@@ -172,7 +195,7 @@ async function saveEdit(source: IncomeSnapshot, edits: IncomeEdits): Promise<voi
               :name="source.name"
               :ending="ends(source.id)"
               :marked="isOneOff(source)"
-              @click="report(markIncomeAsOneOff(month.key, source.id, !isOneOff(source)))"
+              @toggle="(oneOff) => report(markIncomeAsOneOff(month.key, source.id, oneOff))"
             />
             <button
               class="row-action tip"
@@ -198,6 +221,17 @@ async function saveEdit(source: IncomeSnapshot, edits: IncomeEdits): Promise<voi
       <button v-else class="link-action" type="button" @click="adding = member.id">
         + Add a source
       </button>
+    </section>
+
+    <section v-if="showHouseholdTotal" class="member household-total">
+      <header>
+        <h3>Household</h3>
+        <span class="figure spendable">{{ money(householdTotal) }}</span>
+      </header>
+      <p class="section-label small spendable-label">Total Spendable Income</p>
+      <p v-if="incomePending" class="note muted">
+        Pending rows are not yet counted — this total is not final.
+      </p>
     </section>
   </MonthPanel>
 </template>
@@ -225,8 +259,19 @@ h3 {
   font-size: 14px;
 }
 
+.figures {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
 .spendable {
   color: var(--fire);
+}
+
+.percent {
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .spendable-label {

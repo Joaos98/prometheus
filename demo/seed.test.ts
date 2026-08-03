@@ -10,6 +10,7 @@ import {
   accumulatedProgress,
   driftOf,
   hasDrift,
+  householdSpendableIncome,
   leftoverBalancesOf,
   monthAfter,
   monthAt,
@@ -17,6 +18,7 @@ import {
   openedMonthKeys,
   sharesOf,
   spendableIncome,
+  spendableIncomeShares,
   totalIncome,
   unreviewedCount,
   type ExpenseSnapshot,
@@ -96,6 +98,15 @@ describe('the demo seed', () => {
 
     expect(shares.reduce((total, share) => total + share.amount, 0)).toBe(groceries.amount)
     expect(new Set(shares.map((share) => share.amount)).size).toBeGreaterThan(1)
+  })
+
+  it('shows the Household’s total Spendable Income and three percentages summing to exactly 100', () => {
+    const total = householdSpendableIncome(month(NOW))
+    const shares = spendableIncomeShares(month(NOW))
+
+    expect(total).toBeGreaterThan(0)
+    expect(shares).toHaveLength(3)
+    expect(shares!.reduce((sum, share) => sum + share.percent, 0)).toBe(100)
   })
 
   it('holds a Restricted-Use income source that Spendable Income leaves out', () => {
