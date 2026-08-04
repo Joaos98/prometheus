@@ -141,6 +141,113 @@ describe('the Household the app is showing', () => {
   })
 })
 
+/**
+ * A composite is one row wherever the app counts rows, so every line operation is one
+ * `writeRow` against the parent — which is what these ask, alongside the figure surviving
+ * each of the two transitions.
+ */
+describe('the Line Items of a composite Expense', () => {
+  const withRent = async () => {
+    const storage = fakeStorage()
+    const app = householdOver(localStorageStore(storage))
+    await app.setUp(setup)
+    await app.addExpense('2026-07', expense('Rent', 120000, app.household.value!))
+    const id = app.household.value!.months['2026-07']!.expenses[0]!.id
+    return { app, storage, id }
+  }
+
+  const rentIn = (app: ReturnType<typeof householdOver>) =>
+    app.household.value!.months['2026-07']!.expenses[0]!
+
+  it('itemises a typed amount into one line named after the Expense', async () => {
+    const { app, id } = await withRent()
+
+    await app.itemise('2026-07', id)
+
+    expect(rentIn(app).lines.map((line) => [line.name, line.amount])).toEqual([['Rent', 120000]])
+    expect(rentIn(app).amount).toBe(120000)
+  })
+
+  it('adds a line and derives the total from the lines', async () => {
+    const { app, id } = await withRent()
+    await app.itemise('2026-07', id)
+
+    await app.addExpenseLine('2026-07', id, { name: 'Service charge', amount: 5000 })
+
+    expect(rentIn(app).amount).toBe(125000)
+  })
+
+  it('renames and retypes a line without minting a fresh identity', async () => {
+    const { app, id } = await withRent()
+    await app.itemise('2026-07', id)
+    const line = rentIn(app).lines[0]!.id
+
+    await app.editExpenseLine('2026-07', id, line, { name: 'Base rent', amount: 118000 })
+
+    expect(rentIn(app).lines[0]!.id).toBe(line)
+    expect(rentIn(app).lines[0]!.name).toBe('Base rent')
+    expect(rentIn(app).amount).toBe(118000)
+  })
+
+  it('hands the running total back as a typed amount when the last line goes', async () => {
+    const { app, id } = await withRent()
+    await app.itemise('2026-07', id)
+    await app.addExpenseLine('2026-07', id, { name: 'Service charge', amount: 5000 })
+    const [first, second] = rentIn(app).lines.map((line) => line.id) as [string, string]
+
+    await app.removeExpenseLine('2026-07', id, second)
+    await app.removeExpenseLine('2026-07', id, first)
+
+    expect(rentIn(app).lines).toEqual([])
+    expect(rentIn(app).amount).toBe(120000)
+  })
+
+  it('makes the composite Pending while a line has no figure', async () => {
+    const { app, id } = await withRent()
+    await app.itemise('2026-07', id)
+
+    await app.addExpenseLine('2026-07', id, { name: 'Water', amount: null })
+
+    expect(rentIn(app).amount).toBeNull()
+  })
+
+  it('stores every line operation as one row write, so what is shown is what is stored', async () => {
+    const { app, storage, id } = await withRent()
+    await app.itemise('2026-07', id)
+
+    await app.addExpenseLine('2026-07', id, { name: 'Service charge', amount: 5000 })
+
+    const stored = await localStorageStore(storage).loadHousehold()
+    expect(stored!.months['2026-07']).toEqual(app.household.value!.months['2026-07'])
+  })
+
+  /**
+   * The rule travels with the line that moves the total, which is how a member says who
+   * absorbs the difference in the same breath as making it.
+   */
+  it('refuses a line that leaves a fixed rule no longer totalling, and takes one that is settled alongside', async () => {
+    const { app, id } = await withRent()
+    const [ana, bruno] = app.household.value!.roster.map((member) => member.id) as [string, string]
+    await app.editExpense('2026-07', id, {
+      splitRule: { kind: 'fixed', byMember: { [ana]: 60000, [bruno]: 60000 } },
+    })
+    await app.itemise('2026-07', id)
+
+    await expect(
+      app.addExpenseLine('2026-07', id, { name: 'Service charge', amount: 5000 }),
+    ).rejects.toThrow()
+    expect(rentIn(app).lines).toHaveLength(1)
+    expect(rentIn(app).amount).toBe(120000)
+
+    await app.addExpenseLine('2026-07', id, { name: 'Service charge', amount: 5000 }, {
+      kind: 'fixed',
+      byMember: { [ana]: 65000, [bruno]: 60000 },
+    })
+
+    expect(rentIn(app).amount).toBe(125000)
+  })
+})
+
 describe('a build that has a Household to start from', () => {
   const sample: Seed = () => seedHousehold(thisMonth())
 

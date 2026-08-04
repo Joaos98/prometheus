@@ -2,6 +2,7 @@ import { ref, shallowRef } from 'vue'
 import {
   addExpenseSnapshot,
   addIncomeSnapshot,
+  addLineItem,
   addMember,
   addSavingsGoal,
   confirmExpenseSnapshot,
@@ -10,11 +11,14 @@ import {
   deactivateMember,
   discardMonth,
   editExpenseSnapshot,
+  editLineItem,
   exportHousehold,
   importHousehold,
   editIncomeSnapshot,
   editSavingsGoal,
   isOpened,
+  itemiseExpense,
+  removeLineItem,
   setExpenseOneOff,
   setGoalOneOff,
   setIncomeOneOff,
@@ -40,6 +44,8 @@ import {
   type Household,
   type IncomeDraft,
   type IncomeEdits,
+  type LineDraft,
+  type LineEdits,
   type MemberId,
   type Minor,
   type MonthKey,
@@ -47,6 +53,7 @@ import {
   type RowId,
   type RowKind,
   type Setup,
+  type SplitRule,
 } from '../domain/index.js'
 import type { HouseholdStore } from '../storage/port.js'
 import { messageOf } from './changes.js'
@@ -440,6 +447,65 @@ export function householdOver(store: HouseholdStore, seed?: Seed) {
     })
   }
 
+  /**
+   * Line Items, one at a time, each landing as the one row it changes.
+   *
+   * A composite is one row everywhere the app counts rows, so every one of these is a
+   * single `writeRow` against the parent — the engine derives the amount and judges the
+   * Split Rule against it, and what comes back is the whole Expense as it now stands.
+   *
+   * Each takes the Split Rule the form is showing, because every one of them moves the
+   * total and a `fixed` rule only totals to one amount. Passing the rule as it stands is
+   * how a member says who absorbs the difference in the same breath as making it.
+   */
+  function itemise(month: MonthKey, id: RowId): Promise<void> {
+    return changing(async (loaded) => {
+      const { household: after, row } = itemiseExpense(loaded, month, id)
+      await store.writeRow(month, 'expenses', row)
+      return after
+    })
+  }
+
+  function addExpenseLine(
+    month: MonthKey,
+    id: RowId,
+    line: LineDraft,
+    splitRule?: SplitRule,
+  ): Promise<void> {
+    return changing(async (loaded) => {
+      const { household: after, row } = addLineItem(loaded, month, id, line, splitRule)
+      await store.writeRow(month, 'expenses', row)
+      return after
+    })
+  }
+
+  function editExpenseLine(
+    month: MonthKey,
+    id: RowId,
+    lineId: RowId,
+    edits: LineEdits,
+    splitRule?: SplitRule,
+  ): Promise<void> {
+    return changing(async (loaded) => {
+      const { household: after, row } = editLineItem(loaded, month, id, lineId, edits, splitRule)
+      await store.writeRow(month, 'expenses', row)
+      return after
+    })
+  }
+
+  function removeExpenseLine(
+    month: MonthKey,
+    id: RowId,
+    lineId: RowId,
+    splitRule?: SplitRule,
+  ): Promise<void> {
+    return changing(async (loaded) => {
+      const { household: after, row } = removeLineItem(loaded, month, id, lineId, splitRule)
+      await store.writeRow(month, 'expenses', row)
+      return after
+    })
+  }
+
   /** Savings Goals, one row at a time, on the same terms as income and Expenses. */
   function addGoal(month: MonthKey, draft: GoalDraft): Promise<void> {
     return changing(async (loaded) => {
@@ -573,6 +639,10 @@ export function householdOver(store: HouseholdStore, seed?: Seed) {
     confirmExpense,
     markExpenseAsOneOff,
     propagateExpense,
+    itemise,
+    addExpenseLine,
+    editExpenseLine,
+    removeExpenseLine,
     addGoal,
     editGoal,
     removeGoal,
