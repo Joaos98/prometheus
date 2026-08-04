@@ -12,15 +12,18 @@
  * own and are not in the file, because they are not the Household's to carry.
  */
 import { DomainError } from './errors.js'
+import { totalOfLines } from './expenses.js'
 import { requireCurrency } from './household.js'
 import { assertMonthKey } from './month-key.js'
 import { entryCount, openedMonthKeys } from './month.js'
+import { requireAmount } from './rows.js'
 import { requireConsistentRule } from './split-rules.js'
 import type {
   Currency,
   ExpenseSnapshot,
   Household,
   IncomeSnapshot,
+  LineItem,
   Member,
   MemberId,
   Minor,
@@ -216,7 +219,17 @@ function readExpense(
 ): ExpenseSnapshot {
   const row = readObject(value, `An Expense of ${key}`)
   const named = readText(row.name, `The name of an Expense of ${key}`)
-  const amount = readAmount(row, `${key}'s "${named}"`)
+  const lines = readLines(row.lines, key, named)
+  /**
+   * A composite's amount is recomputed from its lines rather than trusted from the file,
+   * exactly as `consistent` recomputes it on every write the engine makes — a hand-edited
+   * or stale total in the file could otherwise disagree with the lines beside it, which is
+   * the one thing the engine's own invariant never allows.
+   */
+  const amount =
+    lines.length > 0
+      ? requireAmount(totalOfLines(lines))
+      : readAmount(row, `${key}'s "${named}"`)
   const participants = readParticipants(row.participants, key, named, members)
   const splitRule = readSplitRule(row.splitRule, key, named)
 
@@ -235,13 +248,34 @@ function readExpense(
     name: named,
     category: typeof row.category === 'string' ? row.category : '',
     amount,
-    /** Every Expense reads as simple until import learns to read Line Items, which is
-        why an export taken now and read back loses what a composite was made of. */
-    lines: [],
+    lines,
     participants,
     splitRule,
     reviewed: readFlag(row.reviewed, `Whether ${key}'s "${named}" has been reviewed`),
     oneOff: readFlag(row.oneOff, `Whether ${key}'s "${named}" is One-Off`),
+  }
+}
+
+/** A v1.2 file has no `lines` key at all, which reads as the simple Expense it is. */
+function readLines(value: unknown, key: MonthKey, named: string): LineItem[] {
+  if (value === undefined) return []
+  const lines = readArray(value, `The lines of ${key}'s "${named}"`).map((entry) =>
+    readLine(entry, key, named),
+  )
+  requireDistinct(
+    lines.map((line) => line.id),
+    `${key}'s "${named}" holds two Line Items of the same identity`,
+  )
+  return lines
+}
+
+function readLine(value: unknown, key: MonthKey, named: string): LineItem {
+  const row = readObject(value, `A Line Item of ${key}'s "${named}"`)
+  const subject = `A Line Item of ${key}'s "${named}"`
+  return {
+    id: readText(row.id, `The identity of ${subject}`),
+    name: readText(row.name, `The name of ${subject}`),
+    amount: readAmount(row, subject),
   }
 }
 

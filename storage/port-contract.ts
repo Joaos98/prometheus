@@ -3,9 +3,11 @@ import {
   isPending,
   openMonth,
   setUpHousehold,
+  totalOfLines,
   type ExpenseSnapshot,
   type Household,
   type IncomeSnapshot,
+  type LineItem,
   type Minor,
   type SavingsGoal,
 } from '../domain/index.js'
@@ -46,6 +48,20 @@ const expense = (id: string, amount: Minor | null): ExpenseSnapshot => ({
   lines: [],
   participants: ['ana', 'bruno'],
   splitRule: { kind: 'percentage', byMember: { ana: 60, bruno: 40 } },
+  reviewed: true,
+  oneOff: false,
+})
+
+const line = (id: string, name: string, amount: Minor | null): LineItem => ({ id, name, amount })
+
+const composite = (id: string, lines: LineItem[]): ExpenseSnapshot => ({
+  id,
+  name: id,
+  category: 'Home',
+  amount: totalOfLines(lines),
+  lines,
+  participants: ['ana', 'bruno'],
+  splitRule: { kind: 'even' },
   reviewed: true,
   oneOff: false,
 })
@@ -182,6 +198,51 @@ export function describePort(name: string, deploy: () => Promise<Deployment> | D
       await store.writeRow('2026-07', 'expenses', rent)
 
       expect((await store.loadHousehold())!.months['2026-07']!.expenses[0]).toEqual(rent)
+    })
+
+    it('brings a composite Expense back with its Line Items intact', async () => {
+      await store.createHousehold(household())
+      const groceries = composite('groceries', [
+        line('fruit', 'Fruit', 1200),
+        line('bread', 'Bread', 350),
+      ])
+
+      await store.writeRow('2026-07', 'expenses', groceries)
+
+      expect((await store.loadHousehold())!.months['2026-07']!.expenses[0]).toEqual(groceries)
+    })
+
+    it('keeps a Line Item’s amount null, not zero, not undefined and not absent', async () => {
+      await store.createHousehold(household())
+      const groceries = composite('groceries', [line('fruit', 'Fruit', null)])
+
+      await store.writeRow('2026-07', 'expenses', groceries)
+
+      const written = (await store.loadHousehold())!.months['2026-07']!.expenses[0]!
+      expect(written.lines[0]!.amount).toBeNull()
+      expect('amount' in written.lines[0]!).toBe(true)
+    })
+
+    it('writes a composite Expense without disturbing the other rows of the Month', async () => {
+      await store.createHousehold(household())
+      const groceries = composite('groceries', [line('fruit', 'Fruit', 1200)])
+
+      await store.writeRow('2026-07', 'expenses', expense('rent', 120000))
+      await store.writeRow('2026-07', 'expenses', groceries)
+
+      const expenses = (await store.loadHousehold())!.months['2026-07']!.expenses
+      expect(expenses.map((row) => row.id)).toEqual(['rent', 'groceries'])
+      expect(expenses.find((row) => row.id === 'groceries')).toEqual(groceries)
+    })
+
+    it('reads a row written before Line Items existed as simple, with lines defaulting to []', async () => {
+      await store.createHousehold(household())
+      const { lines: _lines, ...legacy } = expense('rent', 120000)
+
+      await store.writeRow('2026-07', 'expenses', legacy as ExpenseSnapshot)
+
+      const written = (await store.loadHousehold())!.months['2026-07']!.expenses[0]!
+      expect(written.lines).toEqual([])
     })
 
     it('keeps both edits when two members write different rows of the same Month', async () => {

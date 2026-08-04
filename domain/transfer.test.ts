@@ -1,11 +1,17 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { addExpenseSnapshot, setExpenseOneOff, removeExpenseSnapshot } from './expenses.js'
+import {
+  addExpenseSnapshot,
+  addLineItem,
+  itemiseExpense,
+  setExpenseOneOff,
+  removeExpenseSnapshot,
+} from './expenses.js'
 import { addSavingsGoal, recordContribution } from './goals.js'
 import { setUpHousehold } from './household.js'
 import { addIncomeSnapshot } from './income.js'
 import { leftoverBalancesOf } from './leftover.js'
 import { monthAt, openMonth } from './month.js'
-import { propagateExpenseEdit } from './propagation.js'
+import { propagateExpenseEdit, propagateExpenseLines } from './propagation.js'
 import { unreviewedCount } from './review.js'
 import { sharesOf } from './shares.js'
 import { exportHousehold, importHousehold, whatImportReplaces } from './transfer.js'
@@ -187,6 +193,91 @@ describe('importing a Household that was exported', () => {
   })
 })
 
+describe('a composite Expense’s lines', () => {
+  it('round-trips a composite’s lines with their names, amounts and ids intact', () => {
+    const rent = monthAt(household, '2026-07')!.expenses[0]!
+    const itemised = itemiseExpense(household, '2026-07', rent.id)
+    const withGroceries = addLineItem(itemised.household, '2026-07', rent.id, {
+      name: 'Groceries',
+      amount: 30000,
+    })
+    household = withGroceries.household
+
+    const imported = monthAt(exported(), '2026-07')!.expenses.find((row) => row.id === rent.id)!
+
+    expect(imported.lines).toEqual(withGroceries.row.lines)
+    expect(imported.amount).toBe(withGroceries.row.amount)
+  })
+
+  it('keeps a Pending line’s amount null, not zero and not absent', () => {
+    const rent = monthAt(household, '2026-07')!.expenses[0]!
+    const itemised = itemiseExpense(household, '2026-07', rent.id)
+    household = addLineItem(itemised.household, '2026-07', rent.id, {
+      name: 'Service charge',
+      amount: null,
+    }).household
+
+    const imported = monthAt(exported(), '2026-07')!.expenses.find((row) => row.id === rent.id)!
+
+    expect(imported.lines.find((line) => line.name === 'Service charge')!.amount).toBeNull()
+    expect(imported.amount).toBeNull()
+  })
+
+  it('recomputes the amount from the lines rather than trusting a stale total in the file', () => {
+    const rent = monthAt(household, '2026-07')!.expenses[0]!
+    household = itemiseExpense(household, '2026-07', rent.id).household
+
+    const file = JSON.parse(exportHousehold(household)) as Record<string, any>
+    file.months['2026-07'].expenses[0].amount = 999999
+
+    const imported = monthAt(importHousehold(JSON.stringify(file)), '2026-07')!.expenses[0]!
+
+    expect(imported.amount).toBe(120000)
+  })
+
+  it('keeps a line’s identity, so Forward Propagation still finds it after a round trip', () => {
+    const fresh = setUpHousehold({
+      currency: euro,
+      memberNames: ['Ana', 'Bruno'],
+      startingMonth: '2026-07',
+    })
+    const [freshAna, freshBruno] = fresh.roster.map((member) => member.id) as [MemberId, MemberId]
+    const added = addExpenseSnapshot(fresh, '2026-07', {
+      name: 'Rent',
+      category: 'Home',
+      amount: 120000,
+      participants: [freshAna, freshBruno],
+    })
+    const itemised = itemiseExpense(added.household, '2026-07', added.row.id)
+    const opened = openMonth(itemised.household, '2026-08')
+
+    const imported = importHousehold(exportHousehold(opened))
+    const rentId = monthAt(imported, '2026-07')!.expenses[0]!.id
+    const line = monthAt(imported, '2026-07')!.expenses[0]!.lines[0]!
+
+    const { household: after } = propagateExpenseLines(imported, '2026-07', rentId, {
+      lines: [{ ...line, amount: 65000 }],
+      amount: 65000,
+    })
+
+    expect(monthAt(after, '2026-08')!.expenses[0]!.lines[0]!.id).toBe(line.id)
+    expect(monthAt(after, '2026-08')!.expenses[0]!.lines[0]!.amount).toBe(65000)
+  })
+
+  it('reads a v1.2 file with no `lines` key at all as every Expense being simple', () => {
+    const file = JSON.parse(exportHousehold(household)) as Record<string, any>
+    for (const month of Object.values(file.months) as Record<string, any>[]) {
+      for (const expense of month.expenses as Record<string, any>[]) delete expense.lines
+    }
+
+    const imported = importHousehold(JSON.stringify(file))
+
+    for (const month of Object.values(imported.months)) {
+      for (const expense of month.expenses) expect(expense.lines).toEqual([])
+    }
+  })
+})
+
 describe('what an import will replace', () => {
   it('is the Household as it now stands — its Months, its entries and its Roster', () => {
     expect(whatImportReplaces(household)).toEqual({
@@ -271,6 +362,21 @@ describe('a file that cannot be read', () => {
   it('is rejected when an Expense divides among somebody who is not a member of its Month', () => {
     rejected((file) => {
       file.months['2026-07'].expenses[2].participants = [ana, 'a-stranger']
+    })
+  })
+
+  it('is rejected when a Line Item has no amount field at all', () => {
+    rejected((file) => {
+      file.months['2026-07'].expenses[0].lines = [{ id: 'line-1', name: 'Fruit' }]
+    })
+  })
+
+  it('is rejected when two Line Items of the same Expense share an identity', () => {
+    rejected((file) => {
+      file.months['2026-07'].expenses[0].lines = [
+        { id: 'line-1', name: 'Fruit', amount: 500 },
+        { id: 'line-1', name: 'Bread', amount: 300 },
+      ]
     })
   })
 
