@@ -36,33 +36,77 @@ owns the dashboard's expansion; ticket 02 owns Drift.
 
 **Blocked by:** None — can start immediately
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Opus, high thinking — the derived amount, the null propagation and the
 joint rule validation are three invariants that interact, and two of them are the items spec
 0001 named as its riskiest.
 
-- [ ] `LineItem` carries an id, a name and `Minor | null`, and nothing else
-- [ ] `ExpenseSnapshot.lines` exists and defaults to `[]` for every existing construction path
-- [ ] A composite's amount is the sum of its lines, and no path can store a typed amount that
+- [x] `LineItem` carries an id, a name and `Minor | null`, and nothing else
+- [x] `ExpenseSnapshot.lines` exists and defaults to `[]` for every existing construction path
+- [x] A composite's amount is the sum of its lines, and no path can store a typed amount that
       disagrees with that sum
-- [ ] A composite with no lines is Pending
-- [ ] A composite with any line whose amount is `null` is Pending — not a sum treating that
+- [x] A composite with no lines is Pending
+- [x] A composite with any line whose amount is `null` is Pending — not a sum treating that
       line as zero
-- [ ] A composite whose lines are all `0` has an amount of `0` and is **not** Pending
-- [ ] Adding, editing or removing a line revalidates the Split Rule against the resulting
+- [x] A composite whose lines are all `0` has an amount of `0` and is **not** Pending
+- [x] Adding, editing or removing a line revalidates the Split Rule against the resulting
       amount, and is refused where a `fixed` rule would no longer total
-- [ ] Adding a line to a composite with a `fixed` rule succeeds when the rule is supplied
+- [x] Adding a line to a composite with a `fixed` rule succeeds when the rule is supplied
       alongside and still totals to the new sum
-- [ ] Adding a first line to an Expense with a typed amount produces one line carrying that
+- [x] Adding a first line to an Expense with a typed amount produces one line carrying that
       amount, named after the Expense, and leaves a `fixed` rule valid
-- [ ] Deleting the last line of a composite leaves a simple Expense whose typed amount is the
+- [x] Deleting the last line of a composite leaves a simple Expense whose typed amount is the
       former sum, and leaves a `fixed` rule valid
-- [ ] Deleting the last line of a composite whose sum was `null` leaves a Pending Expense
-- [ ] Line ids are minted through `domain/identity.ts` and are unique within an Expense
-- [ ] Renaming a line changes nothing but the name — no Repurposing question, no identity
+- [x] Deleting the last line of a composite whose sum was `null` leaves a Pending Expense
+- [x] Line ids are minted through `domain/identity.ts` and are unique within an Expense
+- [x] Renaming a line changes nothing but the name — no Repurposing question, no identity
       minted
-- [ ] Editing a line leaves the Expense's `reviewed` and `oneOff` untouched by the line
+- [x] Editing a line leaves the Expense's `reviewed` and `oneOff` untouched by the line
       operation itself
-- [ ] Inheriting a composite into a newly opened Month carries every line, ids intact
-- [ ] `npm run typecheck` is clean and the full suite passes
+- [x] Inheriting a composite into a newly opened Month carries every line, ids intact
+- [x] `npm run typecheck` is clean and the full suite passes
+
+## Comments
+
+Four operations rather than three. The transition and the addition were split:
+`itemiseExpense` turns a typed amount into one line named after the Expense and moves no
+money, and `addLineItem` takes a drafted line, itemising first when the Expense is still
+simple so the recorded figure survives as a line of its own. They were one function behind
+an optional draft at first, which made a call's meaning depend on its arity and gave the two
+branches disjoint preconditions — the checklist item above wants exactly one line out of the
+transition, and that is `itemiseExpense`. `editLineItem` and `removeLineItem` complete the
+set. All four share one private `changeLines`, and all four take an optional `splitRule`,
+because every one of them can move the total and a `fixed` rule only totals to one amount.
+
+The derived amount lives in `consistent()`, which now also has `editExpenseSnapshot`,
+`confirmExpenseSnapshot` and `setExpenseOneOff` routed through it via a new `writeExpense`.
+Before that, three writers built the row and landed it in the Month by hand, and the
+invariant held only because each happened to copy `amount` and `lines` together — safe, but
+on convention rather than on the chokepoint the ADR nominated, and tickets 05 and 09 add
+fields to this same row. `editExpenseSnapshot` now refuses a named `amount` on a composite
+outright rather than silently recomputing over it; Forward Propagation gets that for free as
+a `refused` skip carrying the message.
+
+**One reading worth flagging.** *"Editing a line leaves the Expense's `reviewed` and
+`oneOff` untouched by the line operation itself"* was read as "no per-line marks, and no
+reaching into the parent's marks as a side effect of line-ness". `oneOff` is left exactly as
+found. `reviewed` is **cleared**, as every edit in this module does — a line edit changes
+what the Expense cost, ADR-0013 says reviewing a composite *is* reading its lines, and
+`propagation.ts` already states the rule as "a member typing a figure has reviewed it". The
+alternative reading would leave an inherited composite Unreviewed after a member corrected
+one of its figures, and force a separate confirm. Tested both ways round in
+`domain/expenses.test.ts`.
+
+`inheritExpense` copies lines per-line rather than sharing the array, keeping the module's
+"every copy is deep" promise. `isComposite` went to `domain/rows.ts` beside `isPending` and
+`isOneOff`; `totalOfLines` is exported for ticket 03, which needs it to recompute an
+imported composite's amount.
+
+`domain/transfer.ts` gets `lines: []` and a comment saying so. Export already serialises
+lines through `JSON.stringify`, so **an export taken now and read back loses what a composite
+was made of** until ticket 03 lands — deliberate, and marked in the file rather than left to
+look like an oversight.
+
+Checked with `npm run typecheck` (clean) and `npx vitest run` (670 tests passing, up from
+645), including `demo/seed.test.ts` and the storage port contract tests.
