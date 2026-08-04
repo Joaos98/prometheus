@@ -64,9 +64,17 @@ This is the feature worth being deliberate about:
 
 ### V2
 
-- Composite expenses (multiple variable sub-items rolling up into one total)
-- Visual trends over time (income vs. expenses, spending by category, goal progress)
-- Categories for expenses, income sources, and goals
+Refined as [spec 0004](docs/specs/0004-v2-composites-categories-and-trends/spec.md), which
+records what each item became and what was declined.
+
+- Composite expenses — an Expense whose amount is the sum of its Line Items, keeping one set
+  of Participants, one Split Rule and one set of Shares (ADR-0013)
+- Visual trends over time — six charts in a view of their own, covering opened Months up to
+  the current one
+- Categories as a Household-level vocabulary, **for expenses only** — income sources and
+  goals were declined during refinement, having too few rows to group and no chart to draw
+  (ADR-0012)
+- Payment methods on an Expense, on the same machinery as categories — informational only
 
 ## 5. Deployment Model
 

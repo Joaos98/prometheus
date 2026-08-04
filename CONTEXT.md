@@ -76,8 +76,24 @@ A cost the Household records, existing only as its Snapshots — there is no def
 _Avoid_: expense template, expense definition, recurring expense
 
 **Expense Snapshot**:
-A row recording the name, category, amount, Participants, and Split Rule for one Expense in one Month. Editing a snapshot changes only that Month, unless the edit is propagated forward. Opening a Month inherits every field from the Previous Month's snapshot; an Expense's very first Month has nothing to inherit, so it starts as Pending.
+A row recording the name, Category, Payment Method, amount, Participants, and Split Rule for one Expense in one Month. Editing a snapshot changes only that Month, unless the edit is propagated forward. Opening a Month inherits every field from the Previous Month's snapshot; an Expense's very first Month has nothing to inherit, so it starts as Pending.
 _Avoid_: expense entry, expense amount
+
+**Composite Expense**:
+An Expense whose amount is the sum of its Line Items rather than a figure typed directly. It is a mode an Expense can be in and out of, not a different kind of thing: it keeps one set of Participants, one Split Rule and one set of Shares, and counts as one row wherever rows are counted. A bill made of parts whose parts move and whose division does not.
+_Avoid_: parent expense, expense group, itemised expense
+
+**Line Item**:
+One named part of a Composite Expense — a name and an amount, with a stable identity carried between Months so that a corrected part can be told from a replaced one. Shorthand: a Line. It is divided among nobody: it has no Participants, no Split Rule, no Category and no marks of its own, because the Expense above it holds all of those. An amount of none is Pending, which makes the whole Composite Pending.
+_Avoid_: sub-item, sub-expense, child expense, split (for a Line)
+
+**Category**:
+A named kind of spending, chosen from the Household's own list rather than typed per row. Renaming one relabels every Month at once — it is a label on a row, not a party to it, so no Month's figures depend on how it was spelled. An Expense may have none. Categories are for Expenses alone.
+_Avoid_: tag, label, expense type
+
+**Payment Method**:
+How a cost left the account — "Credit Card", "Pix", a direct debit — chosen from the Household's own list, like a Category and with the same handling. Informational and nothing more: it weights no split, enters no total, and says nothing about who paid or whether they did. Prometheus remains a share calculator.
+_Avoid_: payment source, account, payer
 
 **Repurposing**:
 Renaming an inherited Expense Snapshot to record a different cost rather than the same one under a new name. Because only the member knows which was meant, renaming asks — continuing the Expense keeps its identity and its history, repurposing mints a new one.
@@ -112,7 +128,7 @@ A member's position for a Month: their Spendable Income minus their expense Shar
 _Avoid_: running balance, net
 
 **Pending**:
-A row that exists for a Month but has no amount entered at all (not even zero) — most often an Expense's first Month, which has nothing to inherit. Renders as a warning on the dashboard. An explicitly entered zero is not Pending.
+A row that exists for a Month but has no amount entered at all (not even zero) — most often an Expense's first Month, which has nothing to inherit. Renders as a warning on the dashboard. An explicitly entered zero is not Pending. A Composite Expense is Pending when it holds no Line Items, or when any Line Item is: a total assembled from a part nobody has costed is not a total.
 _Avoid_: unentered, missing
 
 **Unreviewed**:

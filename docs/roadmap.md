@@ -8,7 +8,8 @@ names a spec, nothing here is `ready-for-agent`: it still has to be written up u
 
 **Status:** needs-triage — every item on this page that has not been promoted to a spec.
 The v1.1 and v1.2 blocks are kept for the record: both are `done`, not work waiting. So is
-the Dropped section at the foot of the page, which is `wontfix` and not waiting either.
+the Dropped section at the foot of the page, which is `wontfix` and not waiting either. V2
+has now been refined into spec 0004 and is `ready-for-agent` there.
 
 The grouping into v1.1, v1.2 and so on is a first guess at sequencing, not a commitment:
 items are grouped by what they touch, roughly cheapest and most contained first. Move
@@ -71,17 +72,39 @@ was declined; each ticket's comments record what was built and how it was checke
   nothing, so the total understates while any income is Pending and says so the way the
   rail already does; with no Spendable Income at all there are no percentages to show.
 
-## V2
+## V2 — refined into a spec
 
 V2 is what `prometheus-system-plan.md` §4 and spec 0001's *Out of Scope* already name —
 composite expenses (the main one), visual trends over time, and categories as first-class
-entities — together with the item below. Nothing above is V2: this page is the smaller work
+entities — together with payment methods. Nothing above is V2: this page is the smaller work
 between v1.0 and V2, not a replacement for it.
+
+**Refined as [spec 0004](specs/0004-v2-composites-categories-and-trends/spec.md)** — one
+spec with four sections rather than a sequence, because the sections constrain each other:
+categories are only worth storing because trends draw them, trends are only legible because
+categories are typo-proof, and composite expenses decide what a category attaches to. The
+spec records every decision and what was declined;
+[ADR-0012](adr/0012-categories-as-stored-entities.md) and
+[ADR-0013](adr/0013-composite-expense-line-items.md) carry the two that a future reader will
+need the reasoning for. Fourteen tickets, all `ready-for-agent`.
+
+Two things were decided during refinement that this page had assumed otherwise:
+
+- **Categories are for Expenses alone.** The V2 list says expenses, income sources and
+  goals. Income and Savings Goals are **declined**, not deferred: a household has thirty-odd
+  Expenses in a Month and two or three income rows, income already groups by member and by
+  Restricted-Use, and a goal is one named thing. A vocabulary earns its keep where there are
+  enough rows to group and a chart worth drawing.
+- **This is the first work since v1.0 that stores something new**, and it is priced
+  accordingly — two Household-level lists, a `lines` field on every Expense, two id fields,
+  a migration in both adapters and a change to the export format. It also adds `d3-scale`
+  and `d3-shape` to an app that has two runtime dependencies, which is a knowing departure
+  from ADR-0008 confined to one view.
 
 - **Payment methods on an Expense** — "Credit Card", "Pix", and so on. Informational only:
   Prometheus stays a share calculator, and a payment method is not who paid or whether
   they did. Worth being deliberate that this does not become the payment tracking the
-  spec rules out.
+  spec rules out. Built on the same machinery as categories, per ADR-0012.
 
 ## Dropped
 
