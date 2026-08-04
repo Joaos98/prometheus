@@ -32,28 +32,65 @@ ticket.
 
 **Blocked by:** 01, 03
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Opus, medium thinking — a layout decision ADR-0010 already constrains,
 plus a form that has to surface a validation refusal without losing the member's input.
 
-- [ ] A composite renders as one row with its name and derived total, collapsed
-- [ ] Expanding shows every line with its name and amount; collapsing hides them again
-- [ ] Expansion state is per-device and per-row, and is not written to the Household
-- [ ] Several composites in one Month do not push the rail or the right column out of view at
+- [x] A composite renders as one row with its name and derived total, collapsed
+- [x] Expanding shows every line with its name and amount; collapsing hides them again
+- [x] Expansion state is per-device and per-row, and is not written to the Household
+- [x] Several composites in one Month do not push the rail or the right column out of view at
       the layout's target width
-- [ ] The line editor adds, renames, retypes and removes lines, with the running total
+- [x] The line editor adds, renames, retypes and removes lines, with the running total
       updating as it goes
-- [ ] The amount field is not typeable while the Expense holds lines
-- [ ] A line may be left without a figure, and the composite then shows the Pending warning
-- [ ] The expansion makes it visible which line has no figure
-- [ ] A line edit that would invalidate a `fixed` rule shows the engine's refusal and does
+- [x] The amount field is not typeable while the Expense holds lines
+- [x] A line may be left without a figure, and the composite then shows the Pending warning
+- [x] The expansion makes it visible which line has no figure
+- [x] A line edit that would invalidate a `fixed` rule shows the engine's refusal and does
       not discard what the member typed
-- [ ] "Itemise" on a simple Expense produces one line carrying the former amount, named after
+- [x] "Itemise" on a simple Expense produces one line carrying the former amount, named after
       the Expense
-- [ ] Deleting the last line returns the form to a typed amount holding the former sum
-- [ ] The One-Off mark, the Unreviewed mark and the row's tags sit on the parent and behave
+- [x] Deleting the last line returns the form to a typed amount holding the former sum
+- [x] The One-Off mark, the Unreviewed mark and the row's tags sit on the parent and behave
       exactly as they do on a simple Expense
-- [ ] A composite counts as one row in the Month's unreviewed count
-- [ ] `MonthDrift.vue` reports a `lines` difference as one entry, refreshable in one action
-- [ ] `npm run typecheck` is clean and the full suite passes
+- [x] A composite counts as one row in the Month's unreviewed count
+- [x] `MonthDrift.vue` reports a `lines` difference as one entry, refreshable in one action
+- [x] `npm run typecheck` is clean and the full suite passes
+
+**Line edits land as they are made, rather than on the form's Save.** This was the ticket's
+one real design question, and the engine answered it: ticket 01 built the four line
+operations to change one line at a time precisely so the amount they derive and the Split
+Rule standing against it are judged together. A staged list replayed on Save would apply as
+a sequence, and a refusal partway would leave exactly the half-applied edit
+`requireConsistentRule` documents itself as preventing. The cost is that Cancel does not
+undo a line already added — which is what every other immediate row action in the panel
+already does.
+
+`MonthDrift.vue` needed **no change**. It renders whatever fields Drift reports through
+`labelOf`/`valueOf`, and ticket 02 already taught `ui/drift.ts` to read `lines`; its refresh
+was always whole-row. Verified in the browser rather than assumed: a composite reports one
+entry reading *Line Items · No Line Items · Groceries €665.80, Fruit and veg …*, and one
+"Take the other reading" lands the whole list.
+
+`ExpensesPanel.vue`'s row markup was restructured so the disclosure is a **sibling** of the
+edit button rather than inside it — a button within a button is invalid HTML, and the row
+body was already one big button.
+
+Two things the first cut got wrong, both found in review and fixed before commit. **Itemise
+read the stored amount while its button gated on the typed field**, so a corrected figure
+was silently dropped and a Pending row could offer an action the engine would refuse; it now
+lands the typed figure first and itemises second, which cannot half-apply in any way that
+loses it. And **an unreadable line amount was swallowed into `null`**, landing a Pending line
+with no message — `readAmount`'s refusal now reaches the member where an invalid split's
+does.
+
+Scope held: "Itemise" is offered on the **edit** form only, since `itemiseExpense` needs a
+row to itemise; a brand-new Expense is recorded first and itemised after. A simple Expense
+shows exactly one way in — itemise where there is a figure, a named line where there is
+none, which is the Pending case the engine already supports.
+
+Checked with `npm run typecheck` (clean) and `npx vitest run` (720 tests passing, up from
+713), plus the demo build driven in the browser: every checklist item above was exercised
+against the running dashboard, including the three-column layout holding with three
+composites expanded.
