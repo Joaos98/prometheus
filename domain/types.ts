@@ -67,16 +67,40 @@ export type SplitRule =
   | { kind: 'fixed'; byMember: Record<MemberId, Minor> }
 
 /**
+ * One part of a composite Expense. A Line Item is a name and an amount, and the identity
+ * that lets it inherit as itself — so a rename reads as the same line renamed rather
+ * than as one line deleted and another added.
+ *
+ * It carries nothing else. The Expense keeps the Participants and the Split Rule, so a
+ * Share stays the portion of an *Expense*; it keeps `reviewed` and `oneOff`, so a
+ * composite stays one row on the checklist. ADR-0013 records what that costs, what it
+ * buys, and why a rename asks nothing.
+ *
+ * `amount` of `null` is Pending, exactly as it is on the Expense itself: a line whose
+ * figure is not known yet, which is not a line costing nothing.
+ */
+export interface LineItem {
+  id: RowId
+  name: string
+  amount: Minor | null
+}
+
+/**
  * One Expense in one Month: what it is called, what it cost, who it divides among and
  * how. The Expense itself has no existence outside these rows — `id` is the stable
  * identity that carries the same cost from one Month to the next, minted when the
  * Expense first appears. `amount` of `null` is Pending: nothing entered at all.
+ *
+ * `lines` empty is a simple Expense, whose amount is the figure somebody typed. Any
+ * lines at all make it composite, and then the amount is what they come to — computed on
+ * every write and never separately typeable, so the total and its parts cannot disagree.
  */
 export interface ExpenseSnapshot {
   id: RowId
   name: string
   category: string
   amount: Minor | null
+  lines: LineItem[]
   participants: MemberId[]
   splitRule: SplitRule
   reviewed: boolean

@@ -2,6 +2,7 @@ import { DomainError } from './errors.js'
 import { mintId } from './identity.js'
 import { requireConsistentRule } from './split-rules.js'
 import {
+  isComposite,
   openedMonth,
   replaceRow,
   requireAmount,
@@ -13,6 +14,7 @@ import {
 import type {
   ExpenseSnapshot,
   Household,
+  LineItem,
   MemberId,
   Minor,
   Month,
@@ -33,6 +35,11 @@ export interface ExpenseDraft {
 /**
  * The fields an edit names. A field left out is left alone. An `amount` of `null` is
  * named: it takes the amount back to nothing at all, making the Expense Pending again.
+ *
+ * `lines` is not among them, and the reason is identity rather than arithmetic: a list
+ * handed over wholesale would mint fresh Line Items for parts that had not changed,
+ * which is exactly what Drift and Forward Propagation read a Line's identity to tell
+ * apart. Lines are changed one at a time, through their own operations.
  */
 export interface ExpenseEdits {
   name?: string
@@ -40,6 +47,18 @@ export interface ExpenseEdits {
   amount?: Minor | null
   participants?: MemberId[]
   splitRule?: SplitRule
+}
+
+/** What a new Line Item is called and what it costs; `null` is Pending, as ever. */
+export interface LineDraft {
+  name: string
+  amount: Minor | null
+}
+
+/** The fields a line edit names. A field left out is left alone. */
+export interface LineEdits {
+  name?: string
+  amount?: Minor | null
 }
 
 /** Records a cost the Household shares, dividing among the Participants named. */
@@ -54,6 +73,7 @@ export function addExpenseSnapshot(
     name: requireName(draft.name, 'An Expense'),
     category: draft.category.trim(),
     amount: requireAmount(draft.amount),
+    lines: [],
     participants: requireParticipants(household, month, draft.participants),
     splitRule: draft.splitRule ?? { kind: 'even' },
     reviewed: true,
@@ -75,8 +95,13 @@ export function editExpenseSnapshot(
 ): RowChange<ExpenseSnapshot> {
   const month = openedMonth(household, key)
   const existing = expenseRow(month, id)
+  if (edits.amount !== undefined && isComposite(existing)) {
+    throw new DomainError(
+      `"${existing.name}" is made of Line Items, so what it costs is what they come to — change a line instead`,
+    )
+  }
 
-  const row = consistent(household, {
+  return writeExpense(household, month, {
     ...existing,
     ...(edits.name !== undefined && { name: requireName(edits.name, 'An Expense') }),
     ...(edits.category !== undefined && { category: edits.category.trim() }),
@@ -87,8 +112,6 @@ export function editExpenseSnapshot(
     ...(edits.splitRule !== undefined && { splitRule: edits.splitRule }),
     reviewed: true,
   })
-
-  return { household: withExpenses(household, month, replaceRow(month.expenses, id, row)), row }
 }
 
 /**
@@ -101,8 +124,7 @@ export function confirmExpenseSnapshot(
   id: RowId,
 ): RowChange<ExpenseSnapshot> {
   const month = openedMonth(household, key)
-  const row: ExpenseSnapshot = { ...expenseRow(month, id), reviewed: true }
-  return { household: withExpenses(household, month, replaceRow(month.expenses, id, row)), row }
+  return writeExpense(household, month, { ...expenseRow(month, id), reviewed: true })
 }
 
 /**
@@ -119,8 +141,7 @@ export function setExpenseOneOff(
   oneOff: boolean,
 ): RowChange<ExpenseSnapshot> {
   const month = openedMonth(household, key)
-  const row: ExpenseSnapshot = { ...expenseRow(month, id), oneOff }
-  return { household: withExpenses(household, month, replaceRow(month.expenses, id, row)), row }
+  return writeExpense(household, month, { ...expenseRow(month, id), oneOff })
 }
 
 /**
@@ -138,13 +159,207 @@ export function removeExpenseSnapshot(household: Household, key: MonthKey, id: R
 }
 
 /**
+ * Turns a simple Expense into a composite one: the amount somebody typed becomes its
+ * first Line Item, named after the Expense and ready to be renamed and split up. No
+ * money moves, so a `fixed` rule that was valid before the change is still valid after
+ * it, and there is no rule to supply.
+ *
+ * There has to be a figure for that first line to carry, and a simple Expense for it to
+ * be the first of, so this is refused on a Pending Expense and on one already made of
+ * lines. In both cases what is wanted is a line with a name of its own, which is
+ * `addLineItem`.
+ */
+export function itemiseExpense(
+  household: Household,
+  key: MonthKey,
+  id: RowId,
+): RowChange<ExpenseSnapshot> {
+  return changeLines(household, key, id, undefined, (existing) => {
+    requireSomethingToItemise(existing)
+    return asLines(existing)
+  })
+}
+
+/**
+ * Adds a Line Item, itemising the Expense first if it was still simple — so a figure
+ * already recorded survives as a line of its own rather than being replaced by the one
+ * being added.
+ *
+ * That does move the total, which is why `splitRule` is here: a `fixed` rule only totals
+ * to one amount, so adding a line under one means saying who absorbs it. It is the same
+ * decision a member faces typing a new total on a simple Expense, and the alternative —
+ * rescaling figures they typed — is not one this codebase takes.
+ */
+export function addLineItem(
+  household: Household,
+  key: MonthKey,
+  id: RowId,
+  line: LineDraft,
+  splitRule?: SplitRule,
+): RowChange<ExpenseSnapshot> {
+  return changeLines(household, key, id, splitRule, (existing) => [
+    ...asLines(existing),
+    lineOf(line),
+  ])
+}
+
+/**
+ * Changes the fields an edit names on one Line Item, and nothing else.
+ *
+ * A rename is only ever a rename: nothing accumulates against a Line the way a history
+ * accumulates against an Expense, so there is no Repurposing question here and no fresh
+ * identity minted (ADR-0013). An amount moves the Expense's total, so `splitRule` is
+ * accepted alongside on the same terms as adding a line.
+ */
+export function editLineItem(
+  household: Household,
+  key: MonthKey,
+  id: RowId,
+  lineId: RowId,
+  edits: LineEdits,
+  splitRule?: SplitRule,
+): RowChange<ExpenseSnapshot> {
+  return changeLines(household, key, id, splitRule, (existing, month) => {
+    const line = lineIn(month, existing, lineId)
+    return replaceRow(existing.lines, lineId, {
+      ...line,
+      ...(edits.name !== undefined && { name: requireName(edits.name, 'A Line Item') }),
+      ...(edits.amount !== undefined && { amount: requireAmount(edits.amount) }),
+    })
+  })
+}
+
+/**
+ * Takes a Line Item off an Expense. Removing the last one leaves a simple Expense again,
+ * holding the running total as the amount somebody may now type over — nothing is lost
+ * going back either, and a `fixed` rule survives that change because the total does not.
+ * Removing any other line does move the total, so `splitRule` is accepted here too.
+ */
+export function removeLineItem(
+  household: Household,
+  key: MonthKey,
+  id: RowId,
+  lineId: RowId,
+  splitRule?: SplitRule,
+): RowChange<ExpenseSnapshot> {
+  return changeLines(household, key, id, splitRule, (existing, month) => {
+    lineIn(month, existing, lineId)
+    return existing.lines.filter((candidate) => candidate.id !== lineId)
+  })
+}
+
+/**
+ * What a set of Line Items comes to: nothing at all when there are none, and nothing at
+ * all when any one of them is Pending. A line with no figure entered is not a line
+ * costing nothing, so a composite missing one of its parts reads as incomplete rather
+ * than as cheap — the same distinction `amount: null` draws on the Expense itself, held
+ * one level further down. Lines that are all zero come to zero, which is a figure.
+ */
+export function totalOfLines(lines: LineItem[]): Minor | null {
+  if (lines.length === 0) return null
+  let total = 0
+  for (const line of lines) {
+    if (line.amount === null) return null
+    total += line.amount
+  }
+  return total
+}
+
+/**
+ * One line operation, which is the same act every time: find the Expense, work out what
+ * its lines become, and write it back judged whole. Only `produce` differs between the
+ * four, and every one of them moves the amount, so all four take the Split Rule that has
+ * to stand against the new total and all four clear the Unreviewed mark — reading a
+ * composite's parts and correcting one is reviewing it, which is what an edit means
+ * anywhere else in this module.
+ */
+function changeLines(
+  household: Household,
+  key: MonthKey,
+  id: RowId,
+  splitRule: SplitRule | undefined,
+  produce: (existing: ExpenseSnapshot, month: Month) => LineItem[],
+): RowChange<ExpenseSnapshot> {
+  const month = openedMonth(household, key)
+  const existing = expenseRow(month, id)
+
+  return writeExpense(household, month, {
+    ...existing,
+    lines: produce(existing, month),
+    ...(splitRule !== undefined && { splitRule }),
+    reviewed: true,
+  })
+}
+
+/**
+ * One Expense written into its Month, judged whole first. Every path that changes an
+ * Expense in place comes through here, because an amount is only ever valid against the
+ * Split Rule and the Participants it stands beside.
+ */
+function writeExpense(
+  household: Household,
+  month: Month,
+  row: ExpenseSnapshot,
+): RowChange<ExpenseSnapshot> {
+  const settled = consistent(household, row)
+  return {
+    household: withExpenses(household, month, replaceRow(month.expenses, settled.id, settled)),
+    row: settled,
+  }
+}
+
+/**
  * The Expense as it would stand, judged whole. An amount, its Participants and its
  * Split Rule are only ever valid with respect to each other, so every write goes
  * through here and there is no path that stores a rule inconsistent with its Expense.
+ *
+ * It is also where a composite's amount is computed. The invariant a discriminated union
+ * would have enforced — that a typed total cannot contradict the lines it is made of — is
+ * enforced here instead, by there being no write that leaves the two able to disagree.
+ * A simple Expense keeps the figure it was given, which is what hands the running total
+ * back when the last line goes.
  */
 function consistent(household: Household, row: ExpenseSnapshot): ExpenseSnapshot {
-  requireConsistentRule(row.splitRule, row.amount, row.participants, household.currency)
-  return row
+  const settled = isComposite(row) ? { ...row, amount: totalOfLines(row.lines) } : row
+  requireConsistentRule(settled.splitRule, settled.amount, settled.participants, household.currency)
+  return settled
+}
+
+/** A drafted line, given the identity that will carry it from Month to Month. */
+function lineOf(draft: LineDraft): LineItem {
+  return {
+    id: mintId(),
+    name: requireName(draft.name, 'A Line Item'),
+    amount: requireAmount(draft.amount),
+  }
+}
+
+/**
+ * The lines an Expense already stands as. A composite is its own; a simple Expense is the
+ * single line its typed amount becomes, named after the Expense itself. One with nothing
+ * entered has no figure to preserve, so it becomes composite with only what is added.
+ */
+function asLines(row: ExpenseSnapshot): LineItem[] {
+  if (isComposite(row)) return row.lines
+  if (row.amount === null) return []
+  return [{ id: mintId(), name: row.name, amount: row.amount }]
+}
+
+function requireSomethingToItemise(row: ExpenseSnapshot): void {
+  if (isComposite(row)) {
+    throw new DomainError(
+      `"${row.name}" is already made of Line Items, so a further one needs a name`,
+    )
+  }
+  if (row.amount === null) {
+    throw new DomainError(`"${row.name}" has no amount to become its first Line Item`)
+  }
+}
+
+function lineIn(month: Month, row: ExpenseSnapshot, lineId: RowId): LineItem {
+  const line = row.lines.find((candidate) => candidate.id === lineId)
+  if (!line) throw new DomainError(`${month.key}'s "${row.name}" holds no Line Item ${lineId}`)
+  return line
 }
 
 /** The Month's Expense of that identity, or nothing if this Month is not on its thread. */

@@ -19,12 +19,19 @@ export { apportion } from './apportion.js'
 export { DomainError } from './errors.js'
 export {
   addExpenseSnapshot,
+  addLineItem,
   confirmExpenseSnapshot,
   editExpenseSnapshot,
+  editLineItem,
+  itemiseExpense,
   setExpenseOneOff,
   removeExpenseSnapshot,
+  removeLineItem,
+  totalOfLines,
   type ExpenseDraft,
   type ExpenseEdits,
+  type LineDraft,
+  type LineEdits,
 } from './expenses.js'
 export {
   addSavingsGoal,
@@ -72,7 +79,14 @@ export {
 } from './propagation.js'
 export { renamingAsks, repurposeExpenseSnapshot } from './repurposing.js'
 export { isReviewed, unreviewedCount } from './review.js'
-export { appearedBefore, isOneOff, isPending, memberName, type RowChange } from './rows.js'
+export {
+  appearedBefore,
+  isComposite,
+  isOneOff,
+  isPending,
+  memberName,
+  type RowChange,
+} from './rows.js'
 export { sharesOf, splitOf, type Share, type Split } from './shares.js'
 export { requireConsistentRule } from './split-rules.js'
 export {
@@ -107,6 +121,7 @@ export type {
   ExpenseSnapshot,
   Household,
   IncomeSnapshot,
+  LineItem,
   Member,
   MemberId,
   Minor,

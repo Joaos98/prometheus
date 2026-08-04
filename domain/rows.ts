@@ -3,6 +3,7 @@ import { monthAt, previousMonthKey } from './month.js'
 import { monthName } from './month-key.js'
 import type {
   Household,
+  LineItem,
   MemberId,
   Minor,
   Month,
@@ -32,6 +33,15 @@ export function isPending(row: { amount: Minor | null }): boolean {
 /** A row marked so that the next Month opened will not inherit it. */
 export function isOneOff(row: { oneOff: boolean }): boolean {
   return row.oneOff
+}
+
+/**
+ * An Expense whose amount is what its Line Items come to rather than a figure somebody
+ * typed. Composite is a mode an Expense moves in and out of, not a kind of row: it counts
+ * as one row wherever rows are counted, and holds one set of Shares like any other.
+ */
+export function isComposite(row: { lines: LineItem[] }): boolean {
+  return row.lines.length > 0
 }
 
 /**

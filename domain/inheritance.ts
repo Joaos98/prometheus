@@ -112,6 +112,10 @@ function inheritIncome(row: IncomeSnapshot, members: MemberId[]): IncomeSnapshot
  * An Expense comes across divided among whichever of its Participants are members here.
  * With none of them left there is nobody to divide it among, so it stops recurring the
  * way any Expense does — by being absent, which the Months after this one inherit.
+ *
+ * A composite carries every one of its lines, each keeping its identity so that Drift can
+ * report a line that moved as the same line rather than as one deleted and another added.
+ * The lines are copied rather than shared, like everything else a Month holds.
  */
 function inheritExpense(
   row: ExpenseSnapshot,
@@ -123,6 +127,7 @@ function inheritExpense(
   return [
     {
       ...row,
+      lines: row.lines.map((line) => ({ ...line })),
       participants,
       splitRule: inheritSplitRule(row.splitRule, participants, row.amount, currency),
       reviewed: false,

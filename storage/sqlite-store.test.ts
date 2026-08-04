@@ -19,6 +19,7 @@ const rent = (): ExpenseSnapshot => ({
   name: 'Rent',
   category: 'Home',
   amount: 120000,
+  lines: [],
   participants: ['ana', 'bruno'],
   splitRule: { kind: 'even' },
   reviewed: true,

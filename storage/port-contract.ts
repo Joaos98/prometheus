@@ -43,6 +43,7 @@ const expense = (id: string, amount: Minor | null): ExpenseSnapshot => ({
   name: id,
   category: 'Home',
   amount,
+  lines: [],
   participants: ['ana', 'bruno'],
   splitRule: { kind: 'percentage', byMember: { ana: 60, bruno: 40 } },
   reviewed: true,

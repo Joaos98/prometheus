@@ -235,6 +235,9 @@ function readExpense(
     name: named,
     category: typeof row.category === 'string' ? row.category : '',
     amount,
+    /** Every Expense reads as simple until import learns to read Line Items, which is
+        why an export taken now and read back loses what a composite was made of. */
+    lines: [],
     participants,
     splitRule,
     reviewed: readFlag(row.reviewed, `Whether ${key}'s "${named}" has been reviewed`),

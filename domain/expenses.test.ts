@@ -2,15 +2,20 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { DomainError } from './errors.js'
 import {
   addExpenseSnapshot,
+  addLineItem,
   editExpenseSnapshot,
+  editLineItem,
+  itemiseExpense,
   setExpenseOneOff,
   removeExpenseSnapshot,
+  removeLineItem,
+  totalOfLines,
 } from './expenses.js'
 import { setUpHousehold } from './household.js'
 import { monthAt, openMonth } from './month.js'
-import { isOneOff, isPending } from './rows.js'
+import { isComposite, isOneOff, isPending } from './rows.js'
 import { isReviewed } from './review.js'
-import type { Household, MemberId } from './types.js'
+import type { Household, MemberId, Minor } from './types.js'
 
 const euro = { code: 'EUR', symbol: '€', decimals: 2 }
 
@@ -34,6 +39,32 @@ beforeEach(() => {
 
 const expensesIn = (of: Household, month = '2026-07') => monthAt(of, month)!.expenses
 
+/** An Expense recorded as a single typed figure, which is every Expense until itemised. */
+const groceries = (amount: Minor | null = 30000) =>
+  addExpenseSnapshot(household, '2026-07', {
+    name: 'Groceries',
+    category: 'Home',
+    amount,
+    participants: [ana, bruno],
+  })
+
+/** The same, split by a rule that only ever totals to one amount. */
+const fixedGroceries = () =>
+  addExpenseSnapshot(household, '2026-07', {
+    name: 'Groceries',
+    category: 'Home',
+    amount: 30000,
+    participants: [ana, bruno],
+    splitRule: { kind: 'fixed', byMember: { [ana]: 20000, [bruno]: 10000 } },
+  })
+
+/** A composite built line by line, so its amount was never a figure anybody typed. */
+const itemisedGroceries = () => {
+  const { household: after, row } = groceries(null)
+  const fruit = addLineItem(after, '2026-07', row.id, { name: 'Fruit', amount: 1200 })
+  return addLineItem(fruit.household, '2026-07', row.id, { name: 'Meat', amount: 1800 })
+}
+
 describe('recording an Expense', () => {
   it('records a name, a category, an amount, its Participants and its Split Rule', () => {
     const { row } = addExpenseSnapshot(household, '2026-07', {
@@ -48,11 +79,13 @@ describe('recording an Expense', () => {
       name: 'Rent',
       category: 'Home',
       amount: 120000,
+      lines: [],
       participants: [ana, bruno],
       splitRule: { kind: 'even' },
       reviewed: true,
       oneOff: false,
     })
+    expect(isComposite(row)).toBe(false)
   })
 
   it('mints a stable identity when the Expense first appears', () => {
@@ -425,5 +458,477 @@ describe('removing an Expense', () => {
 
   it('refuses a row that is not in that Month', () => {
     expect(() => removeExpenseSnapshot(household, '2026-07', 'no-such-row')).toThrow(DomainError)
+  })
+})
+
+describe('what a set of Line Items comes to', () => {
+  it('is nothing at all when there are none', () => {
+    expect(totalOfLines([])).toBeNull()
+  })
+
+  it('is their sum', () => {
+    expect(
+      totalOfLines([
+        { id: 'a', name: 'Fruit', amount: 1200 },
+        { id: 'b', name: 'Meat', amount: 1800 },
+      ]),
+    ).toBe(3000)
+  })
+
+  it('is nothing at all when any one of them is Pending — a Pending line is not a zero', () => {
+    expect(
+      totalOfLines([
+        { id: 'a', name: 'Fruit', amount: 1200 },
+        { id: 'b', name: 'Water', amount: null },
+      ]),
+    ).toBeNull()
+  })
+})
+
+describe('itemising an Expense', () => {
+  it('turns the typed amount into a single line named after the Expense', () => {
+    const { household: after, row } = groceries()
+
+    const itemised = itemiseExpense(after, '2026-07', row.id)
+
+    expect(itemised.row.lines).toEqual([
+      { id: expect.any(String), name: 'Groceries', amount: 30000 },
+    ])
+  })
+
+  it('leaves the total exactly where it was', () => {
+    const { household: after, row } = groceries()
+
+    const itemised = itemiseExpense(after, '2026-07', row.id)
+
+    expect(itemised.row.amount).toBe(30000)
+    expect(isComposite(itemised.row)).toBe(true)
+  })
+
+  it('leaves a fixed rule valid, because no money moved', () => {
+    const { household: after, row } = fixedGroceries()
+
+    const itemised = itemiseExpense(after, '2026-07', row.id)
+
+    expect(itemised.row.splitRule).toEqual({
+      kind: 'fixed',
+      byMember: { [ana]: 20000, [bruno]: 10000 },
+    })
+    expect(itemised.row.amount).toBe(30000)
+  })
+
+  it('refuses an Expense with no amount to itemise — such a line needs a name', () => {
+    const { household: after, row } = groceries(null)
+
+    expect(() => itemiseExpense(after, '2026-07', row.id)).toThrow(DomainError)
+  })
+
+  it('refuses an Expense already made of lines — a further line needs a name', () => {
+    const { household: after, row } = groceries()
+    const itemised = itemiseExpense(after, '2026-07', row.id)
+
+    expect(() => itemiseExpense(itemised.household, '2026-07', row.id)).toThrow(DomainError)
+  })
+})
+
+describe('adding a Line Item', () => {
+  it('keeps the figure already recorded as a line of its own', () => {
+    const { household: after, row } = groceries()
+
+    const added = addLineItem(after, '2026-07', row.id, { name: 'Fruit', amount: 1200 })
+
+    expect(added.row.lines.map((line) => [line.name, line.amount])).toEqual([
+      ['Groceries', 30000],
+      ['Fruit', 1200],
+    ])
+  })
+
+  it('makes the amount the sum of the lines', () => {
+    const { household: after, row } = groceries()
+
+    const added = addLineItem(after, '2026-07', row.id, { name: 'Fruit', amount: 1200 })
+
+    expect(added.row.amount).toBe(31200)
+  })
+
+  it('adds to an Expense that had nothing entered without inventing a line for it', () => {
+    const { household: after, row } = groceries(null)
+
+    const added = addLineItem(after, '2026-07', row.id, { name: 'Fruit', amount: 1200 })
+
+    expect(added.row.lines.map((line) => line.name)).toEqual(['Fruit'])
+    expect(added.row.amount).toBe(1200)
+  })
+
+  it('appends to a composite, leaving the lines already there alone', () => {
+    const { household: after, row } = groceries()
+    const first = itemiseExpense(after, '2026-07', row.id)
+
+    const second = addLineItem(first.household, '2026-07', row.id, { name: 'Fruit', amount: 1200 })
+
+    expect(second.row.lines.map((line) => line.id)).toEqual([
+      first.row.lines[0]!.id,
+      expect.any(String),
+    ])
+  })
+
+  it('mints a distinct identity for every line', () => {
+    const { household: after, row } = groceries(null)
+    const first = addLineItem(after, '2026-07', row.id, { name: 'Fruit', amount: 1200 })
+    const second = addLineItem(first.household, '2026-07', row.id, { name: 'Meat', amount: 1800 })
+
+    expect(new Set(second.row.lines.map((line) => line.id)).size).toBe(2)
+  })
+
+  it('records a line with no amount, which makes the whole composite Pending', () => {
+    const { household: after, row } = groceries(null)
+    const fruit = addLineItem(after, '2026-07', row.id, { name: 'Fruit', amount: 1200 })
+
+    const water = addLineItem(fruit.household, '2026-07', row.id, { name: 'Water', amount: null })
+
+    expect(water.row.amount).toBeNull()
+    expect(isPending(water.row)).toBe(true)
+  })
+
+  it('costs zero when every line is zero, which is not the same as Pending', () => {
+    const { household: after, row } = groceries(null)
+    const fruit = addLineItem(after, '2026-07', row.id, { name: 'Fruit', amount: 0 })
+
+    const meat = addLineItem(fruit.household, '2026-07', row.id, { name: 'Meat', amount: 0 })
+
+    expect(meat.row.amount).toBe(0)
+    expect(isPending(meat.row)).toBe(false)
+  })
+
+  it('needs a name', () => {
+    const { household: after, row } = groceries()
+
+    expect(() => addLineItem(after, '2026-07', row.id, { name: '  ', amount: 1200 })).toThrow(
+      DomainError,
+    )
+  })
+
+  it('cannot be added to a Month that has not been opened', () => {
+    const { household: after, row } = groceries()
+
+    expect(() =>
+      addLineItem(after, '2026-08', row.id, { name: 'Fruit', amount: 1200 }),
+    ).toThrow(DomainError)
+  })
+
+  it('refuses an amount that is not whole minor units', () => {
+    const { household: after, row } = groceries()
+
+    expect(() => addLineItem(after, '2026-07', row.id, { name: 'Fruit', amount: 12.5 })).toThrow(
+      DomainError,
+    )
+  })
+
+  it('refuses a row that is not in that Month', () => {
+    expect(() =>
+      addLineItem(household, '2026-07', 'no-such-row', { name: 'Fruit', amount: 1200 }),
+    ).toThrow(DomainError)
+  })
+})
+
+describe('a Line Item against the Split Rule', () => {
+  /** The composite of `fixedGroceries` with a second line, and a rule that totals to both. */
+  const fixedAndFruit = () => {
+    const { household: after, row } = fixedGroceries()
+    const itemised = itemiseExpense(after, '2026-07', row.id)
+    return addLineItem(
+      itemised.household,
+      '2026-07',
+      row.id,
+      { name: 'Fruit', amount: 1200 },
+      { kind: 'fixed', byMember: { [ana]: 21200, [bruno]: 10000 } },
+    )
+  }
+
+  it('refuses an added line that leaves a fixed rule no longer totalling', () => {
+    const { household: after, row } = fixedGroceries()
+
+    expect(() => addLineItem(after, '2026-07', row.id, { name: 'Fruit', amount: 1200 })).toThrow(
+      DomainError,
+    )
+  })
+
+  it('adds the line when a rule that totals to the new sum is supplied alongside', () => {
+    const { household: after, row } = fixedGroceries()
+
+    const added = addLineItem(
+      after,
+      '2026-07',
+      row.id,
+      { name: 'Fruit', amount: 1200 },
+      { kind: 'fixed', byMember: { [ana]: 21200, [bruno]: 10000 } },
+    )
+
+    expect(added.row.amount).toBe(31200)
+    expect(added.row.splitRule).toEqual({
+      kind: 'fixed',
+      byMember: { [ana]: 21200, [bruno]: 10000 },
+    })
+  })
+
+  it('refuses an edited line that leaves a fixed rule no longer totalling', () => {
+    const { household: after, row } = fixedGroceries()
+    const itemised = itemiseExpense(after, '2026-07', row.id)
+    const line = itemised.row.lines[0]!
+
+    expect(() =>
+      editLineItem(itemised.household, '2026-07', row.id, line.id, { amount: 31000 }),
+    ).toThrow(DomainError)
+  })
+
+  it('edits the line when a rule that totals to the new sum is supplied alongside', () => {
+    const { household: after, row } = fixedGroceries()
+    const itemised = itemiseExpense(after, '2026-07', row.id)
+    const line = itemised.row.lines[0]!
+
+    const edited = editLineItem(
+      itemised.household,
+      '2026-07',
+      row.id,
+      line.id,
+      { amount: 31000 },
+      { kind: 'fixed', byMember: { [ana]: 21000, [bruno]: 10000 } },
+    )
+
+    expect(edited.row.amount).toBe(31000)
+    expect(edited.row.splitRule).toEqual({
+      kind: 'fixed',
+      byMember: { [ana]: 21000, [bruno]: 10000 },
+    })
+  })
+
+  it('refuses a line edit that takes the amount to nothing under a fixed rule', () => {
+    const { household: after, row } = fixedGroceries()
+    const itemised = itemiseExpense(after, '2026-07', row.id)
+    const line = itemised.row.lines[0]!
+
+    expect(() =>
+      editLineItem(itemised.household, '2026-07', row.id, line.id, { amount: null }),
+    ).toThrow(DomainError)
+  })
+
+  it('refuses a removal that leaves a fixed rule no longer totalling', () => {
+    const { household: after, row } = fixedAndFruit()
+    const line = row.lines[1]!
+
+    expect(() => removeLineItem(after, '2026-07', row.id, line.id)).toThrow(DomainError)
+  })
+
+  it('removes the line when a rule that totals to what is left is supplied alongside', () => {
+    const { household: after, row } = fixedAndFruit()
+    const line = row.lines[1]!
+
+    const removed = removeLineItem(after, '2026-07', row.id, line.id, {
+      kind: 'fixed',
+      byMember: { [ana]: 20000, [bruno]: 10000 },
+    })
+
+    expect(removed.row.amount).toBe(30000)
+    expect(removed.row.lines.map((each) => each.name)).toEqual(['Groceries'])
+  })
+
+  it('leaves the Household untouched when it refuses, so no half-applied edit lands', () => {
+    const { household: after, row } = fixedGroceries()
+
+    expect(() => addLineItem(after, '2026-07', row.id, { name: 'Fruit', amount: 1200 })).toThrow(
+      DomainError,
+    )
+    expect(expensesIn(after)[0]!.lines).toEqual([])
+    expect(expensesIn(after)[0]!.amount).toBe(30000)
+  })
+
+  it('lets a percentage rule stand, since it names no figure to disagree with', () => {
+    const { household: after, row } = addExpenseSnapshot(household, '2026-07', {
+      name: 'Groceries',
+      category: 'Home',
+      amount: 30000,
+      participants: [ana, bruno],
+      splitRule: { kind: 'percentage', byMember: { [ana]: 60, [bruno]: 40 } },
+    })
+
+    const added = addLineItem(after, '2026-07', row.id, { name: 'Fruit', amount: 1200 })
+
+    expect(added.row.amount).toBe(31200)
+  })
+})
+
+describe('editing a Line Item', () => {
+  it('changes the amount of the line it names, and the total with it', () => {
+    const { household: after, row } = itemisedGroceries()
+
+    const edited = editLineItem(after, '2026-07', row.id, row.lines[0]!.id, { amount: 1500 })
+
+    expect(edited.row.lines[0]!.amount).toBe(1500)
+    expect(edited.row.amount).toBe(3300)
+  })
+
+  it('leaves the other lines alone', () => {
+    const { household: after, row } = itemisedGroceries()
+
+    const edited = editLineItem(after, '2026-07', row.id, row.lines[0]!.id, { amount: 1500 })
+
+    expect(edited.row.lines[1]).toEqual(row.lines[1])
+  })
+
+  it('takes a line back to nothing, making the whole composite Pending', () => {
+    const { household: after, row } = itemisedGroceries()
+
+    const edited = editLineItem(after, '2026-07', row.id, row.lines[0]!.id, { amount: null })
+
+    expect(edited.row.amount).toBeNull()
+  })
+
+  it('renames a line, changing nothing else and minting no identity', () => {
+    const { household: after, row } = itemisedGroceries()
+
+    const edited = editLineItem(after, '2026-07', row.id, row.lines[0]!.id, { name: 'Greens' })
+
+    expect(edited.row.lines[0]).toEqual({ ...row.lines[0]!, name: 'Greens' })
+    expect(edited.row.amount).toBe(row.amount)
+  })
+
+  it('needs a name to rename to', () => {
+    const { household: after, row } = itemisedGroceries()
+
+    expect(() =>
+      editLineItem(after, '2026-07', row.id, row.lines[0]!.id, { name: '   ' }),
+    ).toThrow(DomainError)
+  })
+
+  it('leaves the One-Off mark exactly as it found it', () => {
+    const { household: after, row } = itemisedGroceries()
+    const marked = setExpenseOneOff(after, '2026-07', row.id, true)
+
+    const edited = editLineItem(marked.household, '2026-07', row.id, row.lines[0]!.id, {
+      amount: 1500,
+    })
+
+    expect(isOneOff(edited.row)).toBe(true)
+  })
+
+  it('clears the Unreviewed mark, as every edit to an Expense does', () => {
+    const july = itemisedGroceries()
+    const august = openMonth(july.household, '2026-08')
+    const row = monthAt(august, '2026-08')!.expenses[0]!
+    expect(isReviewed(row)).toBe(false)
+
+    const edited = editLineItem(august, '2026-08', row.id, row.lines[0]!.id, { amount: 1500 })
+
+    expect(isReviewed(edited.row)).toBe(true)
+  })
+
+  it('refuses a line that is not on that Expense', () => {
+    const { household: after, row } = itemisedGroceries()
+
+    expect(() => editLineItem(after, '2026-07', row.id, 'no-such-line', { amount: 1 })).toThrow(
+      DomainError,
+    )
+  })
+})
+
+describe('removing a Line Item', () => {
+  it('takes the line out and the total down with it', () => {
+    const { household: after, row } = itemisedGroceries()
+
+    const removed = removeLineItem(after, '2026-07', row.id, row.lines[0]!.id)
+
+    expect(removed.row.lines.map((line) => line.name)).toEqual(['Meat'])
+    expect(removed.row.amount).toBe(1800)
+  })
+
+  it('hands the running total back as a typed amount when the last line goes', () => {
+    const { household: after, row } = itemisedGroceries()
+    const one = removeLineItem(after, '2026-07', row.id, row.lines[0]!.id)
+
+    const none = removeLineItem(one.household, '2026-07', row.id, row.lines[1]!.id)
+
+    expect(none.row.lines).toEqual([])
+    expect(none.row.amount).toBe(1800)
+    expect(isComposite(none.row)).toBe(false)
+  })
+
+  it('leaves a fixed rule valid across the last removal, since the total is unchanged', () => {
+    const { household: after, row } = fixedGroceries()
+    const itemised = itemiseExpense(after, '2026-07', row.id)
+
+    const simple = removeLineItem(itemised.household, '2026-07', row.id, itemised.row.lines[0]!.id)
+
+    expect(simple.row.amount).toBe(30000)
+    expect(simple.row.splitRule).toEqual({
+      kind: 'fixed',
+      byMember: { [ana]: 20000, [bruno]: 10000 },
+    })
+  })
+
+  it('leaves a Pending Expense when the composite came to nothing at all', () => {
+    const { household: after, row } = addExpenseSnapshot(household, '2026-07', {
+      name: 'Water',
+      category: 'Home',
+      amount: null,
+      participants: [ana],
+    })
+    const line = addLineItem(after, '2026-07', row.id, { name: 'Standing charge', amount: null })
+
+    const simple = removeLineItem(line.household, '2026-07', row.id, line.row.lines[0]!.id)
+
+    expect(simple.row.lines).toEqual([])
+    expect(isPending(simple.row)).toBe(true)
+  })
+
+  it('refuses a line that is not on that Expense', () => {
+    const { household: after, row } = itemisedGroceries()
+
+    expect(() => removeLineItem(after, '2026-07', row.id, 'no-such-line')).toThrow(DomainError)
+  })
+})
+
+describe('an Expense made of lines', () => {
+  /** A composite converted from a typed figure, so its one line carries the whole total. */
+  const converted = () => {
+    const { household: after, row } = groceries()
+    return itemiseExpense(after, '2026-07', row.id)
+  }
+
+  it('refuses an amount typed at it directly — the lines are what it costs', () => {
+    const { household: after, row } = converted()
+
+    expect(() => editExpenseSnapshot(after, '2026-07', row.id, { amount: 1 })).toThrow(DomainError)
+  })
+
+  it('takes every other edit as any Expense does', () => {
+    const { household: after, row } = converted()
+
+    const edited = editExpenseSnapshot(after, '2026-07', row.id, { name: 'Supermarket' })
+
+    expect(edited.row.name).toBe('Supermarket')
+    expect(edited.row.lines).toEqual(row.lines)
+    expect(edited.row.amount).toBe(30000)
+  })
+
+  it('carries every line into the next Month opened, identities intact', () => {
+    const { household: after, row } = converted()
+    const fruit = addLineItem(after, '2026-07', row.id, { name: 'Fruit', amount: 1200 })
+
+    const august = openMonth(fruit.household, '2026-08')
+
+    expect(monthAt(august, '2026-08')!.expenses[0]!.lines).toEqual(fruit.row.lines)
+  })
+
+  it('gives the new Month lines of its own, so editing one Month never reaches another', () => {
+    const { household: after, row } = converted()
+    const august = openMonth(after, '2026-08')
+    const inherited = monthAt(august, '2026-08')!.expenses[0]!
+
+    const edited = editLineItem(august, '2026-08', row.id, inherited.lines[0]!.id, {
+      amount: 25000,
+    })
+
+    expect(expensesIn(edited.household, '2026-07')[0]!.lines[0]!.amount).toBe(30000)
+    expect(expensesIn(edited.household, '2026-08')[0]!.lines[0]!.amount).toBe(25000)
   })
 })
