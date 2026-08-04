@@ -26,26 +26,44 @@ failure Drift exists to make visible.
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Sonnet, medium thinking — a field added to an opt-in union and a list
 comparison, with the care going into the id-matching and the refresh path.
 
-- [ ] `DriftField` includes `'lines'`
-- [ ] A composite whose line amounts differ from a fresh open reports `changed` with `lines`
+- [x] `DriftField` includes `'lines'`
+- [x] A composite whose line amounts differ from a fresh open reports `changed` with `lines`
       among its fields
-- [ ] A composite whose lines were renamed, added to or removed from reports the same way —
+- [x] A composite whose lines were renamed, added to or removed from reports the same way —
       one row, one difference
-- [ ] A composite that agrees with a fresh open reports nothing
-- [ ] A composite that is Reviewed in the future Month reports nothing, whatever its lines
+- [x] A composite that agrees with a fresh open reports nothing
+- [x] A composite that is Reviewed in the future Month reports nothing, whatever its lines
       say — the existing rule, unchanged
-- [ ] Refreshing takes the whole inherited line list, ids intact, and leaves the row
+- [x] Refreshing takes the whole inherited line list, ids intact, and leaves the row
       Unreviewed as every refresh does
-- [ ] Refreshing a composite through the existing `refreshFromPreviousMonth` signature works
+- [x] Refreshing a composite through the existing `refreshFromPreviousMonth` signature works
       with no per-line argument
-- [ ] A refreshed composite's amount is the sum of the lines it took
-- [ ] Forward Propagation carries a corrected composite's lines into later Unreviewed Months
+- [x] A refreshed composite's amount is the sum of the lines it took
+- [x] Forward Propagation carries a corrected composite's lines into later Unreviewed Months
       and skips Months where the row has been answered for
-- [ ] A simple Expense that became composite, and a composite that became simple, both drift
+- [x] A simple Expense that became composite, and a composite that became simple, both drift
       and propagate correctly across the change
-- [ ] `npm run typecheck` is clean and the full suite passes
+- [x] `npm run typecheck` is clean and the full suite passes
+
+`refreshFromPreviousMonth` needed no new code: `inheritExpense` (ticket 01) already copies a
+composite's lines wholesale, each keeping its id, and `landed`/`rowForMembers` already route
+through it — so refresh carrying "the whole line list" was already true before this ticket
+touched anything. This ticket added the comparison (`sameLines`/`sameLine`, matched by id) and
+the `'lines'` member to `DriftField`.
+
+Forward Propagation needed a new path: `ExpenseEdits` (ticket 01) deliberately excludes
+`lines`, so `editExpenseSnapshot` can't carry a corrected line list. Added `LineCarry` and
+`carryLines` in `domain/expenses.ts` — used only by the new `propagateExpenseLines`, never by
+the member-facing edit surface — and it carries `amount` alongside `lines` so a composite
+that lost its last line still hands the typed total forward, not just the line list.
+
+`ui/drift.ts`'s `DriftField`-exhaustive switch/map gained a `'lines'` case so the build stayed
+green; full composite rendering in the Drift panel is dashboard territory (ticket 04).
+
+Checked with `npm run typecheck` (clean) and `npx vitest run` (694 tests passing, up from
+670).
