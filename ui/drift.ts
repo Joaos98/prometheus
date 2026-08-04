@@ -20,6 +20,7 @@ const LABELS: Record<DriftField, string> = {
   amount: 'Amount',
   participants: 'Participants',
   splitRule: 'Split Rule',
+  lines: 'Line Items',
   member: 'Whose',
   restrictedUse: 'Restricted-Use',
   target: 'Target',
@@ -55,7 +56,20 @@ export function valueOf(household: Household, row: MonthRow, field: DriftField):
       return namesOf(household, (row as ExpenseSnapshot).participants)
     case 'splitRule':
       return ruleSummary(household, (row as ExpenseSnapshot).splitRule)
+    case 'lines':
+      return linesSummary((row as ExpenseSnapshot).lines, household)
   }
+}
+
+/** A composite's lines as a member would read them, in the order they are held. */
+function linesSummary(lines: ExpenseSnapshot['lines'], household: Household): string {
+  if (lines.length === 0) return 'No Line Items'
+  return lines
+    .map((line) => {
+      const amount = line.amount === null ? 'Nothing entered' : formatAmount(line.amount, household.currency)
+      return `${line.name} ${amount}`
+    })
+    .join(', ')
 }
 
 export function namesOf(household: Household, members: MemberId[]): string {

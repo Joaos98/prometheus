@@ -20,6 +20,7 @@ export { DomainError } from './errors.js'
 export {
   addExpenseSnapshot,
   addLineItem,
+  carryLines,
   confirmExpenseSnapshot,
   editExpenseSnapshot,
   editLineItem,
@@ -30,6 +31,7 @@ export {
   totalOfLines,
   type ExpenseDraft,
   type ExpenseEdits,
+  type LineCarry,
   type LineDraft,
   type LineEdits,
 } from './expenses.js'
@@ -71,6 +73,7 @@ export {
 export { leftoverBalanceOf, leftoverBalancesOf, type LeftoverBalance } from './leftover.js'
 export {
   propagateExpenseEdit,
+  propagateExpenseLines,
   propagateGoalEdit,
   propagateIncomeEdit,
   type Propagation,

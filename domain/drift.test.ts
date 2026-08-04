@@ -3,8 +3,12 @@ import { driftAhead, driftOf, refreshFromPreviousMonth, type DriftField } from '
 import { DomainError } from './errors.js'
 import {
   addExpenseSnapshot,
+  addLineItem,
   confirmExpenseSnapshot,
   editExpenseSnapshot,
+  editLineItem,
+  itemiseExpense,
+  removeLineItem,
   setExpenseOneOff,
   removeExpenseSnapshot,
 } from './expenses.js'
@@ -234,6 +238,118 @@ describe('the diff covers every field the copy covers', () => {
 
   it('names the Month it is measured against', () => {
     expect(driftOf(household, '2026-08', '2026-07').from).toBe('2026-07')
+  })
+})
+
+describe('a composite Expense’s lines', () => {
+  it('reports lines among the fields when the lines differ from a fresh open', () => {
+    const itemised = itemiseExpense(household, '2026-07', rent).household
+
+    expect(fieldsOf(itemised, rent)).toEqual(['lines'])
+  })
+
+  it('reports one changed row, not one per line, however many lines differ', () => {
+    const itemised = itemiseExpense(household, '2026-07', rent).household
+    const withService = addLineItem(itemised, '2026-07', rent, {
+      name: 'Service charge',
+      amount: 5000,
+    }).household
+
+    const drift = driftOf(withService, '2026-08', '2026-07')
+
+    expect(drift.rows).toHaveLength(1)
+    expect(drift.rows[0]!.fields).toContain('lines')
+  })
+
+  it('reports a renamed line as a difference, not as a delete and an add', () => {
+    const itemised = itemiseExpense(household, '2026-07', rent)
+    const reopened = openMonth(discardMonth(itemised.household, '2026-08'), '2026-08')
+    const line = itemised.row.lines[0]!
+    const renamed = editLineItem(reopened, '2026-07', rent, line.id, {
+      name: 'Rent and service',
+    }).household
+
+    expect(fieldsOf(renamed, rent)).toEqual(['lines'])
+  })
+
+  it('agrees when the lines match', () => {
+    const itemised = itemiseExpense(household, '2026-07', rent).household
+    const reopened = openMonth(discardMonth(itemised, '2026-08'), '2026-08')
+
+    expect(fieldsOf(reopened, rent)).toEqual([])
+  })
+
+  it('says nothing of a composite Reviewed in the future Month, whatever its lines say', () => {
+    const itemised = itemiseExpense(household, '2026-07', rent).household
+    const confirmed = confirmExpenseSnapshot(itemised, '2026-08', rent).household
+    const changedFurther = addLineItem(confirmed, '2026-07', rent, {
+      name: 'Service charge',
+      amount: 5000,
+    }).household
+
+    expect(fieldsOf(changedFurther, rent)).toEqual([])
+  })
+
+  it('reports lines when a composite loses its last line and becomes simple again', () => {
+    const itemised = itemiseExpense(household, '2026-07', rent)
+    const reopened = openMonth(discardMonth(itemised.household, '2026-08'), '2026-08')
+    const line = itemised.row.lines[0]!
+    const backToSimple = removeLineItem(reopened, '2026-07', rent, line.id).household
+
+    expect(fieldsOf(backToSimple, rent)).toEqual(['lines'])
+  })
+})
+
+describe('refreshing a composite from the Previous Month', () => {
+  const rentIn = (of: Household, month: MonthKey) =>
+    monthAt(of, month)!.expenses.find((row) => row.id === rent)!
+
+  it('takes the whole line list, ids intact', () => {
+    const itemised = itemiseExpense(household, '2026-07', rent)
+
+    const refreshed = refreshFromPreviousMonth(itemised.household, '2026-08', '2026-07', 'expenses', rent)
+
+    expect(rentIn(refreshed, '2026-08').lines).toEqual(itemised.row.lines)
+  })
+
+  it('leaves the refreshed row Unreviewed', () => {
+    const itemised = itemiseExpense(household, '2026-07', rent).household
+
+    const refreshed = refreshFromPreviousMonth(itemised, '2026-08', '2026-07', 'expenses', rent)
+
+    expect(isReviewed(rentIn(refreshed, '2026-08'))).toBe(false)
+  })
+
+  it('settles the difference, leaving nothing further to report', () => {
+    const itemised = itemiseExpense(household, '2026-07', rent).household
+
+    const refreshed = refreshFromPreviousMonth(itemised, '2026-08', '2026-07', 'expenses', rent)
+
+    expect(fieldsOf(refreshed, rent)).toEqual([])
+  })
+
+  it('lands with an amount that is the sum of the lines it took', () => {
+    const itemised = itemiseExpense(household, '2026-07', rent)
+    const withService = addLineItem(itemised.household, '2026-07', rent, {
+      name: 'Service charge',
+      amount: 5000,
+    }).household
+
+    const refreshed = refreshFromPreviousMonth(withService, '2026-08', '2026-07', 'expenses', rent)
+
+    expect(rentIn(refreshed, '2026-08').amount).toBe(125000)
+  })
+
+  it('hands back a typed amount when the Previous Month lost its last line', () => {
+    const itemised = itemiseExpense(household, '2026-07', rent)
+    const reopened = openMonth(discardMonth(itemised.household, '2026-08'), '2026-08')
+    const line = itemised.row.lines[0]!
+    const backToSimple = removeLineItem(reopened, '2026-07', rent, line.id).household
+
+    const refreshed = refreshFromPreviousMonth(backToSimple, '2026-08', '2026-07', 'expenses', rent)
+
+    expect(rentIn(refreshed, '2026-08').lines).toEqual([])
+    expect(rentIn(refreshed, '2026-08').amount).toBe(120000)
   })
 })
 

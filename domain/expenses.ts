@@ -55,6 +55,18 @@ export interface LineDraft {
   amount: Minor | null
 }
 
+/**
+ * What a correction to an Expense's lines carries into a later Month: the lines
+ * themselves and the amount they derive. The amount travels alongside rather than being
+ * recomputed on arrival, because a composite that lost its last line hands back a typed
+ * total that is not itself a line — `consistent` recomputes it anyway whenever the lines
+ * given are non-empty, so this only matters for that one direction.
+ */
+export interface LineCarry {
+  lines: LineItem[]
+  amount: Minor | null
+}
+
 /** The fields a line edit names. A field left out is left alone. */
 export interface LineEdits {
   name?: string
@@ -245,6 +257,29 @@ export function removeLineItem(
   return changeLines(household, key, id, splitRule, (existing, month) => {
     lineIn(month, existing, lineId)
     return existing.lines.filter((candidate) => candidate.id !== lineId)
+  })
+}
+
+/**
+ * Lands a corrected line list in one Month, exactly as Forward Propagation carries any
+ * other field. Used only there: the lines given already carry whatever identity they were
+ * minted with, so none of `ExpenseEdits`' reasons for excluding a wholesale list apply — a
+ * member never calls this directly, `addLineItem`, `editLineItem` and `removeLineItem` are
+ * what they use, one line at a time.
+ */
+export function carryLines(
+  household: Household,
+  key: MonthKey,
+  id: RowId,
+  carry: LineCarry,
+): RowChange<ExpenseSnapshot> {
+  const month = openedMonth(household, key)
+  const existing = expenseRow(month, id)
+  return writeExpense(household, month, {
+    ...existing,
+    lines: carry.lines,
+    amount: carry.amount,
+    reviewed: true,
   })
 }
 

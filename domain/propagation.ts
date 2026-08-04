@@ -22,7 +22,7 @@
  * Month is their Previous one by the time somebody opens them.
  */
 import { DomainError } from './errors.js'
-import { editExpenseSnapshot, expenseIn } from './expenses.js'
+import { carryLines, editExpenseSnapshot, expenseIn } from './expenses.js'
 import { editSavingsGoal, goalIn } from './goals.js'
 import { editIncomeSnapshot, incomeIn } from './income.js'
 import { monthName } from './month-key.js'
@@ -63,6 +63,13 @@ export const propagateIncomeEdit = propagator('income', incomeIn, editIncomeSnap
 
 /** Carries a correction to an Expense into the later Months still holding the copy. */
 export const propagateExpenseEdit = propagator('expenses', expenseIn, editExpenseSnapshot)
+
+/**
+ * Carries a correction to an Expense's Line Items into the later Months still holding the
+ * copy — the whole line list at once, as a fresh open already carries it, since a
+ * per-line propagation would have no per-line Unreviewed mark to respect.
+ */
+export const propagateExpenseLines = propagator('expenses', expenseIn, carryLines)
 
 /**
  * Carries a correction to a Savings Goal into the later Months still holding the copy.

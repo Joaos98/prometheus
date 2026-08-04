@@ -2,15 +2,23 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { DomainError } from './errors.js'
 import {
   addExpenseSnapshot,
+  addLineItem,
   confirmExpenseSnapshot,
   editExpenseSnapshot,
+  itemiseExpense,
   removeExpenseSnapshot,
+  removeLineItem,
 } from './expenses.js'
 import { addSavingsGoal, confirmSavingsGoal, recordContribution } from './goals.js'
 import { deactivateMember, setUpHousehold } from './household.js'
 import { addIncomeSnapshot, confirmIncomeSnapshot } from './income.js'
 import { monthAt, openedMonthKeys, openMonth } from './month.js'
-import { propagateExpenseEdit, propagateGoalEdit, propagateIncomeEdit } from './propagation.js'
+import {
+  propagateExpenseEdit,
+  propagateExpenseLines,
+  propagateGoalEdit,
+  propagateIncomeEdit,
+} from './propagation.js'
 import { repurposeExpenseSnapshot } from './repurposing.js'
 import { isReviewed } from './review.js'
 import type { Household, MemberId, MonthKey, RowId } from './types.js'
@@ -228,6 +236,98 @@ describe('a row matched across the Months', () => {
 
     expect(rentIn(after, '2026-08')!.category).toBe('Home')
     expect(rentIn(after, '2026-08')!.participants).toEqual([ana, bruno])
+  })
+})
+
+describe('a correction to an Expense’s lines', () => {
+  it('carries the whole line list into the later Months still holding the copy', () => {
+    const itemised = itemiseExpense(household, '2026-07', rent)
+    const withService = addLineItem(itemised.household, '2026-07', rent, {
+      name: 'Service charge',
+      amount: 5000,
+    })
+
+    const { household: after, changed } = propagateExpenseLines(withService.household, '2026-07', rent, {
+      lines: withService.row.lines,
+      amount: withService.row.amount,
+    })
+
+    expect(changed).toEqual(['2026-08', '2026-09'])
+    expect(rentIn(after, '2026-08')!.lines).toEqual(withService.row.lines)
+    expect(rentIn(after, '2026-08')!.amount).toBe(125000)
+  })
+
+  it('leaves what it carried Unreviewed — it is a copy nobody has looked at yet', () => {
+    const itemised = itemiseExpense(household, '2026-07', rent)
+
+    const { household: after } = propagateExpenseLines(itemised.household, '2026-07', rent, {
+      lines: itemised.row.lines,
+      amount: itemised.row.amount,
+    })
+
+    expect(isReviewed(rentIn(after, '2026-08')!)).toBe(false)
+  })
+
+  it('leaves alone a Month a member has already answered for', () => {
+    const decided = editExpenseSnapshot(household, '2026-08', rent, { amount: 90000 }).household
+    const itemised = itemiseExpense(decided, '2026-07', rent)
+
+    const { household: after, skipped } = propagateExpenseLines(
+      itemised.household,
+      '2026-07',
+      rent,
+      { lines: itemised.row.lines, amount: itemised.row.amount },
+    )
+
+    expect(rentIn(after, '2026-08')!.amount).toBe(90000)
+    expect(rentIn(after, '2026-08')!.lines).toEqual([])
+    expect(skipped).toContainEqual(expect.objectContaining({ month: '2026-08', reason: 'reviewed' }))
+  })
+
+  it('hands back a typed amount in the Months it reaches, when the last line is removed', () => {
+    const itemised = itemiseExpense(household, '2026-07', rent)
+    const line = itemised.row.lines[0]!
+    const backToSimple = removeLineItem(itemised.household, '2026-07', rent, line.id)
+
+    const { household: after } = propagateExpenseLines(backToSimple.household, '2026-07', rent, {
+      lines: backToSimple.row.lines,
+      amount: backToSimple.row.amount,
+    })
+
+    expect(rentIn(after, '2026-08')!.lines).toEqual([])
+    expect(rentIn(after, '2026-08')!.amount).toBe(120000)
+  })
+
+  it('is refused in a later Month whose own Split Rule no longer totals against the new lines', () => {
+    const local = setUpHousehold({
+      currency: euro,
+      memberNames: ['Ana', 'Bruno'],
+      startingMonth: '2026-07',
+    })
+    const [localAna, localBruno] = local.roster.map((member) => member.id) as [MemberId, MemberId]
+    const fixed = addExpenseSnapshot(local, '2026-07', {
+      name: 'Storage',
+      category: 'Home',
+      amount: 120000,
+      participants: [localAna, localBruno],
+      splitRule: { kind: 'fixed', byMember: { [localAna]: 60000, [localBruno]: 60000 } },
+    })
+    const opened = openMonth(fixed.household, '2026-08')
+    const itemised = itemiseExpense(opened, '2026-07', fixed.row.id)
+    const withService = addLineItem(
+      itemised.household,
+      '2026-07',
+      fixed.row.id,
+      { name: 'Service charge', amount: 5000 },
+      { kind: 'fixed', byMember: { [localAna]: 65000, [localBruno]: 60000 } },
+    )
+
+    const { skipped } = propagateExpenseLines(withService.household, '2026-07', fixed.row.id, {
+      lines: withService.row.lines,
+      amount: withService.row.amount,
+    })
+
+    expect(skipped).toContainEqual(expect.objectContaining({ month: '2026-08', reason: 'refused' }))
   })
 })
 

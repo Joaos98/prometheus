@@ -35,6 +35,7 @@ import type {
   ExpenseSnapshot,
   Household,
   IncomeSnapshot,
+  LineItem,
   MemberId,
   Month,
   MonthKey,
@@ -52,6 +53,7 @@ export type DriftField =
   | 'amount'
   | 'participants'
   | 'splitRule'
+  | 'lines'
   | 'member'
   | 'restrictedUse'
   | 'target'
@@ -296,6 +298,7 @@ function expenseFields(held: ExpenseSnapshot, inherited: ExpenseSnapshot): Drift
     ...differs('amount', held.amount !== inherited.amount),
     ...differs('participants', !sameMembers(held.participants, inherited.participants)),
     ...differs('splitRule', !sameRule(held.splitRule, inherited.splitRule)),
+    ...differs('lines', !sameLines(held.lines, inherited.lines)),
   ]
 }
 
@@ -336,4 +339,24 @@ function sameRule(one: SplitRule, other: SplitRule): boolean {
 /** The per-Participant figures a rule carries, of which `even` and `proportional` have none. */
 function figuresOf(rule: SplitRule): Record<MemberId, number> {
   return rule.kind === 'percentage' || rule.kind === 'fixed' ? rule.byMember : {}
+}
+
+/**
+ * Two line lists agree when they hold the same ids in the same order with the same names
+ * and the same amounts. The id is what is checked, not only the name and amount, so a
+ * renamed or re-priced line reads as the same line changed rather than as one deleted
+ * and another added.
+ */
+function sameLines(one: LineItem[], other: LineItem[]): boolean {
+  return (
+    one.length === other.length &&
+    one.every((line, at) => {
+      const there = other[at]
+      return there !== undefined && sameLine(line, there)
+    })
+  )
+}
+
+function sameLine(one: LineItem, other: LineItem): boolean {
+  return one.id === other.id && one.name === other.name && one.amount === other.amount
 }
