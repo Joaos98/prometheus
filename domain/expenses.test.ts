@@ -608,6 +608,17 @@ describe('adding a Line Item', () => {
     )
   })
 
+  it('refuses a line whose sum could no longer be held exactly, though each line can', () => {
+    const enormous = 2 ** 52
+    const { household: after, row } = groceries(null)
+    const first = addLineItem(after, '2026-07', row.id, { name: 'One', amount: enormous })
+    expect(first.row.amount).toBe(enormous)
+
+    expect(() =>
+      addLineItem(first.household, '2026-07', row.id, { name: 'Two', amount: enormous }),
+    ).toThrow(DomainError)
+  })
+
   it('cannot be added to a Month that has not been opened', () => {
     const { household: after, row } = groceries()
 

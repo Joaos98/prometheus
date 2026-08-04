@@ -318,9 +318,15 @@ function writeExpense(
  * enforced here instead, by there being no write that leaves the two able to disagree.
  * A simple Expense keeps the figure it was given, which is what hands the running total
  * back when the last line goes.
+ *
+ * A computed total is held to the same standard as a typed one. Each line is whole minor
+ * units, but a sum of them need not still be a number that can be held exactly, and an
+ * amount nobody can trust is worse than an edit refused.
  */
 function consistent(household: Household, row: ExpenseSnapshot): ExpenseSnapshot {
-  const settled = isComposite(row) ? { ...row, amount: totalOfLines(row.lines) } : row
+  const settled = isComposite(row)
+    ? { ...row, amount: requireAmount(totalOfLines(row.lines)) }
+    : row
   requireConsistentRule(settled.splitRule, settled.amount, settled.participants, household.currency)
   return settled
 }

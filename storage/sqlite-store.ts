@@ -1,6 +1,7 @@
 import type { Database } from 'better-sqlite3'
 import type { Household, Member, Month, MonthKey, MonthRow, RowId } from '../domain/index.js'
 import { StorageError, type HouseholdStore, type RowKind } from './port.js'
+import { fromStored } from './stored.js'
 
 /**
  * The schemas this database has been through, in order. The one at the end is the one
@@ -67,11 +68,11 @@ export function sqliteStore(db: Database): HouseholdStore {
       | { currency: string; roster: string }
       | undefined
     if (!stored) return undefined
-    return {
+    return fromStored({
       currency: JSON.parse(stored.currency) as Household['currency'],
       roster: JSON.parse(stored.roster) as Member[],
       months: readMonths(db),
-    }
+    })
   }
 
   const requireHousehold = (): void => {

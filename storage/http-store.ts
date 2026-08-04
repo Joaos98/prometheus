@@ -1,5 +1,6 @@
 import type { Household, Month, MonthKey, MonthRow, RowId } from '../domain/index.js'
 import { StorageError, type HouseholdStore, type RowKind } from './port.js'
+import { fromStored } from './stored.js'
 
 /**
  * Talks to the self-hosted server, which stores rows and knows nothing else. The port is
@@ -32,7 +33,7 @@ export function httpStore(base: string, send: typeof fetch = fetch): HouseholdSt
   return {
     async loadHousehold(): Promise<Household | undefined> {
       const answer = (await call('GET', '/household')) as { household: Household | null }
-      return answer.household ?? undefined
+      return answer.household ? fromStored(answer.household) : undefined
     },
 
     async createHousehold(household: Household): Promise<void> {

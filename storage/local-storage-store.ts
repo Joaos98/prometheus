@@ -1,5 +1,6 @@
 import type { Household, Month, MonthKey, MonthRow, RowId } from '../domain/index.js'
 import { StorageError, type HouseholdStore, type RowKind } from './port.js'
+import { fromStored } from './stored.js'
 
 const KEY = 'prometheus.household'
 
@@ -24,7 +25,7 @@ function migrate(stored: unknown): Household {
   const document = stored as Partial<StoredDocument>
   const household =
     typeof document.shape === 'number' ? (document.household as Household) : (stored as Household)
-  return { ...household, months: inCalendarOrder(household.months) }
+  return fromStored({ ...household, months: inCalendarOrder(household.months) })
 }
 
 /**
