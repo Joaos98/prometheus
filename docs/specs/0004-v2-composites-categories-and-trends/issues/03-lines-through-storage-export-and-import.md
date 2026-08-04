@@ -22,24 +22,45 @@ invariant is that the two cannot disagree.
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Sonnet, medium thinking — mechanical, with the whole difficulty
 concentrated in the null round-trip cases.
 
-- [ ] A Household whose Expenses carry lines round-trips through the SQLite adapter unchanged
-- [ ] The same through the `localStorage` adapter
-- [ ] Both cases are asserted in `storage/port-contract.ts`, not in an adapter's own tests
-- [ ] A line with `amount: null` round-trips as `null` in both adapters — not `0`, not
+- [x] A Household whose Expenses carry lines round-trips through the SQLite adapter unchanged
+- [x] The same through the `localStorage` adapter
+- [x] Both cases are asserted in `storage/port-contract.ts`, not in an adapter's own tests
+- [x] A line with `amount: null` round-trips as `null` in both adapters — not `0`, not
       `undefined`, not absent
-- [ ] A stored Household written by v1.2, with no `lines` key anywhere, loads with every
+- [x] A stored Household written by v1.2, with no `lines` key anywhere, loads with every
       Expense simple and `lines: []`
-- [ ] `writeRow` on a composite writes the whole row including its lines, and leaves every
+- [x] `writeRow` on a composite writes the whole row including its lines, and leaves every
       other row alone
-- [ ] Export includes `lines`; a v1.2 export file imports cleanly with `lines: []`
-- [ ] An imported composite's amount is recomputed from its lines, and a file carrying a
+- [x] Export includes `lines`; a v1.2 export file imports cleanly with `lines: []`
+- [x] An imported composite's amount is recomputed from its lines, and a file carrying a
       total that disagrees with its lines is either rejected or corrected — pick one and
       say which in the comments
-- [ ] Line ids survive export and import intact, so a re-imported Household still drifts and
+- [x] Line ids survive export and import intact, so a re-imported Household still drifts and
       propagates correctly
-- [ ] `npm run typecheck` is clean and the full suite passes
+- [x] `npm run typecheck` is clean and the full suite passes
+
+Both storage adapters already round-tripped `lines` for free — they hold a row as an opaque
+JSON blob, and JSON preserves `null` correctly on its own. The read-side default of `[]` for
+a v1.2 row with no `lines` key was already added by the bug-fix folded into ticket 01's close
+(`storage/stored.ts`). What this ticket actually added there was the shared **proof**:
+`storage/port-contract.ts` gained `line()`/`composite()` fixture builders and four cases —
+composite round-trip, a `null` line amount, `writeRow` leaving other rows alone, and a legacy
+row with no `lines` key — that both adapters run through `describePort`, per the ticket's own
+instruction not to duplicate that per adapter.
+
+Export needed nothing: `exportHousehold` already serialises `lines` as part of every
+`ExpenseSnapshot`, so ticket 01 landing was what actually shipped that. Import is where the
+real work was — `readExpense` now reads `lines` via `readLines`/`readLine` (defaulting to
+`[]` when the key is absent, rejecting a line with no amount field, requiring distinct line
+ids the same way rows are), and **recomputes** a composite's amount from its lines rather
+than trusting the file's own `amount` field — the "corrected" choice, not "rejected", because
+that is exactly what `consistent()` already does to every write the live engine makes, and a
+file is only ever another route to the same invariant.
+
+Checked with `npm run typecheck` (clean) and `npx vitest run` (713 tests passing, up from
+694).
