@@ -29,25 +29,27 @@ const LABELS: Record<DriftField, string> = {
 
 export const labelOf = (field: DriftField): string => LABELS[field]
 
+/** An amount as a member would read it, `null` read as Pending rather than as zero. */
+function money(amount: Minor | null, household: Household): string {
+  return amount === null ? 'Nothing entered' : formatAmount(amount, household.currency)
+}
+
 /**
  * One field of one row, as a member would read it. The diff is neutral, so both sides are
  * rendered the same way and neither is styled as the right one.
  */
 export function valueOf(household: Household, row: MonthRow, field: DriftField): string {
-  const money = (amount: Minor | null): string =>
-    amount === null ? 'Nothing entered' : formatAmount(amount, household.currency)
-
   switch (field) {
     case 'name':
       return (row as { name: string }).name
     case 'category':
       return (row as ExpenseSnapshot).category || 'None'
     case 'amount':
-      return money((row as ExpenseSnapshot).amount)
+      return money((row as ExpenseSnapshot).amount, household)
     case 'target':
-      return money((row as SavingsGoal).target)
+      return money((row as SavingsGoal).target, household)
     case 'startAmount':
-      return money((row as SavingsGoal).startAmount)
+      return money((row as SavingsGoal).startAmount, household)
     case 'member':
       return nameOf(household, (row as IncomeSnapshot).member)
     case 'restrictedUse':
@@ -64,12 +66,7 @@ export function valueOf(household: Household, row: MonthRow, field: DriftField):
 /** A composite's lines as a member would read them, in the order they are held. */
 function linesSummary(lines: ExpenseSnapshot['lines'], household: Household): string {
   if (lines.length === 0) return 'No Line Items'
-  return lines
-    .map((line) => {
-      const amount = line.amount === null ? 'Nothing entered' : formatAmount(line.amount, household.currency)
-      return `${line.name} ${amount}`
-    })
-    .join(', ')
+  return lines.map((line) => `${line.name} ${money(line.amount, household)}`).join(', ')
 }
 
 export function namesOf(household: Household, members: MemberId[]): string {
