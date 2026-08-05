@@ -5,10 +5,12 @@ import {
   addLineItem,
   addMember,
   addSavingsGoal,
+  clearCategory,
   confirmExpenseSnapshot,
   confirmIncomeSnapshot,
   confirmSavingsGoal,
   deactivateMember,
+  deleteCategory as deleteFromVocabulary,
   discardMonth,
   editExpenseSnapshot,
   editLineItem,
@@ -38,6 +40,7 @@ import {
   removeIncomeSnapshot,
   repurposeExpenseSnapshot,
   setUpHousehold,
+  type CategoryId,
   type Currency,
   type ExpenseDraft,
   type ExpenseEdits,
@@ -328,6 +331,53 @@ export function householdOver(store: HouseholdStore, seed?: Seed) {
   function reactivateRosterMember(member: MemberId): Promise<void> {
     return changing(async (loaded) => {
       const after = reactivateMember(loaded, member)
+      await store.replaceHousehold(after)
+      return after
+    })
+  }
+
+  /**
+   * Deleting a category outright, which the engine refuses while any row still holds it.
+   * The vocabulary is not a Month's row, so it goes back whole, as the Roster does.
+   *
+   * The refusal is what makes this safe to offer whenever nothing references the category:
+   * between a panel reading that and a member clicking, the other member may have
+   * categorised a row, and the engine is the only thing that knows.
+   */
+  function deleteCategory(id: CategoryId): Promise<void> {
+    return changing(async (loaded) => {
+      const after = deleteFromVocabulary(loaded, id)
+      await store.replaceHousehold(after)
+      return after
+    })
+  }
+
+  /**
+   * Taking a category off every row that holds it, and then out of the vocabulary. This is
+   * destructive, irreversible and reaches into Months that are settled history, so nothing
+   * calls it that has not said the cost out loud first (ADR-0012).
+   *
+   * The order is the rule, and it is why this is not one `replaceHousehold`: the clear is N
+   * row-scoped writes (ADR-0008), and the vocabulary goes back only once every one of them
+   * has landed. A run that stops partway leaves rows cleared, the category still listed and
+   * `deleteCategory` still refusing it — a retry rather than a corrupt state, and running
+   * this again finishes the job.
+   *
+   * What the row-scoping does not buy, though ADR-0012 reads as though it might, is a
+   * concurrent edit's survival: the trailing `replaceHousehold` puts this member's whole
+   * Household back, so an edit made elsewhere while this ran is overwritten at the end
+   * anyway. Every Household-level change here carries that — the currency, the Roster,
+   * propagation — for want of a port operation narrower than `replaceHousehold`.
+   *
+   * That the row writes and the vocabulary are one act as far as a member is concerned is
+   * why the ordering has to live here: only the layer that talks to the store can say which
+   * write lands first.
+   */
+  function clearAndDeleteCategory(id: CategoryId): Promise<void> {
+    return changing(async (loaded) => {
+      const { household: cleared, rows } = clearCategory(loaded, id)
+      for (const { month, row } of rows) await store.writeRow(month, 'expenses', row)
+      const after = deleteFromVocabulary(cleared, id)
       await store.replaceHousehold(after)
       return after
     })
@@ -651,6 +701,8 @@ export function householdOver(store: HouseholdStore, seed?: Seed) {
     addRosterMember,
     deactivateRosterMember,
     reactivateRosterMember,
+    deleteCategory,
+    clearAndDeleteCategory,
     addIncome,
     editIncome,
     removeIncome,

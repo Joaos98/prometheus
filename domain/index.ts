@@ -19,8 +19,12 @@ export { apportion } from './apportion.js'
 export {
   addCategory,
   categoryUsage,
+  clearCategory,
+  deleteCategory,
   renameCategory,
+  type CategoryClearance,
   type CategoryUsage,
+  type ClearedRow,
 } from './categories.js'
 export { DomainError } from './errors.js'
 export {

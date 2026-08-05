@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { seedHousehold } from '../demo/seed.js'
-import { openedMonthKeys, type ExpenseDraft, type Household, type Setup } from '../domain/index.js'
+import {
+  addCategory,
+  openedMonthKeys,
+  setUpHousehold,
+  type ExpenseDraft,
+  type Household,
+  type Setup,
+} from '../domain/index.js'
 import { localStorageStore } from '../storage/local-storage-store.js'
 import type { HouseholdStore } from '../storage/port.js'
 import { householdOver, type Seed } from './household.js'
@@ -41,6 +48,40 @@ function slowly(store: HouseholdStore, delay = 5): HouseholdStore {
     writeRow: slow(store.writeRow.bind(store)),
     deleteRow: slow(store.deleteRow.bind(store)),
     replaceHousehold: slow(store.replaceHousehold.bind(store)),
+  }
+}
+
+/** A store that says what it was asked to do, in the order it was asked to do it. */
+function recording(store: HouseholdStore): HouseholdStore & { calls: string[] } {
+  const calls: string[] = []
+  const noted =
+    <A extends unknown[], R>(name: string, operation: (...args: A) => Promise<R>) =>
+    (...args: A): Promise<R> => {
+      calls.push(name)
+      return operation(...args)
+    }
+  return {
+    calls,
+    loadHousehold: store.loadHousehold.bind(store),
+    createHousehold: store.createHousehold.bind(store),
+    openMonth: noted('openMonth', store.openMonth.bind(store)),
+    discardMonth: noted('discardMonth', store.discardMonth.bind(store)),
+    writeRow: noted('writeRow', store.writeRow.bind(store)),
+    deleteRow: noted('deleteRow', store.deleteRow.bind(store)),
+    replaceHousehold: noted('replaceHousehold', store.replaceHousehold.bind(store)),
+  }
+}
+
+/** A store whose nth row write fails, as a network that drops halfway through does. */
+function failingOnWrite(store: HouseholdStore, nth: number): HouseholdStore {
+  let writes = 0
+  return {
+    ...store,
+    writeRow: (month, kind, row) => {
+      writes += 1
+      if (writes === nth) return Promise.reject(new Error('The store gave up'))
+      return store.writeRow(month, kind, row)
+    },
   }
 }
 
@@ -293,6 +334,140 @@ describe('the Line Items of a composite Expense', () => {
     })
 
     expect(rentIn(app).amount).toBe(125000)
+  })
+})
+
+/**
+ * The riskiest operation in the app: it writes into many Months at once, it is
+ * irreversible, and ADR-0008 leaves it non-atomic. What these ask is the order, and what
+ * a run that stops halfway leaves behind.
+ */
+describe('deleting a category', () => {
+  /** Groceries on one row of July, inherited by August; Utilities on a row of its own. */
+  async function withGroceries() {
+    const storage = fakeStorage()
+    const store = recording(localStorageStore(storage))
+    const vocabulary = addCategory(setUpHousehold(setup), 'Groceries')
+    const withCategories = addCategory(vocabulary, 'Utilities')
+    await store.createHousehold(withCategories)
+    const [groceries, utilities] = withCategories.categories.map((category) => category.id) as [
+      string,
+      string,
+    ]
+
+    const app = householdOver(store)
+    await app.load()
+    const roster = app.household.value!
+    const categorised = (name: string, amount: number, category: string): ExpenseDraft => ({
+      ...expense(name, amount, roster),
+      category,
+    })
+    await app.addExpense('2026-07', categorised('Supermarket', 30000, groceries))
+    await app.addExpense('2026-07', categorised('Electricity', 8000, utilities))
+    await app.open('2026-08')
+    store.calls.length = 0
+
+    return { app, store, storage, groceries, utilities }
+  }
+
+  const stored = (storage: Storage): Promise<Household> =>
+    localStorageStore(storage).loadHousehold() as Promise<Household>
+
+  it('deletes one no row references without writing a row', async () => {
+    const { app, store, storage, utilities, groceries } = await withGroceries()
+    await app.removeExpense('2026-07', app.household.value!.months['2026-07']!.expenses[1]!.id)
+    await app.removeExpense('2026-08', app.household.value!.months['2026-08']!.expenses[1]!.id)
+    store.calls.length = 0
+
+    await app.deleteCategory(utilities)
+
+    expect(store.calls).toEqual(['replaceHousehold'])
+    const left = (await stored(storage)).categories.map((category) => category.id)
+    expect(left).toEqual([groceries])
+  })
+
+  it('refuses to delete one in use, and leaves the record exactly as it was', async () => {
+    const { app, store, storage, groceries } = await withGroceries()
+    const before = await stored(storage)
+
+    await expect(app.deleteCategory(groceries)).rejects.toThrow('used by 2 rows')
+
+    expect(store.calls).toEqual([])
+    expect(await stored(storage)).toEqual(before)
+  })
+
+  it('clears every referencing row one write at a time, and only then puts the vocabulary back', async () => {
+    const { app, store, storage, groceries } = await withGroceries()
+
+    await app.clearAndDeleteCategory(groceries)
+
+    expect(store.calls).toEqual(['writeRow', 'writeRow', 'replaceHousehold'])
+    const after = await stored(storage)
+    expect(after.categories.map((category) => category.name)).toEqual(['Utilities'])
+    for (const key of ['2026-07', '2026-08'] as const) {
+      const categories = after.months[key]!.expenses.map((row) => row.category)
+      expect(categories).toEqual([null, expect.any(String)])
+    }
+  })
+
+  it('changes nothing but the category of a cleared row, its Unreviewed mark included', async () => {
+    const { app, storage, groceries } = await withGroceries()
+    const before = await stored(storage)
+
+    await app.clearAndDeleteCategory(groceries)
+
+    const after = await stored(storage)
+    for (const key of ['2026-07', '2026-08'] as const) {
+      expect(after.months[key]!.expenses[0]).toEqual({
+        ...before.months[key]!.expenses[0]!,
+        category: null,
+      })
+      expect(after.months[key]!.expenses[1]).toEqual(before.months[key]!.expenses[1])
+    }
+  })
+
+  /**
+   * The order is what makes a failed run a retry rather than a corrupt state: the
+   * vocabulary is only written once every clear has landed, so a category that is still
+   * half in use is still in the list, and still refuses to be deleted.
+   */
+  it('leaves the category present and still undeletable when a row write fails partway', async () => {
+    const storage = fakeStorage()
+    const withCategories = addCategory(setUpHousehold(setup), 'Groceries')
+    const store = localStorageStore(storage)
+    await store.createHousehold(withCategories)
+    const groceries = withCategories.categories[0]!.id
+    const app = householdOver(store)
+    await app.load()
+    await app.addExpense('2026-07', {
+      ...expense('Supermarket', 30000, app.household.value!),
+      category: groceries,
+    })
+    await app.open('2026-08')
+
+    const failing = householdOver(failingOnWrite(store, 2))
+    await failing.load()
+    await expect(failing.clearAndDeleteCategory(groceries)).rejects.toThrow('The store gave up')
+
+    const halfway = await stored(storage)
+    expect(halfway.categories.map((category) => category.name)).toEqual(['Groceries'])
+    expect(halfway.months['2026-07']!.expenses[0]!.category).toBeNull()
+    expect(halfway.months['2026-08']!.expenses[0]!.category).toBe(groceries)
+
+    /**
+     * The retry runs on the app that failed, which is the case that actually happens: a
+     * refused change leaves the screen holding the record as it was before the clear, so
+     * this asks again for rows the store has already cleared. Writing a cleared row over a
+     * cleared row is last-write-wins over identical content (ADR-0008), and the run
+     * finishes.
+     */
+    await failing.clearAndDeleteCategory(groceries)
+
+    const finished = await stored(storage)
+    expect(finished.categories).toEqual([])
+    expect(finished.months['2026-07']!.expenses[0]!.category).toBeNull()
+    expect(finished.months['2026-08']!.expenses[0]!.category).toBeNull()
+    expect(failing.household.value!.categories).toEqual([])
   })
 })
 
