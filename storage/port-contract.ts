@@ -23,12 +23,14 @@ export interface Deployment {
   close(): Promise<void> | void
 }
 
-const household = (): Household =>
-  setUpHousehold({
+const household = (): Household => ({
+  ...setUpHousehold({
     currency: { code: 'EUR', symbol: '€', decimals: 2 },
     memberNames: ['Ana', 'Bruno'],
     startingMonth: '2026-07',
-  })
+  }),
+  categories: [{ id: 'home', name: 'Home' }],
+})
 
 const salary = (amount: Minor | null): IncomeSnapshot => ({
   id: 'salary',
@@ -43,7 +45,7 @@ const salary = (amount: Minor | null): IncomeSnapshot => ({
 const expense = (id: string, amount: Minor | null): ExpenseSnapshot => ({
   id,
   name: id,
-  category: 'Home',
+  category: 'home',
   amount,
   lines: [],
   participants: ['ana', 'bruno'],
@@ -57,7 +59,7 @@ const line = (id: string, name: string, amount: Minor | null): LineItem => ({ id
 const composite = (id: string, lines: LineItem[]): ExpenseSnapshot => ({
   id,
   name: id,
-  category: 'Home',
+  category: 'home',
   amount: totalOfLines(lines),
   lines,
   participants: ['ana', 'bruno'],
@@ -243,6 +245,37 @@ export function describePort(name: string, deploy: () => Promise<Deployment> | D
 
       const written = (await store.loadHousehold())!.months['2026-07']!.expenses[0]!
       expect(written.lines).toEqual([])
+    })
+
+    it('round-trips the category vocabulary unchanged', async () => {
+      const created = household()
+
+      await store.createHousehold(created)
+
+      expect((await store.loadHousehold())!.categories).toEqual(created.categories)
+    })
+
+    it('keeps an Expense’s category null, not absent, when nothing has been chosen', async () => {
+      await store.createHousehold(household())
+
+      await store.writeRow('2026-07', 'expenses', { ...expense('rent', 120000), category: null })
+
+      const written = (await store.loadHousehold())!.months['2026-07']!.expenses[0]!
+      expect(written.category).toBeNull()
+      expect('category' in written).toBe(true)
+    })
+
+    it('loads a Household stored before categories existed with an empty vocabulary, discarding every Expense’s old category string', async () => {
+      const created = household()
+      const july = created.months['2026-07']!
+      const withRow = { ...created, months: { ...created.months, '2026-07': { ...july, expenses: [expense('rent', 120000)] } } }
+      const { categories: _categories, ...legacy } = withRow
+
+      await store.createHousehold(legacy as unknown as Household)
+
+      const loaded = (await store.loadHousehold())!
+      expect(loaded.categories).toEqual([])
+      expect(loaded.months['2026-07']!.expenses[0]!.category).toBeNull()
     })
 
     it('keeps both edits when two members write different rows of the same Month', async () => {

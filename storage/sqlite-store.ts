@@ -1,5 +1,5 @@
 import type { Database } from 'better-sqlite3'
-import type { Household, Member, Month, MonthKey, MonthRow, RowId } from '../domain/index.js'
+import type { Category, Household, Member, Month, MonthKey, MonthRow, RowId } from '../domain/index.js'
 import { StorageError, type HouseholdStore, type RowKind } from './port.js'
 import { fromStored } from './stored.js'
 
@@ -51,6 +51,18 @@ const migrations: ((db: Database) => void)[] = [
     if (stored) writeDocument(db, JSON.parse(stored.document) as Household, 'household_next')
     db.exec('drop table household; alter table household_next rename to household')
   },
+
+  /**
+   * 3 — the category vocabulary, Household-level like the currency and the Roster
+   * (ticket 07). The column is added with no default, so a database that predates it
+   * reads back `null` there — distinct from a v2 Household that has genuinely chosen an
+   * empty list — and `fromStored`'s read-side default is what turns that `null` into
+   * `[]` and discards whatever an Expense's `category` held before the vocabulary
+   * existed.
+   */
+  (db) => {
+    db.exec('alter table household add column categories text')
+  },
 ]
 
 const KINDS: RowKind[] = ['income', 'expenses', 'goals']
@@ -64,13 +76,14 @@ export function sqliteStore(db: Database): HouseholdStore {
   migrate(db)
 
   const readHousehold = (): Household | undefined => {
-    const stored = db.prepare('select currency, roster from household where id = 1').get() as
-      | { currency: string; roster: string }
+    const stored = db.prepare('select currency, roster, categories from household where id = 1').get() as
+      | { currency: string; roster: string; categories: string | null }
       | undefined
     if (!stored) return undefined
     return fromStored({
       currency: JSON.parse(stored.currency) as Household['currency'],
       roster: JSON.parse(stored.roster) as Member[],
+      categories: stored.categories === null ? undefined : (JSON.parse(stored.categories) as Category[]),
       months: readMonths(db),
     })
   }
@@ -101,6 +114,7 @@ export function sqliteStore(db: Database): HouseholdStore {
   const putHousehold = db.transaction((household: Household) => {
     db.exec('delete from month_rows; delete from months; delete from household')
     writeDocument(db, household, 'household')
+    db.prepare('update household set categories = ? where id = 1').run(serialise(household.categories))
   })
 
   return {
@@ -188,7 +202,13 @@ function readMonths(db: Database): Record<MonthKey, Month> {
   return months
 }
 
-/** Writes a whole Household into an empty set of tables, `household` named by the caller. */
+/**
+ * Writes a whole Household into an empty set of tables, `household` named by the caller.
+ *
+ * Deliberately silent on `categories`: this also runs from migration 2's document
+ * conversion, against `household_next` before migration 3 has added that column. Runtime
+ * writes (`putHousehold`) add it themselves once the column exists.
+ */
 function writeDocument(db: Database, household: Household, table: string): void {
   db.prepare(`insert into ${table} (id, currency, roster) values (1, ?, ?)`).run(
     serialise(household.currency),

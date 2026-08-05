@@ -73,7 +73,30 @@ describe('a Household read out of storage', () => {
     const read = fromStored(stored)
 
     const rent = read.months['2026-07']!.expenses[0]!
-    expect(rent).toEqual({ ...stored.months['2026-07']!.expenses[0], lines: [] })
+    expect(rent).toEqual({ ...stored.months['2026-07']!.expenses[0], lines: [], category: null })
+  })
+
+  it('gives a Household with no `categories` key an empty vocabulary', () => {
+    const read = fromStored(asStoredByV12())
+
+    expect(read.categories).toEqual([])
+  })
+
+  it('discards every Expense’s old free-text category rather than minting one from it', () => {
+    const read = fromStored(asStoredByV12())
+
+    expect(read.months['2026-07']!.expenses.map((row) => row.category)).toEqual([null, null])
+  })
+
+  it('leaves a v2 Household’s categories exactly as they are, ids and all', () => {
+    const stored = asStoredByV12()
+    const v2 = { ...stored, categories: [{ id: 'home', name: 'Home' }] }
+    v2.months['2026-07']!.expenses[0]!.category = 'home'
+
+    const read = fromStored(v2)
+
+    expect(read.categories).toEqual([{ id: 'home', name: 'Home' }])
+    expect(read.months['2026-07']!.expenses[0]!.category).toBe('home')
   })
 
   it('leaves the lines of a Household that already has them exactly as they are', () => {

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { addCategory } from './categories.js'
 import {
   addExpenseSnapshot,
   addLineItem,
@@ -15,13 +16,15 @@ import { propagateExpenseEdit, propagateExpenseLines } from './propagation.js'
 import { unreviewedCount } from './review.js'
 import { sharesOf } from './shares.js'
 import { exportHousehold, importHousehold, whatImportReplaces } from './transfer.js'
-import type { Household, MemberId } from './types.js'
+import type { CategoryId, Household, MemberId } from './types.js'
 
 const euro = { code: 'EUR', symbol: '€', decimals: 2 }
 
 let household: Household
 let ana: MemberId
 let bruno: MemberId
+let home: CategoryId
+let health: CategoryId
 
 /**
  * A Household with something of everything in it: two Months, every kind of row, a
@@ -36,6 +39,11 @@ beforeEach(() => {
   })
   ana = household.roster[0]!.id
   bruno = household.roster[1]!.id
+
+  household = addCategory(household, 'Home')
+  household = addCategory(household, 'Health')
+  home = household.categories[0]!.id
+  health = household.categories[1]!.id
 
   household = addIncomeSnapshot(household, '2026-07', {
     name: 'Salary',
@@ -56,21 +64,21 @@ beforeEach(() => {
 
   household = addExpenseSnapshot(household, '2026-07', {
     name: 'Rent',
-    category: 'Home',
+    category: home,
     amount: 120000,
     participants: [ana, bruno],
     splitRule: { kind: 'proportional' },
   }).household
   household = addExpenseSnapshot(household, '2026-07', {
     name: 'Internet',
-    category: 'Home',
+    category: home,
     amount: 4500,
     participants: [ana, bruno],
     splitRule: { kind: 'percentage', byMember: { [ana]: 60, [bruno]: 40 } },
   }).household
   household = addExpenseSnapshot(household, '2026-07', {
     name: 'Gym',
-    category: 'Health',
+    category: health,
     amount: 3900,
     participants: [ana],
   }).household
@@ -97,11 +105,12 @@ function exported(): Household {
 }
 
 describe('exporting the whole Household', () => {
-  it('writes a single JSON file holding the currency, the Roster and every opened Month', () => {
+  it('writes a single JSON file holding the currency, the Roster, the categories and every opened Month', () => {
     const file = JSON.parse(exportHousehold(household)) as Record<string, unknown>
 
     expect(file.currency).toEqual(euro)
     expect(file.roster).toEqual(household.roster)
+    expect(file.categories).toEqual(household.categories)
     expect(Object.keys(file.months as object)).toEqual(['2026-07', '2026-08'])
   })
 
@@ -109,6 +118,7 @@ describe('exporting the whole Household', () => {
     const file = JSON.parse(exportHousehold(household)) as Record<string, unknown>
 
     expect(Object.keys(file).filter((key) => !key.startsWith('prometheus')).sort()).toEqual([
+      'categories',
       'currency',
       'format',
       'months',
@@ -134,13 +144,13 @@ describe('importing a Household that was exported', () => {
   it('keeps a null amount null, an explicit zero zero, and an absent row absent', () => {
     const pending = addExpenseSnapshot(household, '2026-08', {
       name: 'Repairs',
-      category: 'Home',
+      category: home,
       amount: null,
       participants: [ana, bruno],
     }).household
     const zeroed = addExpenseSnapshot(pending, '2026-08', {
       name: 'Water',
-      category: 'Home',
+      category: home,
       amount: 0,
       participants: [ana, bruno],
     }).household
@@ -244,7 +254,7 @@ describe('a composite Expense’s lines', () => {
     const [freshAna, freshBruno] = fresh.roster.map((member) => member.id) as [MemberId, MemberId]
     const added = addExpenseSnapshot(fresh, '2026-07', {
       name: 'Rent',
-      category: 'Home',
+      category: null,
       amount: 120000,
       participants: [freshAna, freshBruno],
     })
@@ -275,6 +285,58 @@ describe('a composite Expense’s lines', () => {
     for (const month of Object.values(imported.months)) {
       for (const expense of month.expenses) expect(expense.lines).toEqual([])
     }
+  })
+})
+
+describe('a Household’s category vocabulary', () => {
+  it('round-trips the categories list, with every Expense still pointing at the same one', () => {
+    const imported = exported()
+
+    expect(imported.categories).toEqual(household.categories)
+    expect(monthAt(imported, '2026-07')!.expenses.map((row) => row.category)).toEqual(
+      monthAt(household, '2026-07')!.expenses.map((row) => row.category),
+    )
+  })
+
+  it('rejects a file whose categories share a name, case-insensitively', () => {
+    const file = JSON.parse(exportHousehold(household)) as Record<string, any>
+    file.categories.push({ id: 'duplicate', name: 'home' })
+
+    expect(() => importHousehold(JSON.stringify(file))).toThrow()
+  })
+
+  it('rejects an Expense that names a category id the file does not define, identifying the row', () => {
+    const file = JSON.parse(exportHousehold(household)) as Record<string, any>
+    file.months['2026-07'].expenses[0].category = 'not-a-real-category'
+
+    expect(() => importHousehold(JSON.stringify(file))).toThrow(/Rent/)
+  })
+
+  it('accepts a file with no `categories` key at all, with the list empty and every Expense uncategorised', () => {
+    const file = JSON.parse(exportHousehold(household)) as Record<string, any>
+    delete file.categories
+
+    const imported = importHousehold(JSON.stringify(file))
+
+    expect(imported.categories).toEqual([])
+    for (const month of Object.values(imported.months)) {
+      for (const expense of month.expenses) expect(expense.category).toBeNull()
+    }
+  })
+
+  it('imports a v1.2 file cleanly, discarding its free-text categories rather than minting any', () => {
+    const file = JSON.parse(exportHousehold(household)) as Record<string, any>
+    delete file.categories
+    for (const month of Object.values(file.months) as Record<string, any>[]) {
+      for (const expense of month.expenses as Record<string, any>[]) expense.category = 'Home'
+    }
+
+    const imported = importHousehold(JSON.stringify(file))
+
+    expect(imported.categories).toEqual([])
+    expect(
+      monthAt(imported, '2026-07')!.expenses.every((row) => row.category === null),
+    ).toBe(true)
   })
 })
 
