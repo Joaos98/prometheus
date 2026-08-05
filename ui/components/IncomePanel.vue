@@ -173,8 +173,8 @@ async function saveEdit(source: IncomeSnapshot, edits: IncomeEdits): Promise<voi
             >
               <span class="name">
                 {{ source.name }}
-                <span v-if="source.restrictedUse" class="tag">Restricted-Use</span>
-                <span v-if="isOneOff(source)" class="tag one-off">
+                <span v-if="source.restrictedUse" class="chip">Restricted-Use</span>
+                <span v-if="isOneOff(source)" class="chip one-off">
                   {{ endingTag(ends(source.id)) }}
                 </span>
                 <UnreviewedMark v-if="!isReviewed(source)" :name="source.name" />

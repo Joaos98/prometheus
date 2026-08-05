@@ -10,6 +10,7 @@ import {
   previousMonthKey,
   renamingAsks,
   splitOf,
+  type CategoryId,
   type ExpenseEdits,
   type ExpenseSnapshot,
   type Household,
@@ -53,7 +54,7 @@ const {
   removeExpenseLine,
 } = useHousehold()
 
-const { failure, report } = useChanges()
+const { failure, report, reporting } = useChanges()
 
 const adding = ref(false)
 const editing = ref<RowId | undefined>(undefined)
@@ -94,6 +95,14 @@ const members = computed(() => membersOf(props.household, props.month))
 
 /** What the picker offers, and what a row's chip is named from. */
 const categories = computed(() => categoryChoices(props.household))
+
+/**
+ * Minting a category from inside a form, which is a Household write and so is carried out
+ * here rather than there — a name already taken is refused by the engine, and this panel is
+ * where a refused change is said, as it is for every other change a form makes.
+ */
+const mintCategory = (name: string): Promise<CategoryId | undefined> =>
+  reporting(addCategory(name))
 
 const categoryOf = (expense: ExpenseSnapshot): string | undefined =>
   categoryName(props.household, expense.category)
@@ -375,7 +384,7 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
       :currency="household.currency"
       :members="members"
       :categories="categories"
-      :add-category="addCategory"
+      :add-category="mintCategory"
       submit-label="Add the Expense"
       adding
       @cancel="adding = false"
@@ -406,7 +415,7 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
         :currency="household.currency"
         :members="members"
         :categories="categories"
-        :add-category="addCategory"
+        :add-category="mintCategory"
         v-bind="editValues(expense)"
         :lines="expense.lines"
         :line-operations="lineOperationsFor(expense)"
@@ -426,8 +435,8 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
               <span class="name">{{ expense.name }}</span>
               <!-- An uncategorised Expense shows no chip at all: absence is the reading,
                    and a placeholder would put weight on every row nobody has got to. -->
-              <span v-if="categoryOf(expense)" class="tag">{{ categoryOf(expense) }}</span>
-              <span v-if="isOneOff(expense)" class="tag one-off">
+              <span v-if="categoryOf(expense)" class="chip">{{ categoryOf(expense) }}</span>
+              <span v-if="isOneOff(expense)" class="chip one-off">
                 {{ endingTag(ends(expense.id)) }}
               </span>
               <UnreviewedMark v-if="!isReviewed(expense)" :name="expense.name" />

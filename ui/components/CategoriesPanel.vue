@@ -62,7 +62,7 @@ async function rename(): Promise<void> {
 const asking = ref<CategoryId | undefined>(undefined)
 
 function ask(id: CategoryId): void {
-  if (deleting.value) return
+  if (busy.value) return
   failure.value = undefined
   renaming.value = undefined
   asking.value = id
@@ -91,21 +91,16 @@ const cost = computed(() =>
  */
 const deleting = ref<{ id: CategoryId; clearing: boolean } | undefined>(undefined)
 
+/** Whether anything is being deleted at all, which is what holds the panel's controls shut. */
+const busy = computed(() => deleting.value !== undefined)
+
 /** Whether the long half is running against this category, which is what the button says. */
 const isClearing = (id: CategoryId): boolean =>
   deleting.value?.clearing === true && deleting.value.id === id
 
-/**
- * What a clear that stopped partway left behind. The category is still here and some of
- * its rows are already cleared, which is a retry rather than a wreck — but it is not a
- * success either, and saying nothing while the category sits back in the list unexplained
- * is the one reading that would be wrong.
- */
-const unfinished = ref<string | undefined>(undefined)
-
 /** An unused category, which goes on a single confirmation and takes nothing with it. */
 async function remove(id: CategoryId): Promise<void> {
-  if (deleting.value) return
+  if (busy.value) return
   deleting.value = { id, clearing: false }
   try {
     if (!(await report(deleteCategory(id)))) return
@@ -119,19 +114,31 @@ async function remove(id: CategoryId): Promise<void> {
  * A category in use: every row that holds it is cleared, and only then does the category
  * go. Both halves have been said out loud before this runs — the row count, the Months,
  * that it cannot be undone and that an export is the way back.
+ *
+ * What a clear that stopped partway leaves behind has to be said, because the category
+ * coming back to the list unexplained would read as a delete that simply did not happen.
+ * The sentence is appended to the refusal rather than kept beside it, so that it lives and
+ * dies with the message it belongs to — held on its own it would still be sitting there,
+ * under a later rename or add that succeeded.
+ *
+ * It says what is true whether one row was written or none: the halves run in that order
+ * (ADR-0012), so a stop leaves the category listed and the deletion unmade, and whatever
+ * rows it did get through stay cleared. Which of those two it was, this cannot know — the
+ * writes are the store's, and claiming rows were cleared when none were is the same kind of
+ * untruth as claiming the delete succeeded.
  */
 async function clearAndRemove(id: CategoryId): Promise<void> {
-  if (deleting.value) return
-  unfinished.value = undefined
+  if (busy.value) return
   deleting.value = { id, clearing: true }
   try {
     if (await report(clearAndDeleteCategory(id))) {
       asking.value = undefined
       return
     }
-    unfinished.value =
-      'The clear did not finish, so the category is still here and some of its rows may already ' +
-      'have been cleared. Nothing was deleted. Running it again picks up where it stopped.'
+    failure.value =
+      `${failure.value} — the clear did not finish, so nothing was deleted and the category ` +
+      'is still here. Any rows it had already cleared stay cleared; running it again finishes ' +
+      'the job.'
   } finally {
     deleting.value = undefined
   }
@@ -170,7 +177,7 @@ async function clearAndRemove(id: CategoryId): Promise<void> {
           <button
             class="button-quiet"
             type="button"
-            :disabled="deleting !== undefined"
+            :disabled="busy"
             @click="startRenaming(category.id, category.name)"
           >
             Rename
@@ -178,7 +185,7 @@ async function clearAndRemove(id: CategoryId): Promise<void> {
           <button
             class="button-quiet"
             type="button"
-            :disabled="deleting !== undefined"
+            :disabled="busy"
             @click="ask(category.id)"
           >
             Delete
@@ -199,7 +206,7 @@ async function clearAndRemove(id: CategoryId): Promise<void> {
               <button
                 class="destructive"
                 type="button"
-                :disabled="deleting !== undefined"
+                :disabled="busy"
                 @click="clearAndRemove(category.id)"
               >
                 {{ isClearing(category.id) ? 'Clearing the rows…' : 'Clear the rows and delete' }}
@@ -207,7 +214,7 @@ async function clearAndRemove(id: CategoryId): Promise<void> {
               <button
                 class="button-quiet"
                 type="button"
-                :disabled="deleting !== undefined"
+                :disabled="busy"
                 @click="asking = undefined"
               >
                 Keep it
@@ -236,10 +243,9 @@ async function clearAndRemove(id: CategoryId): Promise<void> {
 
     <form class="add-form" @submit.prevent="add">
       <input v-model="name" type="text" placeholder="Add a category" aria-label="New category" />
-      <button class="button-primary" type="submit" :disabled="deleting !== undefined">Add</button>
+      <button class="button-primary" type="submit" :disabled="busy">Add</button>
     </form>
 
-    <p v-if="unfinished" class="failure note">{{ unfinished }}</p>
     <p v-if="failure" class="failure note">{{ failure }}</p>
   </div>
 </template>

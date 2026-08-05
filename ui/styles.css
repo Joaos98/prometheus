@@ -189,7 +189,7 @@ button {
 }
 
 /* A pill saying what a row is: its category, One-Off, Restricted-Use. */
-.tag {
+.chip {
   padding: 1px 6px;
   font-size: 10px;
   letter-spacing: 0.04em;
@@ -199,7 +199,7 @@ button {
   white-space: nowrap;
 }
 
-.tag.one-off {
+.chip.one-off {
   color: var(--text-secondary);
 }
 

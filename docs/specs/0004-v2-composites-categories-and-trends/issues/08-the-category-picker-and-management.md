@@ -54,6 +54,14 @@ confirmation that has to be honest without being melodramatic.
 
 ## Comments
 
+**Composite layout work rode along in this ticket's commit, and belongs to `04`.** It was
+already in the working tree when this was picked up: the line editor became one grid across
+every row (`display: contents` per row, so the fields of one line cannot drift out of step
+with the ones above it), the add-a-line button became a filled action sized to the column the
+remove buttons share, Enter in either new-line field commits the line, and the composite's
+disclosure control moved in beside its count inside the row body. Named here because the two
+changes were interleaved in the same two files and could not be committed apart.
+
 **The picker is modelled over a string, not over `CategoryId | null`.** `<option :value="null">`
 bound through `v-model` leaves an uncategorised Expense's picker showing a blank rather than
 "No category" — which reads as a control that failed to load, not as the answer it is. The
@@ -105,9 +113,12 @@ an edit being per-Month.
 
 **`useChanges` grew a `reporting` alongside `report`.** `report` answers a boolean, which is
 what almost every caller wants and what `if (!(await report(…))) return` reads as; a mint
-answers with the identity it minted, and three call sites had started hand-rolling the
-try/catch that `ui/changes.ts` says is the one thing a panel does. `report` is now a thin
-`reporting` that maps acceptance to `true`.
+answers with the identity it minted, and the call sites had started hand-rolling the try/catch
+that `ui/changes.ts` says is the one thing a panel does. `report` is now a thin `reporting`
+that maps acceptance to `true`. `ExpenseForm` does not carry the mint out itself either: the
+panel hands it a function that already reports, so a refused name is said where every other
+refused change in that panel is said, and the form is left holding only what it does with the
+identity that comes back.
 
 **Both deletes are held shut, not just the clear.** The ticket asks only that a second clear
 not start on top of one, but two clicks on the plain delete sent the second against a category
@@ -119,6 +130,25 @@ holds which category and whether it is the long half; the button's label reads f
 element the field replaces, so focus would otherwise be left on nothing. A named `ref` could
 not do it: inside the `v-for` over the categories a named ref collects into an array, and only
 one field ever exists.
+
+**The unfinished-clear sentence is appended to the refusal, not held beside it.** Held on its
+own it outlived the failure it belonged to: a rename or add that succeeded afterwards cleared
+`failure` and left "The clear did not finish…" sitting underneath it. Appending it to
+`failure` makes it live and die with the message it explains. It is also worded for both
+outcomes now — the previous version claimed rows "may already have been cleared" even where
+the refusal came before any write, which is the same kind of untruth as claiming the delete
+succeeded. Checked by breaking `Storage.setItem` for one call: the sentence appears, the
+category stays listed, a successful add afterwards takes it away, and the retried clear
+finishes the job.
+
+**The pill class is `chip`, not `tag`.** `CONTEXT.md`'s Category entry lists _tag_ under
+_Avoid_, and the class sat directly on the category chip. Renamed in `styles.css` and at all
+five uses, One-Off and Restricted-Use included — it is one pill shape, and leaving half of
+them under the old name would be worse than either name alone.
+
+**`ExpenseForm`'s two category props are required.** They were optional with a comment
+defending the absent case, and both call sites always passed them, so the `v-if="addCategory"`
+branch was dead.
 
 **Uncategorised is rendered as absence in one place only.** `categoryName` answers `undefined`
 both for a row with no category and for an id the vocabulary no longer holds, so a screen that

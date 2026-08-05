@@ -27,13 +27,13 @@ const props = withDefaults(
     category?: CategoryId | null
     amount?: Minor | null
     /** The Household's vocabulary, in the order it is offered — everything the picker has. */
-    categories?: Category[]
+    categories: Category[]
     /**
      * Adding a category from inside the form, which is a Household write and so belongs to
-     * the panel. Absent where the form is not to offer it, in which case the picker offers
-     * the vocabulary as it stands and nothing else.
+     * the panel. It reports its own refusals the way every other change here does, and
+     * answers with the identity it minted, or with nothing where it was turned away.
      */
-    addCategory?: (name: string) => Promise<CategoryId | undefined>
+    addCategory: (name: string) => Promise<CategoryId | undefined>
     participants?: MemberId[]
     splitRule?: SplitRule
     submitLabel?: string
@@ -48,8 +48,6 @@ const props = withDefaults(
     name: '',
     category: null,
     amount: null,
-    categories: () => [],
-    addCategory: undefined,
     participants: undefined,
     splitRule: () => ({ kind: 'even' }),
     submitLabel: 'Save',
@@ -399,22 +397,19 @@ function nameCategory(): void {
 
 /**
  * Mints the category and chooses it, so the member sees the name they typed on the row
- * they were filling in. A refusal — a name already taken, an empty one — is said in the
- * form's own failure line and leaves the field as it was to be corrected.
+ * they were filling in. A refusal — a name already taken, an empty one — is the panel's to
+ * say, as every other refused change here is; the field is left as it was to be corrected,
+ * and nothing is chosen.
  */
 async function mintCategory(): Promise<void> {
-  const add = props.addCategory
-  if (!add || minting.value) return
-  failure.value = undefined
+  if (minting.value) return
   minting.value = true
   try {
-    const minted = await add(newCategoryName.value)
+    const minted = await props.addCategory(newCategoryName.value)
     if (!minted) return
     category.value = minted
     namingCategory.value = false
     newCategoryName.value = ''
-  } catch (cause) {
-    failure.value = messageOf(cause)
   } finally {
     minting.value = false
   }
@@ -473,7 +468,7 @@ function save(): void {
 
     <!-- The way to a category the Household has not got yet, offered as its own action
          rather than as something the picker does on its own. -->
-    <div v-if="addCategory" class="new-category">
+    <div class="new-category">
       <button v-if="!namingCategory" class="link-action" type="button" @click="nameCategory()">
         + New category
       </button>

@@ -200,7 +200,7 @@ const editableContribution = (amount: Minor, entered: boolean): string =>
         >
           <div class="line">
             <span class="name">{{ goal.name }}</span>
-            <span v-if="isOneOff(goal)" class="tag one-off">
+            <span v-if="isOneOff(goal)" class="chip one-off">
               {{ endingTag(ends(goal.id)) }}
             </span>
             <UnreviewedMark v-if="!isReviewed(goal)" :name="goal.name" />
