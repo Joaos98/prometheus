@@ -166,12 +166,35 @@ function toggleLines(id: RowId): void {
  */
 function lineOperationsFor(expense: ExpenseSnapshot): LineOperations {
   return {
-    itemise: (amount) => itemiseHolding(expense, amount),
-    add: (line, splitRule) => addExpenseLine(props.month.key, expense.id, line, splitRule),
+    itemise: (amount) => offeringForward(expense, itemiseHolding(expense, amount)),
+    add: (line, splitRule) =>
+      offeringForward(expense, addExpenseLine(props.month.key, expense.id, line, splitRule)),
     edit: (lineId, edits, splitRule) =>
-      editExpenseLine(props.month.key, expense.id, lineId, edits, splitRule),
+      offeringForward(
+        expense,
+        editExpenseLine(props.month.key, expense.id, lineId, edits, splitRule),
+      ),
     remove: (lineId, splitRule) =>
-      removeExpenseLine(props.month.key, expense.id, lineId, splitRule),
+      offeringForward(
+        expense,
+        removeExpenseLine(props.month.key, expense.id, lineId, splitRule),
+      ),
+  }
+}
+
+/**
+ * A line change that lands, and then the same offer an amount correction gets. Without it a
+ * correction would reach the later Months or not depending on whether the Expense happened
+ * to be itemised, which is not a distinction a member makes.
+ *
+ * The offer names the row rather than the change: lines are edited one at a time and the
+ * offer stands until it is answered, so what is carried is read off the row when the member
+ * answers rather than captured here.
+ */
+async function offeringForward(expense: ExpenseSnapshot, change: Promise<void>): Promise<void> {
+  await change
+  if (later.value.length > 0) {
+    carrying.value = { kind: 'lines', id: expense.id, name: expense.name }
   }
 }
 
@@ -184,17 +207,13 @@ function lineOperationsFor(expense: ExpenseSnapshot): LineOperations {
  * the row is untouched and nothing is itemised; if it lands, the row now holds a figure, so
  * the itemise that follows cannot be refused for want of one.
  *
- * That first write is a correction to an amount like any other, so it earns the same offer
- * to reach the later Months — leaving it out would make this the one path in the panel
- * where a figure changes and the Months already open after this one are never mentioned.
+ * The offer to carry it forward is made by `offeringForward` around this, and carries the
+ * lines rather than that intermediate figure — the row is composite by the time anybody
+ * answers, and its lines are the fuller statement of what changed here.
  */
 async function itemiseHolding(expense: ExpenseSnapshot, amount: Minor): Promise<void> {
-  const corrected = amount !== expense.amount
-  if (corrected) await editExpense(props.month.key, expense.id, { amount })
+  if (amount !== expense.amount) await editExpense(props.month.key, expense.id, { amount })
   await itemise(props.month.key, expense.id)
-  if (corrected && later.value.length > 0) {
-    carrying.value = { kind: 'expenses', id: expense.id, name: expense.name, edits: { amount } }
-  }
 }
 
 /** Whether stopping this row here ends a run, or marks a cost that only ever was this one. */

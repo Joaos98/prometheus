@@ -18,6 +18,7 @@ import {
   editSavingsGoal,
   isOpened,
   itemiseExpense,
+  monthAt,
   removeLineItem,
   setExpenseOneOff,
   setGoalOneOff,
@@ -30,6 +31,7 @@ import {
   openedMonthKeys,
   openMonth,
   propagateExpenseEdit,
+  propagateExpenseLines,
   propagateGoalEdit,
   propagateIncomeEdit,
   relabelCurrency,
@@ -582,6 +584,28 @@ export function householdOver(store: HouseholdStore, seed?: Seed) {
   }
 
   /**
+   * Carries a composite's Line Items forward — the whole list, as a fresh open already
+   * carries it, since a per-line propagation would have no per-line Unreviewed mark to
+   * respect.
+   *
+   * What travels is read off the row here rather than handed in, and that is the point: the
+   * lines are changed one at a time, so by the time a member answers this offer the list has
+   * moved on from whichever single change raised it. The amount goes with them because a
+   * composite that has lost its last line hands back a typed total, which is not itself a
+   * line and would otherwise be left behind.
+   */
+  function propagateLines(month: MonthKey, id: RowId): Promise<Propagation> {
+    return inOrder(() => {
+      const loaded = current()
+      const row = monthAt(loaded, month)?.expenses.find((expense) => expense.id === id)
+      if (!row) throw new Error(`${month} holds no such Expense, so there is nothing to carry`)
+      return carryForward(
+        propagateExpenseLines(loaded, month, id, { lines: row.lines, amount: row.amount }),
+      )
+    })
+  }
+
+  /**
    * Settling one reported Drift difference the Previous Month's way. It writes one row, but
    * which row and whether it is a write at all depends on the difference, so the Household
    * goes back whole rather than as a row-scoped write the caller would have to classify.
@@ -640,6 +664,7 @@ export function householdOver(store: HouseholdStore, seed?: Seed) {
     confirmExpense,
     markExpenseAsOneOff,
     propagateExpense,
+    propagateLines,
     itemise,
     addExpenseLine,
     editExpenseLine,

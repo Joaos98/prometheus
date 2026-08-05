@@ -9,7 +9,7 @@ const props = defineProps<{ month: MonthKey; later: MonthKey[]; carrying: Carryi
 
 const emit = defineEmits<{ done: [] }>()
 
-const { propagateIncome, propagateExpense, propagateGoal } = useHousehold()
+const { propagateIncome, propagateExpense, propagateGoal, propagateLines } = useHousehold()
 
 const carried = ref<Propagation | undefined>(undefined)
 const failure = ref<string | undefined>(undefined)
@@ -54,11 +54,23 @@ async function carry(): Promise<void> {
 }
 
 function propagate(): Promise<Propagation> {
-  const { kind, id, edits } = props.carrying
-  if (kind === 'income') return propagateIncome(props.month, id, edits)
-  if (kind === 'expenses') return propagateExpense(props.month, id, edits)
-  return propagateGoal(props.month, id, edits)
+  const carrying = props.carrying
+  switch (carrying.kind) {
+    case 'income':
+      return propagateIncome(props.month, carrying.id, carrying.edits)
+    case 'expenses':
+      return propagateExpense(props.month, carrying.id, carrying.edits)
+    case 'goals':
+      return propagateGoal(props.month, carrying.id, carrying.edits)
+    case 'lines':
+      return propagateLines(props.month, carrying.id)
+  }
 }
+
+/** What the later Months are still holding a copy of, so the offer names the right thing. */
+const copied = computed(() =>
+  props.carrying.kind === 'lines' ? 'Line Items copied from here' : 'figure copied from here',
+)
 </script>
 
 <template>
@@ -67,9 +79,9 @@ function propagate(): Promise<Propagation> {
       <p class="offered">Carry the change to {{ carrying.name }} into the later Months?</p>
       <p class="muted note">
         {{ names(later) }} {{ later.length === 1 ? 'was' : 'were' }} opened before this change, so
-        {{ later.length === 1 ? 'it still holds' : 'they still hold' }} the figure copied from here.
-        Only values nobody has looked at yet are replaced — anything already answered for is left
-        as it stands.
+        {{ later.length === 1 ? 'it still holds' : 'they still hold' }} the {{ copied }}. Only
+        values nobody has looked at yet are replaced — anything already answered for is left as it
+        stands.
       </p>
 
       <div class="actions">

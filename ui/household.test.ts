@@ -222,6 +222,54 @@ describe('the Line Items of a composite Expense', () => {
   })
 
   /**
+   * A line correction reaches the later Months on the same terms an amount correction
+   * does. Without this the offer would depend on whether the Expense happened to be
+   * itemised, which is not a distinction a member makes.
+   */
+  it('carries a corrected line list into the later Months still holding the copy', async () => {
+    const { app, id } = await withRent()
+    await app.itemise('2026-07', id)
+    await app.open('2026-08')
+    await app.addExpenseLine('2026-07', id, { name: 'Service charge', amount: 5000 })
+
+    const { changed } = await app.propagateLines('2026-07', id)
+
+    const august = app.household.value!.months['2026-08']!.expenses[0]!
+    expect(changed).toEqual(['2026-08'])
+    expect(august.lines.map((line) => line.name)).toEqual(['Rent', 'Service charge'])
+    expect(august.amount).toBe(125000)
+  })
+
+  it('carries the list as the row now stands, not as it was when the offer was raised', async () => {
+    const { app, id } = await withRent()
+    await app.itemise('2026-07', id)
+    await app.open('2026-08')
+    await app.addExpenseLine('2026-07', id, { name: 'Service charge', amount: 5000 })
+    /** The member goes on editing before answering the offer the line above raised. */
+    await app.addExpenseLine('2026-07', id, { name: 'Water', amount: 2000 })
+
+    await app.propagateLines('2026-07', id)
+
+    const august = app.household.value!.months['2026-08']!.expenses[0]!
+    expect(august.lines.map((line) => line.name)).toEqual(['Rent', 'Service charge', 'Water'])
+    expect(august.amount).toBe(127000)
+  })
+
+  it('hands a later Month back a typed amount when the last line has gone', async () => {
+    const { app, id } = await withRent()
+    await app.itemise('2026-07', id)
+    await app.open('2026-08')
+    const line = rentIn(app).lines[0]!.id
+    await app.removeExpenseLine('2026-07', id, line)
+
+    await app.propagateLines('2026-07', id)
+
+    const august = app.household.value!.months['2026-08']!.expenses[0]!
+    expect(august.lines).toEqual([])
+    expect(august.amount).toBe(120000)
+  })
+
+  /**
    * The rule travels with the line that moves the total, which is how a member says who
    * absorbs the difference in the same breath as making it.
    */
