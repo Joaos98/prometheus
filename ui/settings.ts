@@ -1,18 +1,19 @@
 /**
- * The four panels the masthead's settings buttons open. None of them is about the Month,
- * which is why each opens as a modal over it rather than as a card in its flow.
+ * The panels the masthead's settings buttons open. None of them is about the Month, which
+ * is why each opens as a modal over it rather than as a card in its flow.
  */
-export type SettingsPanel = 'roster' | 'household-file' | 'currency' | 'demo'
+export type SettingsPanel = 'roster' | 'categories' | 'household-file' | 'currency' | 'demo'
 
 /**
  * What each modal is called, on screen and to a screen reader alike.
  *
- * Three read their masthead button back word for word. The currency button carries the
- * Household's code and symbol rather than a word — it is a value, not a label — so its
+ * All but one read their masthead button back word for word. The currency button carries
+ * the Household's code and symbol rather than a word — it is a value, not a label — so its
  * modal is titled by what the value is, which is the one setting the panel changes.
  */
 export const SETTINGS_TITLES: Record<SettingsPanel, string> = {
   roster: 'Roster',
+  categories: 'Categories',
   'household-file': 'Household file',
   currency: 'Currency',
   demo: 'Demo',

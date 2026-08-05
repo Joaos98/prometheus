@@ -18,6 +18,7 @@
  * and the Month a visitor arrives in is deliberately half-reviewed.
  */
 import {
+  addCategory,
   addExpenseSnapshot,
   addIncomeSnapshot,
   addSavingsGoal,
@@ -33,6 +34,7 @@ import {
   propagateExpenseEdit,
   recordContribution,
   setUpHousehold,
+  type CategoryId,
   type Currency,
   type Household,
   type MemberId,
@@ -45,6 +47,13 @@ import {
 
 /** The sample Household's currency. Two decimals, so every amount below is in cents. */
 const CURRENCY: Currency = { code: 'EUR', symbol: '€', decimals: 2 }
+
+/**
+ * The vocabulary the sample Household keeps, minted before any row can point at one. A
+ * category is a stored entity now, so the seed sets the list up as a member would rather
+ * than writing a name onto a row and hoping something recognises it.
+ */
+const CATEGORY_NAMES = ['Food', 'Housing', 'Transport', 'Travel', 'Utilities']
 
 /** The three people sharing the sample Household, by the Roster identities they were given. */
 interface Sharers {
@@ -83,6 +92,8 @@ export function seedHousehold(now: MonthKey): Household {
     memberNames: ['Ada', 'Bruno', 'Mira'],
     startingMonth: record.earliest,
   })
+
+  for (const name of CATEGORY_NAMES) household = addCategory(household, name)
 
   const sharers: Sharers = {
     ada: memberNamed(household, 'Ada'),
@@ -132,7 +143,7 @@ function enterTheFirstMonth(household: Household, record: Months, sharers: Share
 
   household = addExpenseSnapshot(household, earliest, {
     name: 'Rent',
-    category: 'Housing',
+    category: categoryNamed(household, 'Housing'),
     amount: 185_000,
     participants: everyone,
     splitRule: { kind: 'proportional' },
@@ -140,35 +151,35 @@ function enterTheFirstMonth(household: Household, record: Months, sharers: Share
   /** 640.00 among three comes to 213.33 and a third — the cent goes to the largest remainder. */
   household = addExpenseSnapshot(household, earliest, {
     name: 'Groceries',
-    category: 'Food',
+    category: categoryNamed(household, 'Food'),
     amount: 64_000,
     participants: everyone,
     splitRule: { kind: 'even' },
   }).household
   household = addExpenseSnapshot(household, earliest, {
     name: 'Electricity',
-    category: 'Utilities',
+    category: categoryNamed(household, 'Utilities'),
     amount: 9_655,
     participants: everyone,
     splitRule: { kind: 'even' },
   }).household
   household = addExpenseSnapshot(household, earliest, {
     name: 'Internet',
-    category: 'Utilities',
+    category: categoryNamed(household, 'Utilities'),
     amount: 4_500,
     participants: everyone,
     splitRule: { kind: 'even' },
   }).household
   household = addExpenseSnapshot(household, earliest, {
     name: 'Car insurance',
-    category: 'Transport',
+    category: categoryNamed(household, 'Transport'),
     amount: 12_840,
     participants: [ada, bruno],
     splitRule: { kind: 'fixed', byMember: { [ada]: 8_000, [bruno]: 4_840 } },
   }).household
   household = addExpenseSnapshot(household, earliest, {
     name: 'Cleaner',
-    category: 'Housing',
+    category: categoryNamed(household, 'Housing'),
     amount: 9_000,
     participants: everyone,
     splitRule: { kind: 'percentage', byMember: { [ada]: 40, [bruno]: 35, [mira]: 25 } },
@@ -259,7 +270,7 @@ function reviewTheSettledMonth(household: Household, record: Months, sharers: Sh
   /** This Month alone: the deposit is paid once, so the next Month does not inherit it. */
   household = addExpenseSnapshot(household, settled, {
     name: 'Flight deposit',
-    category: 'Travel',
+    category: categoryNamed(household, 'Travel'),
     amount: 24_000,
     participants: everyone,
     splitRule: { kind: 'even' },
@@ -313,7 +324,7 @@ function halfReviewTheArrivalMonth(
   /** Announced, not yet invoiced: Pending is nothing entered at all, which is not zero. */
   household = addExpenseSnapshot(household, arrival, {
     name: 'Boiler service',
-    category: 'Housing',
+    category: categoryNamed(household, 'Housing'),
     amount: null,
     participants: [ada, bruno, mira],
     splitRule: { kind: 'even' },
@@ -345,6 +356,18 @@ function planAhead(household: Household, record: Months): Household {
 
   const internet = rowIdOf(household, arrival, 'expenses', 'Internet')
   return editExpenseSnapshot(household, arrival, internet, { amount: 4_900 }).household
+}
+
+/**
+ * The identity of one of the categories the seed minted, asked for by name. A row holds
+ * the id and never the name (ADR-0012), so this is how the seed writes a categorised
+ * Expense — and a name the vocabulary has not got throws rather than landing as a
+ * reference to nothing, which is the one thing a row's category must never be.
+ */
+function categoryNamed(household: Household, name: string): CategoryId {
+  const category = household.categories.find((candidate) => candidate.name === name)
+  if (!category) throw new Error(`The seed expected a category named ${name}`)
+  return category.id
 }
 
 function memberNamed(household: Household, name: string): MemberId {

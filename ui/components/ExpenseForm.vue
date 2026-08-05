@@ -5,6 +5,8 @@ import {
   isComposite,
   requireConsistentRule,
   totalOfLines,
+  type Category,
+  type CategoryId,
   type Currency,
   type LineItem,
   type MemberId,
@@ -22,8 +24,16 @@ const props = withDefaults(
     currency: Currency
     members: { id: MemberId; name: string }[]
     name?: string
-    category?: string | null
+    category?: CategoryId | null
     amount?: Minor | null
+    /** The Household's vocabulary, in the order it is offered — everything the picker has. */
+    categories?: Category[]
+    /**
+     * Adding a category from inside the form, which is a Household write and so belongs to
+     * the panel. Absent where the form is not to offer it, in which case the picker offers
+     * the vocabulary as it stands and nothing else.
+     */
+    addCategory?: (name: string) => Promise<CategoryId | undefined>
     participants?: MemberId[]
     splitRule?: SplitRule
     submitLabel?: string
@@ -38,6 +48,8 @@ const props = withDefaults(
     name: '',
     category: null,
     amount: null,
+    categories: () => [],
+    addCategory: undefined,
     participants: undefined,
     splitRule: () => ({ kind: 'even' }),
     submitLabel: 'Save',
@@ -51,7 +63,7 @@ const emit = defineEmits<{
   save: [
     {
       name: string
-      category: string
+      category: CategoryId | null
       amount: Minor | null
       participants: MemberId[]
       splitRule: SplitRule
@@ -62,12 +74,33 @@ const emit = defineEmits<{
 }>()
 
 const name = ref(props.name)
+
 /**
- * Still a free-text field: category becomes an id into the Household's vocabulary in the
- * engine (ticket 05), and the picker that reads it is ticket 08's. Until then this box
- * edits whatever string a row's category id already holds.
+ * The category as an id into the Household's vocabulary, or none. A picker and never a
+ * text box: the whole reason the vocabulary is stored is that a typo must not become a
+ * second category, and a field that mints one from whatever was typed is exactly that typo
+ * with a nicer name on it.
  */
-const category = ref(props.category ?? '')
+const category = ref<CategoryId | null>(props.category)
+
+/**
+ * The picker's own value, which is a string because that is what a `<select>` holds. None
+ * is `''` here and `null` everywhere else: an option bound to `null` leaves the control
+ * showing a blank rather than "No category" on a row that has none, which reads as a
+ * picker that failed to load rather than as the answer it is.
+ *
+ * A category the vocabulary no longer holds reads as none too, and for the same reason —
+ * there is no option to show it against, so the control would go blank. It is the reading a
+ * row's chip already gives that row (`categoryName`), and saving from here writes the none
+ * that is on screen rather than quietly putting the dangling id back.
+ */
+const chosenCategory = computed({
+  get: () =>
+    props.categories.some((choice) => choice.id === category.value) ? category.value! : '',
+  set: (chosen: string) => {
+    category.value = chosen === '' ? null : chosen
+  },
+})
 const amount = ref(editableAmount(props.amount, props.currency))
 const participants = ref<MemberId[]>(props.participants ?? props.members.map((one) => one.id))
 const kind = ref<SplitRule['kind']>(props.splitRule.kind)
@@ -348,13 +381,54 @@ function removeLine(line: LineItem): void {
 
 const money = (amount: Minor): string => formatAmount(amount, props.currency)
 
+/**
+ * Adding a category from inside the form, which is an act of its own and looks like one:
+ * a member asks for it, types a name into a field that is nothing but that, and sees the
+ * name land on the picker. What this is not is a picker that quietly mints whatever was
+ * typed into it — that is the second "groceries" the vocabulary exists to prevent.
+ */
+const namingCategory = ref(false)
+const newCategoryName = ref('')
+const minting = ref(false)
+
+function nameCategory(): void {
+  failure.value = undefined
+  newCategoryName.value = ''
+  namingCategory.value = true
+}
+
+/**
+ * Mints the category and chooses it, so the member sees the name they typed on the row
+ * they were filling in. A refusal — a name already taken, an empty one — is said in the
+ * form's own failure line and leaves the field as it was to be corrected.
+ */
+async function mintCategory(): Promise<void> {
+  const add = props.addCategory
+  if (!add || minting.value) return
+  failure.value = undefined
+  minting.value = true
+  try {
+    const minted = await add(newCategoryName.value)
+    if (!minted) return
+    category.value = minted
+    namingCategory.value = false
+    newCategoryName.value = ''
+  } catch (cause) {
+    failure.value = messageOf(cause)
+  } finally {
+    minting.value = false
+  }
+}
+
 function save(): void {
   failure.value = undefined
   lineFailure.value = undefined
   try {
     emit('save', {
       name: name.value,
-      category: category.value,
+      // What the picker is showing, so that a category which has gone from the vocabulary
+      // is saved as the none it reads as rather than as the id nothing can name.
+      category: chosenCategory.value === '' ? null : chosenCategory.value,
       amount: readAmount(amount.value, props.currency),
       participants: participants.value,
       splitRule: submittedRule(),
@@ -370,7 +444,15 @@ function save(): void {
   <form class="inset expense-form" @submit.prevent="save">
     <div class="line">
       <input v-model="name" aria-label="Expense" placeholder="What is it" type="text" />
-      <input v-model="category" aria-label="Category" placeholder="Category" type="text" />
+      <!-- Chosen from what the Household already uses, or left as none. There is nothing
+           to type here: a name typed into a picker is how a vocabulary acquires its second
+           spelling of the same word. -->
+      <select v-model="chosenCategory" aria-label="Category">
+        <option value="">No category</option>
+        <option v-for="choice in categories" :key="choice.id" :value="choice.id">
+          {{ choice.name }}
+        </option>
+      </select>
       <!-- What a composite costs is what its lines come to, so there is no figure here to
            type: the total is shown where the field was, and the lines below are where it
            is changed. -->
@@ -387,6 +469,32 @@ function save(): void {
         inputmode="decimal"
         type="text"
       />
+    </div>
+
+    <!-- The way to a category the Household has not got yet, offered as its own action
+         rather than as something the picker does on its own. -->
+    <div v-if="addCategory" class="new-category">
+      <button v-if="!namingCategory" class="link-action" type="button" @click="nameCategory()">
+        + New category
+      </button>
+      <template v-else>
+        <input
+          v-model="newCategoryName"
+          aria-label="New category name"
+          placeholder="Name the category"
+          type="text"
+          @keydown.enter.prevent="mintCategory()"
+        />
+        <button
+          class="button-quiet"
+          type="button"
+          :disabled="minting || newCategoryName.trim() === ''"
+          @click="mintCategory()"
+        >
+          {{ minting ? 'Adding…' : 'Add' }}
+        </button>
+        <button class="button-quiet" type="button" @click="namingCategory = false">Cancel</button>
+      </template>
     </div>
 
     <!-- Only an existing row has lines to edit: there is nothing to itemise until the
@@ -446,6 +554,7 @@ function save(): void {
           aria-label="New line"
           placeholder="What is the line"
           type="text"
+          @keydown.enter.prevent="addLine()"
         />
         <input
           v-model="newLine.amount"
@@ -453,9 +562,10 @@ function save(): void {
           :placeholder="`${currency.code}, or nothing`"
           inputmode="decimal"
           type="text"
+          @keydown.enter.prevent="addLine()"
         />
         <button
-          class="row-action"
+          class="add-line"
           type="button"
           aria-label="Add the line"
           :disabled="newLine.name.trim() === ''"
@@ -551,6 +661,18 @@ function save(): void {
   gap: 8px;
 }
 
+/* Under the line it belongs to, and narrow: naming a category is a small aside inside a
+   larger form, not a second form competing with it. */
+.new-category {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.new-category input {
+  max-width: 220px;
+}
+
 fieldset {
   display: flex;
   flex-wrap: wrap;
@@ -619,22 +741,53 @@ legend {
   color: var(--fire-bright);
 }
 
-/* The line editor stacks rather than wrapping: each line is a row of its own, and the
-   last one is the line being added. */
+/* One grid across every line — the legend, the Itemise link and each row of fields
+   alike — rather than one grid per row: columns sized independently per row is what let
+   the name and amount fields of one line drift out of step with the ones above it. Each
+   `.line-row` renders (`display: contents`) rather than boxes of its own, so its three
+   fields land as direct cells of this same grid and share its column widths exactly. */
 .lines {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 2fr 1fr auto;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.lines > legend,
+.lines > .link-action,
+.lines > .pending.note {
+  grid-column: 1 / -1;
 }
 
 .line-row {
-  display: grid;
-  grid-template-columns: 2fr 1fr auto;
-  gap: 8px;
-  align-items: center;
+  display: contents;
 }
 
 .lines .row-action {
   padding: 4px 9px;
+}
+
+/* Filled like the form's own Save, so committing a line reads as the same weight of
+   action. Sized to the column the remove buttons already share rather than to its own
+   glyph, so it neither widens that column past them nor floats out of line. */
+.add-line {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--page);
+  background: var(--fire);
+  border: none;
+}
+
+.add-line:hover:not(:disabled) {
+  background: var(--fire-bright);
+}
+
+.add-line:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
 }
 </style>

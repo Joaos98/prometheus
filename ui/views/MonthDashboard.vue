@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { monthAt, type Household, type MemberId, type MonthKey } from '../../domain/index.js'
+import CategoriesPanel from '../components/CategoriesPanel.vue'
 import DemoPanel from '../components/DemoPanel.vue'
 import ExpensesPanel from '../components/ExpensesPanel.vue'
 import GoalsPanel from '../components/GoalsPanel.vue'
@@ -133,6 +134,9 @@ async function saveCurrency(): Promise<void> {
           </option>
         </select>
         <button class="button-quiet" type="button" @click="press('roster', $event)">Roster</button>
+        <button class="button-quiet" type="button" @click="press('categories', $event)">
+          Categories
+        </button>
         <button class="button-quiet" type="button" @click="press('household-file', $event)">
           Household file
         </button>
@@ -149,7 +153,7 @@ async function saveCurrency(): Promise<void> {
       None of these is about the Month, so none of them renders in its flow. They open
       over the page and the Month stays exactly where it was.
 
-      One modal element for all four, keyed on which panel is open so that pressing a
+      One modal element for all of them, keyed on which panel is open so that pressing a
       second button builds a fresh one rather than re-titling the one already there. Which
       button to hand focus back to is the press's to say, not the modal's — it reads the
       opener once on mount, so each panel restores focus to the button that opened it.
@@ -164,6 +168,8 @@ async function saveCurrency(): Promise<void> {
       <DemoPanel v-if="settings === 'demo'" />
 
       <RosterPanel v-else-if="settings === 'roster'" :household="household" />
+
+      <CategoriesPanel v-else-if="settings === 'categories'" :household="household" />
 
       <!-- An import that lands leaves this open, still carrying the sentence
            `HouseholdFile.vue` prints. Dismissing it reveals the Household that arrived. -->

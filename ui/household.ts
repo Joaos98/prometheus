@@ -1,5 +1,6 @@
 import { ref, shallowRef } from 'vue'
 import {
+  addCategory as addToVocabulary,
   addExpenseSnapshot,
   addIncomeSnapshot,
   addLineItem,
@@ -38,6 +39,7 @@ import {
   propagateIncomeEdit,
   relabelCurrency,
   removeIncomeSnapshot,
+  renameCategory as renameInVocabulary,
   repurposeExpenseSnapshot,
   setUpHousehold,
   type CategoryId,
@@ -331,6 +333,44 @@ export function householdOver(store: HouseholdStore, seed?: Seed) {
   function reactivateRosterMember(member: MemberId): Promise<void> {
     return changing(async (loaded) => {
       const after = reactivateMember(loaded, member)
+      await store.replaceHousehold(after)
+      return after
+    })
+  }
+
+  /**
+   * Adding a category, which the vocabulary being a Household-level list makes a whole
+   * write, as the Roster is.
+   *
+   * It answers with the identity it minted, because the form that adds one from inside an
+   * Expense has to select what it just added — the whole reason adding there is an explicit
+   * action is that the member sees the name go on the row, and a form left to hunt for it
+   * by name would be guessing at which entry it had made.
+   *
+   * Nothing comes back when there is no Household loaded, which is the one case where the
+   * category was not added at all.
+   */
+  async function addCategory(name: string): Promise<CategoryId | undefined> {
+    let minted: CategoryId | undefined
+    await changing(async (loaded) => {
+      const known = new Set(loaded.categories.map((category) => category.id))
+      const after = addToVocabulary(loaded, name)
+      await store.replaceHousehold(after)
+      // The one the engine minted, found rather than assumed to be last: where in the
+      // list it lands is the engine's business and not something to read off from here.
+      minted = after.categories.find((category) => !known.has(category.id))!.id
+      return after
+    })
+    return minted
+  }
+
+  /**
+   * Renaming a category, which touches no row: a row holds the id, so every Month renders
+   * the new name at once, the settled ones included (ADR-0012).
+   */
+  function renameCategory(id: CategoryId, name: string): Promise<void> {
+    return changing(async (loaded) => {
+      const after = renameInVocabulary(loaded, id, name)
       await store.replaceHousehold(after)
       return after
     })
@@ -701,6 +741,8 @@ export function householdOver(store: HouseholdStore, seed?: Seed) {
     addRosterMember,
     deactivateRosterMember,
     reactivateRosterMember,
+    addCategory,
+    renameCategory,
     deleteCategory,
     clearAndDeleteCategory,
     addIncome,

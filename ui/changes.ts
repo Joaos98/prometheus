@@ -15,6 +15,15 @@ export interface Changes {
   failure: Ref<string | undefined>
   /** Carries a change out, saying so if it is refused, and answering whether it was accepted. */
   report: (change: Promise<void>) => Promise<boolean>
+  /**
+   * The same, for a change that answers with something — the identity a mint returned, say.
+   * What comes back is what the change gave, or nothing at all where it was refused, which
+   * is the acceptance `report` answers with as a boolean.
+   *
+   * Two functions rather than one because the boolean is what almost every caller wants,
+   * and `if (!(await report(…))) return` reads as the refusal it is guarding against.
+   */
+  reporting: <T>(change: Promise<T>) => Promise<T | undefined>
 }
 
 /**
@@ -29,16 +38,19 @@ export interface Changes {
 export function useChanges(): Changes {
   const failure = ref<string | undefined>(undefined)
 
-  async function report(change: Promise<void>): Promise<boolean> {
+  async function reporting<T>(change: Promise<T>): Promise<T | undefined> {
     failure.value = undefined
     try {
-      await change
-      return true
+      return await change
     } catch (cause) {
       failure.value = messageOf(cause)
-      return false
+      return undefined
     }
   }
 
-  return { failure, report }
+  async function report(change: Promise<void>): Promise<boolean> {
+    return (await reporting(change.then(() => true))) ?? false
+  }
+
+  return { failure, report, reporting }
 }

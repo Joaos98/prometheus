@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * A panel opened over the page rather than in it. The first overlay in Prometheus, and
- * deliberately the only kind: the four settings panels are what it exists for, and none
+ * deliberately the only kind: the settings panels are what it exists for, and none
  * of them holds a draft worth protecting, so Escape, the backdrop and the close button
  * all dismiss without asking.
  *

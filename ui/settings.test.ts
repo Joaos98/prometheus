@@ -28,6 +28,7 @@ describe('which settings panel is open', () => {
 describe('what each settings modal is called', () => {
   it('names every panel', () => {
     expect(Object.keys(SETTINGS_TITLES).sort()).toEqual([
+      'categories',
       'currency',
       'demo',
       'household-file',
@@ -35,8 +36,9 @@ describe('what each settings modal is called', () => {
     ])
   })
 
-  it('reads the masthead button back for the three the button spells out', () => {
+  it('reads the masthead button back for the ones the button spells out', () => {
     expect(SETTINGS_TITLES.roster).toBe('Roster')
+    expect(SETTINGS_TITLES.categories).toBe('Categories')
     expect(SETTINGS_TITLES['household-file']).toBe('Household file')
     expect(SETTINGS_TITLES.demo).toBe('Demo')
   })

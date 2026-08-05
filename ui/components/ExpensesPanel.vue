@@ -19,6 +19,7 @@ import {
   type RowId,
 } from '../../domain/index.js'
 import { laterOpenedMonths, type Carrying } from '../carry-forward.js'
+import { categoryChoices, categoryName } from '../categories.js'
 import { useChanges } from '../changes.js'
 import { useDevicePreferences } from '../device-preferences.js'
 import { endingTag } from '../ending.js'
@@ -39,6 +40,7 @@ import UnreviewedMark from './UnreviewedMark.vue'
 const props = defineProps<{ household: Household; month: Month }>()
 
 const {
+  addCategory,
   addExpense,
   editExpense,
   repurposeExpense,
@@ -89,6 +91,12 @@ async function endRun(): Promise<void> {
 }
 
 const members = computed(() => membersOf(props.household, props.month))
+
+/** What the picker offers, and what a row's chip is named from. */
+const categories = computed(() => categoryChoices(props.household))
+
+const categoryOf = (expense: ExpenseSnapshot): string | undefined =>
+  categoryName(props.household, expense.category)
 
 const later = computed(() => laterOpenedMonths(props.household, props.month.key))
 
@@ -366,6 +374,8 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
       v-if="adding"
       :currency="household.currency"
       :members="members"
+      :categories="categories"
+      :add-category="addCategory"
       submit-label="Add the Expense"
       adding
       @cancel="adding = false"
@@ -395,6 +405,8 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
         v-else-if="editing === expense.id"
         :currency="household.currency"
         :members="members"
+        :categories="categories"
+        :add-category="addCategory"
         v-bind="editValues(expense)"
         :lines="expense.lines"
         :line-operations="lineOperationsFor(expense)"
@@ -412,8 +424,9 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
           >
             <div class="line">
               <span class="name">{{ expense.name }}</span>
-              <span v-if="expense.category" class="tag">{{ expense.category }}</span>
-              <span v-if="isComposite(expense)" class="tag">{{ lineCount(expense.lines) }}</span>
+              <!-- An uncategorised Expense shows no chip at all: absence is the reading,
+                   and a placeholder would put weight on every row nobody has got to. -->
+              <span v-if="categoryOf(expense)" class="tag">{{ categoryOf(expense) }}</span>
               <span v-if="isOneOff(expense)" class="tag one-off">
                 {{ endingTag(ends(expense.id)) }}
               </span>
@@ -437,6 +450,21 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
             </ul>
           </button>
 
+          <!-- Collapsed by default, and its own control rather than part of the row above:
+               opening a composite to read it is not the same act as opening it to edit it.
+               The count and the toggle are one control rather than a label beside an icon,
+               since a real button cannot nest inside `row-body`. -->
+          <button
+            v-if="isComposite(expense)"
+            class="disclose"
+            type="button"
+            :aria-expanded="expanded.has(expense.id)"
+            :aria-label="`${expanded.has(expense.id) ? 'Hide' : 'Show'} the Line Items of ${expense.name}`"
+            @click="toggleLines(expense.id)"
+          >
+            {{ lineCount(expense.lines) }} {{ expanded.has(expense.id) ? '▾' : '▸' }}
+          </button>
+
           <!-- What the total is made of, and which part of it is still missing a figure. -->
           <ul v-if="isComposite(expense) && expanded.has(expense.id)" class="line-items">
             <li v-for="line in expense.lines" :key="line.id">
@@ -447,18 +475,6 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
           </ul>
         </div>
 
-        <!-- Collapsed by default, and its own control rather than part of the row: opening
-             a composite to read it is not the same act as opening it to edit it. -->
-        <button
-          v-if="isComposite(expense)"
-          class="row-action disclose"
-          type="button"
-          :aria-expanded="expanded.has(expense.id)"
-          :aria-label="`${expanded.has(expense.id) ? 'Hide' : 'Show'} the Line Items of ${expense.name}`"
-          @click="toggleLines(expense.id)"
-        >
-          {{ expanded.has(expense.id) ? '▾' : '▸' }}
-        </button>
         <ConfirmMark
           v-if="!isReviewed(expense)"
           :name="expense.name"
@@ -547,7 +563,17 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
 }
 
 .disclose {
-  font-size: 11px;
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 0 0 0 8px;
+  font-size: 12px;
+  color: var(--fire);
+  background: none;
+  border: none;
+}
+
+.disclose:hover {
+  color: var(--fire-bright);
 }
 
 /* Where the line runs out, the amount drops below the name rather than the name being
