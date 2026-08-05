@@ -312,9 +312,22 @@ async function addLine(): Promise<void> {
   newLine.value = { name: '', amount: '' }
 }
 
+/**
+ * Commits a line's two fields, on leaving either of them or on Enter.
+ *
+ * On blur rather than on `change`, because a refused edit has to stay retryable: `change`
+ * fires once for a value and not again, so a member who settles who absorbs the difference
+ * and comes back to the line would find nothing would re-submit it. Blur asks every time,
+ * and the guard below is what keeps that from meaning a write every time — a line whose
+ * fields still say what the row says has nothing to commit, which is also the case after a
+ * successful edit and is why the loop terminates.
+ */
 function editLine(line: LineItem): void {
   const fields = lineFields.value[line.id]
-  if (!fields) return
+  const says = seeded[line.id]
+  if (!fields || !says) return
+  if (fields.name === says.name && fields.amount === says.amount) return
+
   void carryOut((operations) =>
     operations.edit(
       line.id,
@@ -332,6 +345,7 @@ const money = (amount: Minor): string => formatAmount(amount, props.currency)
 
 function save(): void {
   failure.value = undefined
+  lineFailure.value = undefined
   try {
     emit('save', {
       name: name.value,
@@ -391,7 +405,8 @@ function save(): void {
             v-model="lineFields[line.id]!.name"
             :aria-label="`${line.name} name`"
             type="text"
-            @change="editLine(line)"
+            @blur="editLine(line)"
+            @keyup.enter="editLine(line)"
           />
           <input
             v-model="lineFields[line.id]!.amount"
@@ -399,7 +414,8 @@ function save(): void {
             :placeholder="`${currency.code}, or nothing`"
             inputmode="decimal"
             type="text"
-            @change="editLine(line)"
+            @blur="editLine(line)"
+            @keyup.enter="editLine(line)"
           />
           <button
             class="row-action remove"
@@ -495,11 +511,13 @@ function save(): void {
       </label>
     </div>
 
-    <!-- A refused line stands ahead of the running judgement, which is still speaking of the
-         Expense as it stands and would otherwise say "Adds up." beside a refusal saying the
-         opposite: the change was turned away, so the row it describes has not moved. -->
+    <!-- A refused line stands ahead of an "Adds up.", which is still speaking of the Expense
+         as it stands and would otherwise agree cheerfully beside a refusal saying otherwise:
+         the change was turned away, so the row it describes has not moved. A split that does
+         *not* add up is never hidden — it is what disables Save, and a button disabled for a
+         reason the member cannot read is worse than two messages. -->
     <p v-if="lineFailure" class="standing note short">{{ lineFailure }}</p>
-    <p v-else-if="standing" class="standing note" :class="{ short: !standing.adds }">
+    <p v-if="standing && !(lineFailure && standing.adds)" class="standing note" :class="{ short: !standing.adds }">
       {{ standing.said }}
     </p>
     <p v-else-if="!individual && kind === 'proportional'" class="muted note">

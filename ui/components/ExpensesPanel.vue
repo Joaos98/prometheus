@@ -141,11 +141,11 @@ const money = (amount: Minor): string => formatAmount(amount, props.household.cu
  * Which composites are showing their lines, held on this device and nowhere else.
  *
  * ADR-0010 records the centre column's spare vertical room as headroom kept for exactly
- * this. Collapsed is the default because that room is a fixed amount rather than an
- * unlimited one: several composites open at once would push the Shares below them down the
- * page, and a list that arrives already unfolded is the spreadsheet the layout was chosen
- * over. Any number may be opened — this holds a set, not one row — but each is a member
- * asking for it.
+ * this, and expanding a row into its parts is what it kept the room for. Collapsed is the
+ * default because the room is a fixed amount rather than an unlimited one: several
+ * composites open at once push the Shares below them down the page, and Shares under their
+ * Expense are what that ADR chose the layout to protect. Any number may be opened — this
+ * holds a set, not one row — but each is a member asking for it.
  *
  * Which rows are open is not a fact about the Household, so it is not written to one, and
  * it is not carried between Months either: the panel is rebuilt per Month, and a row
@@ -183,10 +183,18 @@ function lineOperationsFor(expense: ExpenseSnapshot): LineOperations {
  * The two cannot half-apply in any way that loses the figure. If the correction is refused
  * the row is untouched and nothing is itemised; if it lands, the row now holds a figure, so
  * the itemise that follows cannot be refused for want of one.
+ *
+ * That first write is a correction to an amount like any other, so it earns the same offer
+ * to reach the later Months — leaving it out would make this the one path in the panel
+ * where a figure changes and the Months already open after this one are never mentioned.
  */
 async function itemiseHolding(expense: ExpenseSnapshot, amount: Minor): Promise<void> {
-  if (amount !== expense.amount) await editExpense(props.month.key, expense.id, { amount })
+  const corrected = amount !== expense.amount
+  if (corrected) await editExpense(props.month.key, expense.id, { amount })
   await itemise(props.month.key, expense.id)
+  if (corrected && later.value.length > 0) {
+    carrying.value = { kind: 'expenses', id: expense.id, name: expense.name, edits: { amount } }
+  }
 }
 
 /** Whether stopping this row here ends a run, or marks a cost that only ever was this one. */

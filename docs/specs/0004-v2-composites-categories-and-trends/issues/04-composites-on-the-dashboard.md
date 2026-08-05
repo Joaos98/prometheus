@@ -43,7 +43,8 @@ plus a form that has to surface a validation refusal without losing the member's
 - [x] Several composites in one Month do not push the rail or the right column out of view at
       the layout's target width
 - [x] The line editor adds, renames, retypes and removes lines, with the running total
-      updating as it goes
+      updating as it goes — on each change landing, not on each keystroke; the total is what
+      the Expense comes to, and a figure still being typed is not yet one of its parts
 - [x] The amount field is not typeable while the Expense holds lines
 - [x] A line may be left without a figure, and the composite then shows the Pending warning
 - [x] The expansion makes it visible which line has no figure
@@ -77,13 +78,23 @@ entry reading *Line Items · No Line Items · Groceries €665.80, Fruit and veg
 edit button rather than inside it — a button within a button is invalid HTML, and the row
 body was already one big button.
 
-Two things the first cut got wrong, both found in review and fixed before commit. **Itemise
-read the stored amount while its button gated on the typed field**, so a corrected figure
-was silently dropped and a Pending row could offer an action the engine would refuse; it now
+Several things the first cuts got wrong, all found in review and fixed. **Itemise read the
+stored amount while its button gated on the typed field**, so a corrected figure was
+silently dropped and a Pending row could offer an action the engine would refuse; it now
 lands the typed figure first and itemises second, which cannot half-apply in any way that
-loses it. And **an unreadable line amount was swallowed into `null`**, landing a Pending line
-with no message — `readAmount`'s refusal now reaches the member where an invalid split's
-does.
+loses it — and because that first write is an amount correction like any other, it now makes
+the same offer to reach the later Months that every other one in this panel makes. An
+**unreadable line amount was swallowed into `null`**, landing a Pending line with no message;
+`readAmount`'s refusal now reaches the member where an invalid split's does.
+
+The worst of them, caught only by a second review: **a refused rename or retype could not be
+retried.** Line edits committed on `change`, which fires once for a value and not again — so
+a member who read the refusal, settled who absorbs the difference, and came back to the line
+had no way to re-submit it, and the resolve loop this ticket is largely about was unreachable
+for two of the four operations. They commit on blur now, guarded by a comparison against what
+the row says, so a line that still agrees with its row writes nothing and the loop terminates.
+Enter commits too. The lesson for the next UI ticket: the first browser pass exercised the
+refusal through *add*, which has a button, and never through the two paths that do not.
 
 Scope held: "Itemise" is offered on the **edit** form only, since `itemiseExpense` needs a
 row to itemise; a brand-new Expense is recorded first and itemised after. A simple Expense

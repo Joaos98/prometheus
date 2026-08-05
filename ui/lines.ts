@@ -20,20 +20,25 @@ export interface LineFields {
  * itemise until there is a row, so an add form is simply given none of these and renders
  * no line editor.
  *
- * Each is one engine operation and one row write, landing as it is made rather than on
- * save. That is the shape ticket 01 gave the engine — lines change one at a time, so that
- * the amount they derive and the Split Rule standing against it are judged together and
- * never half-applied — and the form follows it rather than staging a list to reconcile.
+ * They land as they are made rather than on save. That is the shape ticket 01 gave the
+ * engine — lines change one at a time, so that the amount they derive and the Split Rule
+ * standing against it are judged together and never half-applied — and the form follows it
+ * rather than staging a list to reconcile.
  *
- * Every one that moves the total takes the Split Rule as the form's fields currently
- * stand, because a `fixed` rule only totals to one amount: it is how a member says who
- * absorbs the difference in the same breath as making it.
+ * The three that move the total take the Split Rule as the form's fields currently stand,
+ * because a `fixed` rule only totals to one amount: it is how a member says who absorbs the
+ * difference in the same breath as making it. `itemise` moves nothing — the figure it makes
+ * a line of is the figure the Expense already came to — so it asks for no rule.
  */
 export interface LineOperations {
   /**
    * Takes the amount as the field currently holds it, not as the row was last stored
    * with: the action says it turns *this* amount into the first line, and a member who
    * has corrected the figure and not yet saved is looking at the corrected one.
+   *
+   * The only one of the four that is not always a single write. Landing a figure the row
+   * does not yet hold is a correction to the Expense before it is anything to do with
+   * lines, so it is made as one — and carries an amount edit's consequences with it.
    */
   itemise: (amount: Minor) => Promise<void>
   add: (line: LineDraft, splitRule?: SplitRule) => Promise<void>

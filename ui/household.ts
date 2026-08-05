@@ -454,9 +454,10 @@ export function householdOver(store: HouseholdStore, seed?: Seed) {
    * single `writeRow` against the parent — the engine derives the amount and judges the
    * Split Rule against it, and what comes back is the whole Expense as it now stands.
    *
-   * Each takes the Split Rule the form is showing, because every one of them moves the
-   * total and a `fixed` rule only totals to one amount. Passing the rule as it stands is
-   * how a member says who absorbs the difference in the same breath as making it.
+   * The three that move the total take the Split Rule the form is showing, because a
+   * `fixed` rule only totals to one amount. Passing the rule as it stands is how a member
+   * says who absorbs the difference in the same breath as making it. Itemising moves no
+   * money — the figure becomes a line of itself — so it needs no rule and takes none.
    */
   function itemise(month: MonthKey, id: RowId): Promise<void> {
     return changing(async (loaded) => {
