@@ -17,6 +17,7 @@ import {
   type Minor,
   type Month,
   type MonthKey,
+  type PaymentMethodId,
   type RowId,
 } from '../../domain/index.js'
 import { laterOpenedMonths, type Carrying } from '../carry-forward.js'
@@ -28,6 +29,7 @@ import { filterNote, participantChoices, participantsIn } from '../expense-filte
 import { useHousehold } from '../household.js'
 import { lineCount, type LineOperations } from '../lines.js'
 import { membersOf, nameOf } from '../members.js'
+import { paymentMethodChoices, paymentMethodName } from '../payment-methods.js'
 import { expenseCaption } from '../split-rules.js'
 import CarryForward from './CarryForward.vue'
 import ConfirmMark from './ConfirmMark.vue'
@@ -42,6 +44,7 @@ const props = defineProps<{ household: Household; month: Month }>()
 
 const {
   addCategory,
+  addPaymentMethod,
   addExpense,
   editExpense,
   repurposeExpense,
@@ -106,6 +109,16 @@ const mintCategory = (name: string): Promise<CategoryId | undefined> =>
 
 const categoryOf = (expense: ExpenseSnapshot): string | undefined =>
   categoryName(props.household, expense.category)
+
+/** What the picker offers, and what a row's chip is named from — the payment method. */
+const paymentMethods = computed(() => paymentMethodChoices(props.household))
+
+/** Minting a payment method from inside a form, on the same terms as `mintCategory`. */
+const mintPaymentMethod = (name: string): Promise<PaymentMethodId | undefined> =>
+  reporting(addPaymentMethod(name))
+
+const paymentMethodOf = (expense: ExpenseSnapshot): string | undefined =>
+  paymentMethodName(props.household, expense.paymentMethod)
 
 const later = computed(() => laterOpenedMonths(props.household, props.month.key))
 
@@ -334,6 +347,7 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
   return pending ?? {
     name: expense.name,
     category: expense.category,
+    paymentMethod: expense.paymentMethod,
     amount: expense.amount,
     participants: expense.participants,
     splitRule: expense.splitRule,
@@ -385,6 +399,8 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
       :members="members"
       :categories="categories"
       :add-category="mintCategory"
+      :payment-methods="paymentMethods"
+      :add-payment-method="mintPaymentMethod"
       submit-label="Add the Expense"
       adding
       @cancel="adding = false"
@@ -416,6 +432,8 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
         :members="members"
         :categories="categories"
         :add-category="mintCategory"
+        :payment-methods="paymentMethods"
+        :add-payment-method="mintPaymentMethod"
         v-bind="editValues(expense)"
         :lines="expense.lines"
         :line-operations="lineOperationsFor(expense)"
@@ -436,6 +454,9 @@ function editValues(expense: ExpenseSnapshot): Required<ExpenseEdits> {
               <!-- An uncategorised Expense shows no chip at all: absence is the reading,
                    and a placeholder would put weight on every row nobody has got to. -->
               <span v-if="categoryOf(expense)" class="chip">{{ categoryOf(expense) }}</span>
+              <!-- An Expense with no payment method chosen shows no chip for it either,
+                   on the same terms as the category chip beside it. -->
+              <span v-if="paymentMethodOf(expense)" class="chip">{{ paymentMethodOf(expense) }}</span>
               <span v-if="isOneOff(expense)" class="chip one-off">
                 {{ endingTag(ends(expense.id)) }}
               </span>

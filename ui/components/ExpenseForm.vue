@@ -11,6 +11,8 @@ import {
   type LineItem,
   type MemberId,
   type Minor,
+  type PaymentMethod,
+  type PaymentMethodId,
   type RowId,
   type SplitRule,
 } from '../../domain/index.js'
@@ -25,15 +27,20 @@ const props = withDefaults(
     members: { id: MemberId; name: string }[]
     name?: string
     category?: CategoryId | null
+    paymentMethod?: PaymentMethodId | null
     amount?: Minor | null
     /** The Household's vocabulary, in the order it is offered — everything the picker has. */
     categories: Category[]
+    /** The Household's payment methods, on the same terms as `categories`. */
+    paymentMethods: PaymentMethod[]
     /**
      * Adding a category from inside the form, which is a Household write and so belongs to
      * the panel. It reports its own refusals the way every other change here does, and
      * answers with the identity it minted, or with nothing where it was turned away.
      */
     addCategory: (name: string) => Promise<CategoryId | undefined>
+    /** Adding a payment method from inside the form, on the same terms as `addCategory`. */
+    addPaymentMethod: (name: string) => Promise<PaymentMethodId | undefined>
     participants?: MemberId[]
     splitRule?: SplitRule
     submitLabel?: string
@@ -47,6 +54,7 @@ const props = withDefaults(
   {
     name: '',
     category: null,
+    paymentMethod: null,
     amount: null,
     participants: undefined,
     splitRule: () => ({ kind: 'even' }),
@@ -62,6 +70,7 @@ const emit = defineEmits<{
     {
       name: string
       category: CategoryId | null
+      paymentMethod: PaymentMethodId | null
       amount: Minor | null
       participants: MemberId[]
       splitRule: SplitRule
@@ -97,6 +106,22 @@ const chosenCategory = computed({
     props.categories.some((choice) => choice.id === category.value) ? category.value! : '',
   set: (chosen: string) => {
     category.value = chosen === '' ? null : chosen
+  },
+})
+
+/** The payment method as an id into the Household's vocabulary, or none — the same picker
+ * discipline as `category`, and independent of it: an Expense may hold either, both or
+ * neither. */
+const paymentMethod = ref<PaymentMethodId | null>(props.paymentMethod)
+
+/** The picker's own value for the payment method, on the same terms as `chosenCategory`. */
+const chosenPaymentMethod = computed({
+  get: () =>
+    props.paymentMethods.some((choice) => choice.id === paymentMethod.value)
+      ? paymentMethod.value!
+      : '',
+  set: (chosen: string) => {
+    paymentMethod.value = chosen === '' ? null : chosen
   },
 })
 const amount = ref(editableAmount(props.amount, props.currency))
@@ -415,6 +440,31 @@ async function mintCategory(): Promise<void> {
   }
 }
 
+/** The same "+ New …" flow as `nameCategory`/`mintCategory`, for the payment method picker. */
+const namingPaymentMethod = ref(false)
+const newPaymentMethodName = ref('')
+const mintingPaymentMethod = ref(false)
+
+function namePaymentMethod(): void {
+  failure.value = undefined
+  newPaymentMethodName.value = ''
+  namingPaymentMethod.value = true
+}
+
+async function mintPaymentMethod(): Promise<void> {
+  if (mintingPaymentMethod.value) return
+  mintingPaymentMethod.value = true
+  try {
+    const minted = await props.addPaymentMethod(newPaymentMethodName.value)
+    if (!minted) return
+    paymentMethod.value = minted
+    namingPaymentMethod.value = false
+    newPaymentMethodName.value = ''
+  } finally {
+    mintingPaymentMethod.value = false
+  }
+}
+
 function save(): void {
   failure.value = undefined
   lineFailure.value = undefined
@@ -424,6 +474,7 @@ function save(): void {
       // What the picker is showing, so that a category which has gone from the vocabulary
       // is saved as the none it reads as rather than as the id nothing can name.
       category: chosenCategory.value === '' ? null : chosenCategory.value,
+      paymentMethod: chosenPaymentMethod.value === '' ? null : chosenPaymentMethod.value,
       amount: readAmount(amount.value, props.currency),
       participants: participants.value,
       splitRule: submittedRule(),
@@ -445,6 +496,12 @@ function save(): void {
       <select v-model="chosenCategory" aria-label="Category">
         <option value="">No category</option>
         <option v-for="choice in categories" :key="choice.id" :value="choice.id">
+          {{ choice.name }}
+        </option>
+      </select>
+      <select v-model="chosenPaymentMethod" aria-label="Payment method">
+        <option value="">No payment method</option>
+        <option v-for="choice in paymentMethods" :key="choice.id" :value="choice.id">
           {{ choice.name }}
         </option>
       </select>
@@ -489,6 +546,38 @@ function save(): void {
           {{ minting ? 'Adding…' : 'Add' }}
         </button>
         <button class="button-quiet" type="button" @click="namingCategory = false">Cancel</button>
+      </template>
+    </div>
+
+    <!-- The same offer as above, for a payment method the Household has not got yet. -->
+    <div class="new-category">
+      <button
+        v-if="!namingPaymentMethod"
+        class="link-action"
+        type="button"
+        @click="namePaymentMethod()"
+      >
+        + New payment method
+      </button>
+      <template v-else>
+        <input
+          v-model="newPaymentMethodName"
+          aria-label="New payment method name"
+          placeholder="Name the payment method"
+          type="text"
+          @keydown.enter.prevent="mintPaymentMethod()"
+        />
+        <button
+          class="button-quiet"
+          type="button"
+          :disabled="mintingPaymentMethod || newPaymentMethodName.trim() === ''"
+          @click="mintPaymentMethod()"
+        >
+          {{ mintingPaymentMethod ? 'Adding…' : 'Add' }}
+        </button>
+        <button class="button-quiet" type="button" @click="namingPaymentMethod = false">
+          Cancel
+        </button>
       </template>
     </div>
 
@@ -652,7 +741,7 @@ function save(): void {
 <style scoped>
 .line {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
   gap: 8px;
 }
 

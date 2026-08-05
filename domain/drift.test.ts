@@ -178,10 +178,11 @@ describe('the diff covers every field the copy covers', () => {
     expect(fieldsOf(changed, salary)).toEqual(['name', 'member', 'amount', 'restrictedUse'])
   })
 
-  it('covers an Expense’s name, category, amount, Participants and Split Rule', () => {
+  it('covers an Expense’s name, category, payment method, amount, Participants and Split Rule', () => {
     const changed = editExpenseSnapshot(household, '2026-07', rent, {
       name: 'Rent and service',
       category: 'Housing',
+      paymentMethod: 'card',
       amount: 125000,
       participants: [ana],
       splitRule: { kind: 'proportional' },
@@ -190,6 +191,7 @@ describe('the diff covers every field the copy covers', () => {
     expect(fieldsOf(changed, rent)).toEqual([
       'name',
       'category',
+      'paymentMethod',
       'amount',
       'participants',
       'splitRule',

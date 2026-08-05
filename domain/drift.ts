@@ -50,6 +50,7 @@ import type {
 export type DriftField =
   | 'name'
   | 'category'
+  | 'paymentMethod'
   | 'amount'
   | 'participants'
   | 'splitRule'
@@ -295,6 +296,7 @@ function expenseFields(held: ExpenseSnapshot, inherited: ExpenseSnapshot): Drift
   return [
     ...differs('name', held.name !== inherited.name),
     ...differs('category', held.category !== inherited.category),
+    ...differs('paymentMethod', held.paymentMethod !== inherited.paymentMethod),
     ...differs('amount', held.amount !== inherited.amount),
     ...differs('participants', !sameMembers(held.participants, inherited.participants)),
     ...differs('splitRule', !sameRule(held.splitRule, inherited.splitRule)),

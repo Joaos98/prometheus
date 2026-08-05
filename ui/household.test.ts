@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { seedHousehold } from '../demo/seed.js'
 import {
   addCategory,
+  addPaymentMethod,
   openedMonthKeys,
   setUpHousehold,
   type ExpenseDraft,
@@ -468,6 +469,135 @@ describe('deleting a category', () => {
     expect(finished.months['2026-07']!.expenses[0]!.category).toBeNull()
     expect(finished.months['2026-08']!.expenses[0]!.category).toBeNull()
     expect(failing.household.value!.categories).toEqual([])
+  })
+})
+
+describe('deleting a payment method', () => {
+  /** Card on one row of July, inherited by August; Cash on a row of its own. */
+  async function withCard() {
+    const storage = fakeStorage()
+    const store = recording(localStorageStore(storage))
+    const vocabulary = addPaymentMethod(setUpHousehold(setup), 'Card')
+    const withMethods = addPaymentMethod(vocabulary, 'Cash')
+    await store.createHousehold(withMethods)
+    const [card, cash] = withMethods.paymentMethods.map((method) => method.id) as [
+      string,
+      string,
+    ]
+
+    const app = householdOver(store)
+    await app.load()
+    const roster = app.household.value!
+    const paid = (name: string, amount: number, paymentMethod: string): ExpenseDraft => ({
+      ...expense(name, amount, roster),
+      paymentMethod,
+    })
+    await app.addExpense('2026-07', paid('Supermarket', 30000, card))
+    await app.addExpense('2026-07', paid('Electricity', 8000, cash))
+    await app.open('2026-08')
+    store.calls.length = 0
+
+    return { app, store, storage, card, cash }
+  }
+
+  const stored = (storage: Storage): Promise<Household> =>
+    localStorageStore(storage).loadHousehold() as Promise<Household>
+
+  it('deletes one no row references without writing a row', async () => {
+    const { app, store, storage, cash, card } = await withCard()
+    await app.removeExpense('2026-07', app.household.value!.months['2026-07']!.expenses[1]!.id)
+    await app.removeExpense('2026-08', app.household.value!.months['2026-08']!.expenses[1]!.id)
+    store.calls.length = 0
+
+    await app.deletePaymentMethod(cash)
+
+    expect(store.calls).toEqual(['replaceHousehold'])
+    const left = (await stored(storage)).paymentMethods.map((method) => method.id)
+    expect(left).toEqual([card])
+  })
+
+  it('refuses to delete one in use, and leaves the record exactly as it was', async () => {
+    const { app, store, storage, card } = await withCard()
+    const before = await stored(storage)
+
+    await expect(app.deletePaymentMethod(card)).rejects.toThrow('used by 2 rows')
+
+    expect(store.calls).toEqual([])
+    expect(await stored(storage)).toEqual(before)
+  })
+
+  it('clears every referencing row one write at a time, and only then puts the vocabulary back', async () => {
+    const { app, store, storage, card } = await withCard()
+
+    await app.clearAndDeletePaymentMethod(card)
+
+    expect(store.calls).toEqual(['writeRow', 'writeRow', 'replaceHousehold'])
+    const after = await stored(storage)
+    expect(after.paymentMethods.map((method) => method.name)).toEqual(['Cash'])
+    for (const key of ['2026-07', '2026-08'] as const) {
+      const methods = after.months[key]!.expenses.map((row) => row.paymentMethod)
+      expect(methods).toEqual([null, expect.any(String)])
+    }
+  })
+
+  it('changes nothing but the payment method of a cleared row, its Unreviewed mark included', async () => {
+    const { app, storage, card } = await withCard()
+    const before = await stored(storage)
+
+    await app.clearAndDeletePaymentMethod(card)
+
+    const after = await stored(storage)
+    for (const key of ['2026-07', '2026-08'] as const) {
+      expect(after.months[key]!.expenses[0]).toEqual({
+        ...before.months[key]!.expenses[0]!,
+        paymentMethod: null,
+      })
+      expect(after.months[key]!.expenses[1]).toEqual(before.months[key]!.expenses[1])
+    }
+  })
+
+  /**
+   * The order is what makes a failed run a retry rather than a corrupt state: the
+   * vocabulary is only written once every clear has landed, so a payment method that is
+   * still half in use is still in the list, and still refuses to be deleted.
+   */
+  it('leaves the payment method present and still undeletable when a row write fails partway', async () => {
+    const storage = fakeStorage()
+    const withMethods = addPaymentMethod(setUpHousehold(setup), 'Card')
+    const store = localStorageStore(storage)
+    await store.createHousehold(withMethods)
+    const card = withMethods.paymentMethods[0]!.id
+    const app = householdOver(store)
+    await app.load()
+    await app.addExpense('2026-07', {
+      ...expense('Supermarket', 30000, app.household.value!),
+      paymentMethod: card,
+    })
+    await app.open('2026-08')
+
+    const failing = householdOver(failingOnWrite(store, 2))
+    await failing.load()
+    await expect(failing.clearAndDeletePaymentMethod(card)).rejects.toThrow('The store gave up')
+
+    const halfway = await stored(storage)
+    expect(halfway.paymentMethods.map((method) => method.name)).toEqual(['Card'])
+    expect(halfway.months['2026-07']!.expenses[0]!.paymentMethod).toBeNull()
+    expect(halfway.months['2026-08']!.expenses[0]!.paymentMethod).toBe(card)
+
+    /**
+     * The retry runs on the app that failed, which is the case that actually happens: a
+     * refused change leaves the screen holding the record as it was before the clear, so
+     * this asks again for rows the store has already cleared. Writing a cleared row over a
+     * cleared row is last-write-wins over identical content (ADR-0008), and the run
+     * finishes.
+     */
+    await failing.clearAndDeletePaymentMethod(card)
+
+    const finished = await stored(storage)
+    expect(finished.paymentMethods).toEqual([])
+    expect(finished.months['2026-07']!.expenses[0]!.paymentMethod).toBeNull()
+    expect(finished.months['2026-08']!.expenses[0]!.paymentMethod).toBeNull()
+    expect(failing.household.value!.paymentMethods).toEqual([])
   })
 })
 

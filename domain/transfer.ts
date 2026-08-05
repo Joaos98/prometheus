@@ -31,6 +31,8 @@ import type {
   Minor,
   Month,
   MonthKey,
+  PaymentMethod,
+  PaymentMethodId,
   SavingsGoal,
   SplitRule,
 } from './types.js'
@@ -65,6 +67,7 @@ export function exportHousehold(household: Household): string {
       currency: household.currency,
       roster: household.roster,
       categories: household.categories,
+      paymentMethods: household.paymentMethods,
       months,
     },
     null,
@@ -85,9 +88,16 @@ export function importHousehold(text: string): Household {
   const file = fileOf(text)
   const currency = readCurrency(file.currency)
   const roster = readRoster(file.roster)
-  const categories = readCategories(file.categories)
-  const months = readMonths(file.months, roster, currency, categories)
-  return { currency, roster, categories: categories.list, months }
+  const categories = readVocabulary(file.categories, 'category', 'categories')
+  const paymentMethods = readVocabulary(file.paymentMethods, 'payment method', 'payment methods')
+  const months = readMonths(file.months, roster, currency, categories, paymentMethods)
+  return {
+    currency,
+    roster,
+    categories: categories.list as Category[],
+    paymentMethods: paymentMethods.list as PaymentMethod[],
+    months,
+  }
 }
 
 /**
@@ -156,57 +166,61 @@ function readRoster(value: unknown): Member[] {
 }
 
 /**
- * The category vocabulary a file defines, and how to read what it means for a row:
- * `legacy` is a file with no `categories` key at all — v1.2 and everything before it —
- * where every Expense's `category` is discarded rather than trusted, exactly as a stored
- * Household from that era is. A file that does carry the key, even an empty one, is held
- * to it: a row naming an id the list does not define is the referential integrity error
- * ADR-0012 names, and is rejected rather than silently nulled. The list itself is held to
- * the same case-insensitive uniqueness `domain/categories.ts` enforces on every edit, so
- * an import cannot produce a vocabulary the app itself would never let a member build.
+ * A vocabulary a file defines — categories and payment methods are the two so far
+ * (ADR-0012) — and how to read what it means for a row: `legacy` is a file with no key
+ * for it at all — v1.2 and everything before it, for categories; every payment method
+ * file, since the field is new in v2 — where every Expense's field is discarded rather
+ * than trusted, exactly as a stored Household from that era is. A file that does carry
+ * the key, even an empty one, is held to it: a row naming an id the list does not define
+ * is the referential integrity error ADR-0012 names, and is rejected rather than
+ * silently nulled. The list itself is held to the same case-insensitive uniqueness
+ * `domain/vocabulary.ts` enforces on every edit, so an import cannot produce a
+ * vocabulary the app itself would never let a member build.
  */
-interface CategoryContext {
-  list: Category[]
-  ids: Set<CategoryId>
+interface VocabularyContext {
+  list: { id: string; name: string }[]
+  ids: Set<string>
   legacy: boolean
 }
 
-function readCategories(value: unknown): CategoryContext {
+/**
+ * Reads one vocabulary list, generic over which one — `noun` and `plural` are only for
+ * the messages a rejection reads. Reimplemented rather than sharing `domain/vocabulary.ts`
+ * directly, because the two run over different shapes: an untrusted file list here, a
+ * live `Household` there. If the uniqueness rule ever changes, both sites need the same
+ * change.
+ */
+function readVocabulary(value: unknown, noun: string, plural: string): VocabularyContext {
   if (value === undefined) return { list: [], ids: new Set(), legacy: true }
-  const list = readArray(value, 'The categories').map((entry) => {
-    const category = readObject(entry, 'A category')
+  const list = readArray(value, `The ${plural}`).map((entry) => {
+    const item = readObject(entry, `A ${noun}`)
     return {
-      id: readText(category.id, "A category's identity"),
-      name: readText(category.name, "A category's name"),
+      id: readText(item.id, `A ${noun}'s identity`),
+      name: readText(item.name, `A ${noun}'s name`),
     }
   })
   requireDistinct(
-    list.map((category) => category.id),
-    'Two categories share an identity',
+    list.map((item) => item.id),
+    `Two ${plural} share an identity`,
   )
-  /**
-   * The same case-insensitive rule `requireUniqueName` in `domain/categories.ts` enforces
-   * on every edit, reimplemented rather than shared because the two run over different
-   * shapes — an untrusted file list here, a live `Household` there. If that rule ever
-   * changes (whitespace, normalisation), both sites need the same change.
-   */
   requireDistinct(
-    list.map((category) => category.name.toLowerCase()),
-    'Two categories share a name',
+    list.map((item) => item.name.toLowerCase()),
+    `Two ${plural} share a name`,
   )
-  return { list, ids: new Set(list.map((category) => category.id)), legacy: false }
+  return { list, ids: new Set(list.map((item) => item.id)), legacy: false }
 }
 
 function readMonths(
   value: unknown,
   roster: Member[],
   currency: Currency,
-  categories: CategoryContext,
+  categories: VocabularyContext,
+  paymentMethods: VocabularyContext,
 ): Record<MonthKey, Month> {
   const months: Record<MonthKey, Month> = {}
   for (const [key, month] of Object.entries(readObject(value, 'The Months'))) {
     const at = monthKeyOf(key)
-    months[at] = readMonth(month, at, roster, currency, categories)
+    months[at] = readMonth(month, at, roster, currency, categories, paymentMethods)
   }
   return months
 }
@@ -216,7 +230,8 @@ function readMonth(
   key: MonthKey,
   roster: Member[],
   currency: Currency,
-  categories: CategoryContext,
+  categories: VocabularyContext,
+  paymentMethods: VocabularyContext,
 ): Month {
   const month = readObject(value, `${key}`)
   if (month.key !== key) reject(`${key} is filed under a key it does not carry`)
@@ -233,7 +248,7 @@ function readMonth(
     readIncome(row, key, members),
   )
   const expenses = readArray(month.expenses, `${key}'s Expenses`).map((row) =>
-    readExpense(row, key, members, currency, categories),
+    readExpense(row, key, members, currency, categories, paymentMethods),
   )
   const goals = readArray(month.goals, `${key}'s Savings Goals`).map((row) =>
     readGoal(row, key, members),
@@ -273,7 +288,8 @@ function readExpense(
   key: MonthKey,
   members: MemberId[],
   currency: Currency,
-  categories: CategoryContext,
+  categories: VocabularyContext,
+  paymentMethods: VocabularyContext,
 ): ExpenseSnapshot {
   const row = readObject(value, `An Expense of ${key}`)
   const named = readText(row.name, `The name of an Expense of ${key}`)
@@ -304,7 +320,14 @@ function readExpense(
   return {
     id: readText(row.id, `The identity of ${key}'s "${named}"`),
     name: named,
-    category: readCategory(row.category, key, named, categories),
+    category: readVocabularyRef(row.category, key, named, categories, 'category') as CategoryId | null,
+    paymentMethod: readVocabularyRef(
+      row.paymentMethod,
+      key,
+      named,
+      paymentMethods,
+      'payment method',
+    ) as PaymentMethodId | null,
     amount,
     lines,
     participants,
@@ -315,21 +338,22 @@ function readExpense(
 }
 
 /**
- * A row's category: `null` if the file leaves it uncategorised, and otherwise an id the
- * file's own `categories` list must define. A legacy file — one with no `categories` key
- * at all — never gets this far into trusting a string: every row reads as uncategorised,
- * exactly as a stored v1.2 Household does, and no category is ever minted from what was
- * there.
+ * A row's reference into a vocabulary: `null` if the file leaves it unset, and otherwise
+ * an id the file's own list must define. A legacy file — one with no key for this
+ * vocabulary at all — never gets this far into trusting a string: every row reads as
+ * unset, exactly as a stored Household from before the field existed does, and nothing
+ * is ever minted from what was there.
  */
-function readCategory(
+function readVocabularyRef(
   value: unknown,
   key: MonthKey,
   named: string,
-  categories: CategoryContext,
-): CategoryId | null {
-  if (categories.legacy || typeof value !== 'string') return null
-  if (!categories.ids.has(value)) {
-    reject(`${key}'s "${named}" names a category the file does not define`)
+  vocabulary: VocabularyContext,
+  noun: string,
+): string | null {
+  if (vocabulary.legacy || typeof value !== 'string') return null
+  if (!vocabulary.ids.has(value)) {
+    reject(`${key}'s "${named}" names a ${noun} the file does not define`)
   }
   return value
 }

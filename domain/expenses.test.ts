@@ -78,6 +78,7 @@ describe('recording an Expense', () => {
       id: expect.any(String),
       name: 'Rent',
       category: 'Home',
+      paymentMethod: null,
       amount: 120000,
       lines: [],
       participants: [ana, bruno],

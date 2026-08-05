@@ -6,12 +6,15 @@ import {
   addLineItem,
   addMember,
   addSavingsGoal,
+  addPaymentMethod as addToPaymentMethods,
   clearCategory,
+  clearPaymentMethod,
   confirmExpenseSnapshot,
   confirmIncomeSnapshot,
   confirmSavingsGoal,
   deactivateMember,
   deleteCategory as deleteFromVocabulary,
+  deletePaymentMethod as deleteFromPaymentMethods,
   discardMonth,
   editExpenseSnapshot,
   editLineItem,
@@ -40,6 +43,7 @@ import {
   relabelCurrency,
   removeIncomeSnapshot,
   renameCategory as renameInVocabulary,
+  renamePaymentMethod as renamePaymentMethodInVocabulary,
   repurposeExpenseSnapshot,
   setUpHousehold,
   type CategoryId,
@@ -56,6 +60,7 @@ import {
   type MemberId,
   type Minor,
   type MonthKey,
+  type PaymentMethodId,
   type Propagation,
   type RowId,
   type RowKind,
@@ -424,6 +429,55 @@ export function householdOver(store: HouseholdStore, seed?: Seed) {
   }
 
   /**
+   * Adding a payment method, on the same terms as `addCategory`: a whole write, its
+   * minted id found rather than assumed, and nothing back when there is no Household
+   * loaded.
+   */
+  async function addPaymentMethod(name: string): Promise<PaymentMethodId | undefined> {
+    let minted: PaymentMethodId | undefined
+    await changing(async (loaded) => {
+      const known = new Set(loaded.paymentMethods.map((method) => method.id))
+      const after = addToPaymentMethods(loaded, name)
+      await store.replaceHousehold(after)
+      minted = after.paymentMethods.find((method) => !known.has(method.id))!.id
+      return after
+    })
+    return minted
+  }
+
+  /** Renaming a payment method, which touches no row, on the same terms as a category. */
+  function renamePaymentMethod(id: PaymentMethodId, name: string): Promise<void> {
+    return changing(async (loaded) => {
+      const after = renamePaymentMethodInVocabulary(loaded, id, name)
+      await store.replaceHousehold(after)
+      return after
+    })
+  }
+
+  /** Deleting a payment method outright, refused by the engine while any row holds it. */
+  function deletePaymentMethod(id: PaymentMethodId): Promise<void> {
+    return changing(async (loaded) => {
+      const after = deleteFromPaymentMethods(loaded, id)
+      await store.replaceHousehold(after)
+      return after
+    })
+  }
+
+  /**
+   * Taking a payment method off every row that holds it, and then out of the vocabulary,
+   * on the same ordering rule as `clearAndDeleteCategory`.
+   */
+  function clearAndDeletePaymentMethod(id: PaymentMethodId): Promise<void> {
+    return changing(async (loaded) => {
+      const { household: cleared, rows } = clearPaymentMethod(loaded, id)
+      for (const { month, row } of rows) await store.writeRow(month, 'expenses', row)
+      const after = deleteFromPaymentMethods(cleared, id)
+      await store.replaceHousehold(after)
+      return after
+    })
+  }
+
+  /**
    * Income, one row at a time. The engine decides what the Household becomes; the port
    * is handed only the row that changed, so two members editing different rows never
    * collide.
@@ -745,6 +799,10 @@ export function householdOver(store: HouseholdStore, seed?: Seed) {
     renameCategory,
     deleteCategory,
     clearAndDeleteCategory,
+    addPaymentMethod,
+    renamePaymentMethod,
+    deletePaymentMethod,
+    clearAndDeletePaymentMethod,
     addIncome,
     editIncome,
     removeIncome,

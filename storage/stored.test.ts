@@ -73,7 +73,12 @@ describe('a Household read out of storage', () => {
     const read = fromStored(stored)
 
     const rent = read.months['2026-07']!.expenses[0]!
-    expect(rent).toEqual({ ...stored.months['2026-07']!.expenses[0], lines: [], category: null })
+    expect(rent).toEqual({
+      ...stored.months['2026-07']!.expenses[0],
+      lines: [],
+      category: null,
+      paymentMethod: null,
+    })
   })
 
   it('gives a Household with no `categories` key an empty vocabulary', () => {
@@ -97,6 +102,48 @@ describe('a Household read out of storage', () => {
 
     expect(read.categories).toEqual([{ id: 'home', name: 'Home' }])
     expect(read.months['2026-07']!.expenses[0]!.category).toBe('home')
+  })
+
+  it('gives a Household with no `paymentMethods` key an empty vocabulary', () => {
+    const read = fromStored(asStoredByV12())
+
+    expect(read.paymentMethods).toEqual([])
+  })
+
+  it('sets every Expense’s payment method to null when the Household predates it', () => {
+    const read = fromStored(asStoredByV12())
+
+    expect(read.months['2026-07']!.expenses.map((row) => row.paymentMethod)).toEqual([null, null])
+  })
+
+  it('leaves a Household’s payment methods exactly as they are, ids and all', () => {
+    const stored = asStoredByV12()
+    const withMethods = { ...stored, paymentMethods: [{ id: 'card', name: 'Card' }] }
+    withMethods.months['2026-07']!.expenses[0]!.paymentMethod = 'card'
+
+    const read = fromStored(withMethods)
+
+    expect(read.paymentMethods).toEqual([{ id: 'card', name: 'Card' }])
+    expect(read.months['2026-07']!.expenses[0]!.paymentMethod).toBe('card')
+  })
+
+  /**
+   * A Household that already chose categories but predates payment methods, which is
+   * every Household stored by tickets 05–08 of spec 0004 before this one: the two
+   * vocabularies are told apart independently, and one being legacy does not touch the
+   * other.
+   */
+  it('defaults only payment methods on a Household that already has categories', () => {
+    const stored = asStoredByV12()
+    const withCategories = { ...stored, categories: [{ id: 'home', name: 'Home' }] }
+    withCategories.months['2026-07']!.expenses[0]!.category = 'home'
+
+    const read = fromStored(withCategories)
+
+    expect(read.categories).toEqual([{ id: 'home', name: 'Home' }])
+    expect(read.months['2026-07']!.expenses[0]!.category).toBe('home')
+    expect(read.paymentMethods).toEqual([])
+    expect(read.months['2026-07']!.expenses[0]!.paymentMethod).toBeNull()
   })
 
   it('leaves the lines of a Household that already has them exactly as they are', () => {

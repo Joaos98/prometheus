@@ -17,6 +17,7 @@ import { ruleName } from './split-rules.js'
 const LABELS: Record<DriftField, string> = {
   name: 'Name',
   category: 'Category',
+  paymentMethod: 'Payment method',
   amount: 'Amount',
   participants: 'Participants',
   splitRule: 'Split Rule',
@@ -44,6 +45,8 @@ export function valueOf(household: Household, row: MonthRow, field: DriftField):
       return (row as { name: string }).name
     case 'category':
       return (row as ExpenseSnapshot).category || 'None'
+    case 'paymentMethod':
+      return (row as ExpenseSnapshot).paymentMethod || 'None'
     case 'amount':
       return money((row as ExpenseSnapshot).amount, household)
     case 'target':

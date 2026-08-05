@@ -20,6 +20,7 @@ import type {
   Minor,
   Month,
   MonthKey,
+  PaymentMethodId,
   RowId,
   SplitRule,
 } from './types.js'
@@ -27,6 +28,9 @@ import type {
 export interface ExpenseDraft {
   name: string
   category: CategoryId | null
+  /** Optional and defaulting to `null`, unlike `category` — every existing caller of this
+   * draft predates the payment method field, and none is required to name one. */
+  paymentMethod?: PaymentMethodId | null
   amount: Minor | null
   participants: MemberId[]
   splitRule?: SplitRule
@@ -45,6 +49,7 @@ export interface ExpenseDraft {
 export interface ExpenseEdits {
   name?: string
   category?: CategoryId | null
+  paymentMethod?: PaymentMethodId | null
   amount?: Minor | null
   participants?: MemberId[]
   splitRule?: SplitRule
@@ -85,6 +90,7 @@ export function addExpenseSnapshot(
     id: mintId(),
     name: requireName(draft.name, 'An Expense'),
     category: draft.category,
+    paymentMethod: draft.paymentMethod ?? null,
     amount: requireAmount(draft.amount),
     lines: [],
     participants: requireParticipants(household, month, draft.participants),
@@ -118,6 +124,7 @@ export function editExpenseSnapshot(
     ...existing,
     ...(edits.name !== undefined && { name: requireName(edits.name, 'An Expense') }),
     ...(edits.category !== undefined && { category: edits.category }),
+    ...(edits.paymentMethod !== undefined && { paymentMethod: edits.paymentMethod }),
     ...(edits.amount !== undefined && { amount: requireAmount(edits.amount) }),
     ...(edits.participants !== undefined && {
       participants: requireParticipants(household, month, edits.participants),

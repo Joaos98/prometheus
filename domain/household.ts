@@ -25,7 +25,10 @@ export function setUpHousehold(setup: Setup): Household {
   const startingMonth = assertMonthKey(setup.startingMonth)
 
   const roster: Member[] = names.map((name) => ({ id: mintId(), name, active: true }))
-  return openMonth({ currency, roster, categories: [], months: {} }, startingMonth)
+  return openMonth(
+    { currency, roster, categories: [], paymentMethods: [], months: {} },
+    startingMonth,
+  )
 }
 
 /**

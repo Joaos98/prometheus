@@ -26,6 +26,16 @@ export {
   type CategoryUsage,
   type ClearedRow,
 } from './categories.js'
+export {
+  addPaymentMethod,
+  clearPaymentMethod,
+  deletePaymentMethod,
+  paymentMethodUsage,
+  renamePaymentMethod,
+  type ClearedPaymentMethodRow,
+  type PaymentMethodClearance,
+  type PaymentMethodUsage,
+} from './payment-methods.js'
 export { DomainError } from './errors.js'
 export {
   addExpenseSnapshot,
@@ -143,6 +153,8 @@ export type {
   Month,
   MonthKey,
   MonthRow,
+  PaymentMethod,
+  PaymentMethodId,
   RowId,
   RowKind,
   SavingsGoal,

@@ -12,11 +12,12 @@ import { setUpHousehold } from './household.js'
 import { addIncomeSnapshot } from './income.js'
 import { leftoverBalancesOf } from './leftover.js'
 import { monthAt, openMonth } from './month.js'
+import { addPaymentMethod } from './payment-methods.js'
 import { propagateExpenseEdit, propagateExpenseLines } from './propagation.js'
 import { unreviewedCount } from './review.js'
 import { sharesOf } from './shares.js'
 import { exportHousehold, importHousehold, whatImportReplaces } from './transfer.js'
-import type { CategoryId, Household, MemberId } from './types.js'
+import type { CategoryId, Household, MemberId, PaymentMethodId } from './types.js'
 
 const euro = { code: 'EUR', symbol: '€', decimals: 2 }
 
@@ -25,6 +26,7 @@ let ana: MemberId
 let bruno: MemberId
 let home: CategoryId
 let health: CategoryId
+let card: PaymentMethodId
 
 /**
  * A Household with something of everything in it: two Months, every kind of row, a
@@ -44,6 +46,9 @@ beforeEach(() => {
   household = addCategory(household, 'Health')
   home = household.categories[0]!.id
   health = household.categories[1]!.id
+
+  household = addPaymentMethod(household, 'Card')
+  card = household.paymentMethods[0]!.id
 
   household = addIncomeSnapshot(household, '2026-07', {
     name: 'Salary',
@@ -65,6 +70,7 @@ beforeEach(() => {
   household = addExpenseSnapshot(household, '2026-07', {
     name: 'Rent',
     category: home,
+    paymentMethod: card,
     amount: 120000,
     participants: [ana, bruno],
     splitRule: { kind: 'proportional' },
@@ -111,6 +117,7 @@ describe('exporting the whole Household', () => {
     expect(file.currency).toEqual(euro)
     expect(file.roster).toEqual(household.roster)
     expect(file.categories).toEqual(household.categories)
+    expect(file.paymentMethods).toEqual(household.paymentMethods)
     expect(Object.keys(file.months as object)).toEqual(['2026-07', '2026-08'])
   })
 
@@ -122,6 +129,7 @@ describe('exporting the whole Household', () => {
       'currency',
       'format',
       'months',
+      'paymentMethods',
       'roster',
     ])
   })
@@ -340,6 +348,60 @@ describe('a Household’s category vocabulary', () => {
   })
 })
 
+describe('a Household’s payment method vocabulary', () => {
+  it('round-trips the payment methods list, with every Expense still pointing at the same one', () => {
+    const imported = exported()
+
+    expect(imported.paymentMethods).toEqual(household.paymentMethods)
+    expect(monthAt(imported, '2026-07')!.expenses.map((row) => row.paymentMethod)).toEqual(
+      monthAt(household, '2026-07')!.expenses.map((row) => row.paymentMethod),
+    )
+  })
+
+  it('rejects a file whose payment methods share a name, case-insensitively', () => {
+    const file = JSON.parse(exportHousehold(household)) as Record<string, any>
+    file.paymentMethods.push({ id: 'duplicate', name: 'card' })
+
+    expect(() => importHousehold(JSON.stringify(file))).toThrow()
+  })
+
+  it('rejects an Expense that names a payment method id the file does not define, identifying the row', () => {
+    const file = JSON.parse(exportHousehold(household)) as Record<string, any>
+    file.months['2026-07'].expenses[0].paymentMethod = 'not-a-real-payment-method'
+
+    expect(() => importHousehold(JSON.stringify(file))).toThrow(/Rent/)
+  })
+
+  it('accepts a file with no `paymentMethods` key at all, with the list empty and every Expense unset', () => {
+    const file = JSON.parse(exportHousehold(household)) as Record<string, any>
+    delete file.paymentMethods
+
+    const imported = importHousehold(JSON.stringify(file))
+
+    expect(imported.paymentMethods).toEqual([])
+    for (const month of Object.values(imported.months)) {
+      for (const expense of month.expenses) expect(expense.paymentMethod).toBeNull()
+    }
+  })
+
+  /**
+   * Every Household stored before this ticket predates payment methods, categorised or
+   * not — unlike categories, there is no v1.2-specific free-text string to discard here,
+   * only the general "no key at all" legacy path.
+   */
+  it('imports a file with categories but no payment methods, discarding no category', () => {
+    const file = JSON.parse(exportHousehold(household)) as Record<string, any>
+    delete file.paymentMethods
+
+    const imported = importHousehold(JSON.stringify(file))
+
+    expect(imported.categories).toEqual(household.categories)
+    expect(monthAt(imported, '2026-07')!.expenses[0]!.category).toBe(home)
+    expect(imported.paymentMethods).toEqual([])
+    expect(monthAt(imported, '2026-07')!.expenses[0]!.paymentMethod).toBeNull()
+  })
+})
+
 describe('what an import will replace', () => {
   it('is the Household as it now stands — its Months, its entries and its Roster', () => {
     expect(whatImportReplaces(household)).toEqual({
@@ -352,7 +414,9 @@ describe('what an import will replace', () => {
   })
 
   it('names no Month when none has been opened', () => {
-    expect(whatImportReplaces({ currency: euro, roster: [], categories: [], months: {} })).toEqual({
+    expect(
+      whatImportReplaces({ currency: euro, roster: [], categories: [], paymentMethods: [], months: {} }),
+    ).toEqual({
       months: 0,
       entries: 0,
       members: 0,

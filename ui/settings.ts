@@ -2,7 +2,13 @@
  * The panels the masthead's settings buttons open. None of them is about the Month, which
  * is why each opens as a modal over it rather than as a card in its flow.
  */
-export type SettingsPanel = 'roster' | 'categories' | 'household-file' | 'currency' | 'demo'
+export type SettingsPanel =
+  | 'roster'
+  | 'categories'
+  | 'payment-methods'
+  | 'household-file'
+  | 'currency'
+  | 'demo'
 
 /**
  * What each modal is called, on screen and to a screen reader alike.
@@ -14,6 +20,7 @@ export type SettingsPanel = 'roster' | 'categories' | 'household-file' | 'curren
 export const SETTINGS_TITLES: Record<SettingsPanel, string> = {
   roster: 'Roster',
   categories: 'Categories',
+  'payment-methods': 'Payment methods',
   'household-file': 'Household file',
   currency: 'Currency',
   demo: 'Demo',

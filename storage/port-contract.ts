@@ -26,6 +26,9 @@ export interface Deployment {
 /** The one category every fixture Expense below points at, kept to a single id. */
 const HOME_CATEGORY_ID = 'home'
 
+/** The one payment method every fixture Expense below points at, kept to a single id. */
+const CARD_PAYMENT_METHOD_ID = 'card'
+
 const household = (): Household => ({
   ...setUpHousehold({
     currency: { code: 'EUR', symbol: '€', decimals: 2 },
@@ -33,6 +36,7 @@ const household = (): Household => ({
     startingMonth: '2026-07',
   }),
   categories: [{ id: HOME_CATEGORY_ID, name: 'Home' }],
+  paymentMethods: [{ id: CARD_PAYMENT_METHOD_ID, name: 'Card' }],
 })
 
 const salary = (amount: Minor | null): IncomeSnapshot => ({
@@ -49,6 +53,7 @@ const expense = (id: string, amount: Minor | null): ExpenseSnapshot => ({
   id,
   name: id,
   category: HOME_CATEGORY_ID,
+  paymentMethod: CARD_PAYMENT_METHOD_ID,
   amount,
   lines: [],
   participants: ['ana', 'bruno'],
@@ -63,6 +68,7 @@ const composite = (id: string, lines: LineItem[]): ExpenseSnapshot => ({
   id,
   name: id,
   category: HOME_CATEGORY_ID,
+  paymentMethod: CARD_PAYMENT_METHOD_ID,
   amount: totalOfLines(lines),
   lines,
   participants: ['ana', 'bruno'],
@@ -279,6 +285,37 @@ export function describePort(name: string, deploy: () => Promise<Deployment> | D
       const loaded = (await store.loadHousehold())!
       expect(loaded.categories).toEqual([])
       expect(loaded.months['2026-07']!.expenses[0]!.category).toBeNull()
+    })
+
+    it('round-trips the payment method vocabulary unchanged', async () => {
+      const created = household()
+
+      await store.createHousehold(created)
+
+      expect((await store.loadHousehold())!.paymentMethods).toEqual(created.paymentMethods)
+    })
+
+    it('keeps an Expense’s payment method null, not absent, when nothing has been chosen', async () => {
+      await store.createHousehold(household())
+
+      await store.writeRow('2026-07', 'expenses', { ...expense('rent', 120000), paymentMethod: null })
+
+      const written = (await store.loadHousehold())!.months['2026-07']!.expenses[0]!
+      expect(written.paymentMethod).toBeNull()
+      expect('paymentMethod' in written).toBe(true)
+    })
+
+    it('loads a Household stored before payment methods existed with an empty vocabulary, and every Expense unset', async () => {
+      const created = household()
+      const july = created.months['2026-07']!
+      const withRow = { ...created, months: { ...created.months, '2026-07': { ...july, expenses: [expense('rent', 120000)] } } }
+      const { paymentMethods: _paymentMethods, ...legacy } = withRow
+
+      await store.createHousehold(legacy as unknown as Household)
+
+      const loaded = (await store.loadHousehold())!
+      expect(loaded.paymentMethods).toEqual([])
+      expect(loaded.months['2026-07']!.expenses[0]!.paymentMethod).toBeNull()
     })
 
     it('keeps both edits when two members write different rows of the same Month', async () => {

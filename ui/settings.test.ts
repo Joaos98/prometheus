@@ -32,6 +32,7 @@ describe('what each settings modal is called', () => {
       'currency',
       'demo',
       'household-file',
+      'payment-methods',
       'roster',
     ])
   })
@@ -39,6 +40,7 @@ describe('what each settings modal is called', () => {
   it('reads the masthead button back for the ones the button spells out', () => {
     expect(SETTINGS_TITLES.roster).toBe('Roster')
     expect(SETTINGS_TITLES.categories).toBe('Categories')
+    expect(SETTINGS_TITLES['payment-methods']).toBe('Payment methods')
     expect(SETTINGS_TITLES['household-file']).toBe('Household file')
     expect(SETTINGS_TITLES.demo).toBe('Demo')
   })

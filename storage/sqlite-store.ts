@@ -1,5 +1,5 @@
 import type { Database } from 'better-sqlite3'
-import type { Category, Household, Member, Month, MonthKey, MonthRow, RowId } from '../domain/index.js'
+import type { Category, Household, Member, Month, MonthKey, MonthRow, PaymentMethod, RowId } from '../domain/index.js'
 import { StorageError, type HouseholdStore, type RowKind } from './port.js'
 import { fromStored } from './stored.js'
 
@@ -63,6 +63,19 @@ const migrations: ((db: Database) => void)[] = [
   (db) => {
     db.exec('alter table household add column categories text')
   },
+
+  /**
+   * 4 — the payment method vocabulary (ticket 09), Household-level and stored the same
+   * way as categories, for the same reason: the column is added with no default, so a
+   * database that predates it reads back `null` there — distinct from a Household that
+   * has genuinely chosen an empty list — and `fromStored`'s read-side default is what
+   * turns that `null` into `[]` and discards whatever an Expense's `paymentMethod` held
+   * before the vocabulary existed (which, for `paymentMethod`, is every Expense stored
+   * before this migration).
+   */
+  (db) => {
+    db.exec('alter table household add column payment_methods text')
+  },
 ]
 
 const KINDS: RowKind[] = ['income', 'expenses', 'goals']
@@ -76,14 +89,20 @@ export function sqliteStore(db: Database): HouseholdStore {
   migrate(db)
 
   const readHousehold = (): Household | undefined => {
-    const stored = db.prepare('select currency, roster, categories from household where id = 1').get() as
-      | { currency: string; roster: string; categories: string | null }
+    const stored = db
+      .prepare('select currency, roster, categories, payment_methods from household where id = 1')
+      .get() as
+      | { currency: string; roster: string; categories: string | null; payment_methods: string | null }
       | undefined
     if (!stored) return undefined
     return fromStored({
       currency: JSON.parse(stored.currency) as Household['currency'],
       roster: JSON.parse(stored.roster) as Member[],
       categories: stored.categories === null ? undefined : (JSON.parse(stored.categories) as Category[]),
+      paymentMethods:
+        stored.payment_methods === null
+          ? undefined
+          : (JSON.parse(stored.payment_methods) as PaymentMethod[]),
       months: readMonths(db),
     })
   }
@@ -114,7 +133,10 @@ export function sqliteStore(db: Database): HouseholdStore {
   const putHousehold = db.transaction((household: Household) => {
     db.exec('delete from month_rows; delete from months; delete from household')
     writeDocument(db, household, 'household')
-    db.prepare('update household set categories = ? where id = 1').run(serialise(household.categories))
+    db.prepare('update household set categories = ?, payment_methods = ? where id = 1').run(
+      serialise(household.categories),
+      serialise(household.paymentMethods),
+    )
   })
 
   return {
@@ -205,9 +227,10 @@ function readMonths(db: Database): Record<MonthKey, Month> {
 /**
  * Writes a whole Household into an empty set of tables, `household` named by the caller.
  *
- * Deliberately silent on `categories`: this also runs from migration 2's document
- * conversion, against `household_next` before migration 3 has added that column. Runtime
- * writes (`putHousehold`) add it themselves once the column exists.
+ * Deliberately silent on `categories` and `payment_methods`: this also runs from
+ * migration 2's document conversion, against `household_next` before migrations 3 and 4
+ * have added those columns. Runtime writes (`putHousehold`) add them themselves once the
+ * columns exist.
  */
 function writeDocument(db: Database, household: Household, table: string): void {
   db.prepare(`insert into ${table} (id, currency, roster) values (1, ?, ?)`).run(

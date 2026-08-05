@@ -18,6 +18,7 @@ const rent = (): ExpenseSnapshot => ({
   id: 'rent',
   name: 'Rent',
   category: 'Home',
+  paymentMethod: null,
   amount: 120000,
   lines: [],
   participants: ['ana', 'bruno'],
@@ -108,7 +109,7 @@ describe('the SQLite adapter', () => {
 
     await store.createHousehold(household())
 
-    expect(db.pragma('user_version', { simple: true })).toBe(3)
+    expect(db.pragma('user_version', { simple: true })).toBe(4)
     expect(await sqliteStore(db).loadHousehold()).toBeDefined()
     db.close()
   })

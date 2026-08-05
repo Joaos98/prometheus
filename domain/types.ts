@@ -4,6 +4,9 @@ export type MemberId = string
 /** A category's identity, stable for as long as the category exists. */
 export type CategoryId = string
 
+/** A payment method's identity, stable for as long as the payment method exists. */
+export type PaymentMethodId = string
+
 /** A row's stable identity, carried across the Months a row is inherited into. */
 export type RowId = string
 
@@ -41,6 +44,17 @@ export interface Member {
  */
 export interface Category {
   id: CategoryId
+  name: string
+}
+
+/**
+ * A named payment method in the Household's vocabulary, for saying how an Expense left
+ * the account. It is a label on a row, not a party to it, on the same footing as a
+ * category (ADR-0012): nothing computes with it, and it says nothing about who paid or
+ * whether they did. There is no active flag — a payment method is deleted, never retired.
+ */
+export interface PaymentMethod {
+  id: PaymentMethodId
   name: string
 }
 
@@ -114,12 +128,15 @@ export interface LineItem {
  * `amount: null`, and never a dangling reference: deleting a category clears the field on
  * every row that held it first, so the two arrive at `null` by different roads and are
  * indistinguishable afterwards. Otherwise it is the id of an entry in the Household's
- * `categories` list (ADR-0012).
+ * `categories` list (ADR-0012). `paymentMethod` carries the identical contract against the
+ * Household's `paymentMethods` list, and is otherwise unrelated: an Expense may hold
+ * either, both or neither, independently.
  */
 export interface ExpenseSnapshot {
   id: RowId
   name: string
   category: CategoryId | null
+  paymentMethod: PaymentMethodId | null
   amount: Minor | null
   lines: LineItem[]
   participants: MemberId[]
@@ -176,5 +193,6 @@ export interface Household {
   currency: Currency
   roster: Member[]
   categories: Category[]
+  paymentMethods: PaymentMethod[]
   months: Record<MonthKey, Month>
 }

@@ -11,6 +11,7 @@ import MonthDrift from '../components/MonthDrift.vue'
 import MonthNavigator from '../components/MonthNavigator.vue'
 import MonthRail from '../components/MonthRail.vue'
 import Modal from '../components/Modal.vue'
+import PaymentMethodsPanel from '../components/PaymentMethodsPanel.vue'
 import RosterPanel from '../components/RosterPanel.vue'
 import UnopenedMonth from '../components/UnopenedMonth.vue'
 import { useChanges } from '../changes.js'
@@ -137,6 +138,9 @@ async function saveCurrency(): Promise<void> {
         <button class="button-quiet" type="button" @click="press('categories', $event)">
           Categories
         </button>
+        <button class="button-quiet" type="button" @click="press('payment-methods', $event)">
+          Payment methods
+        </button>
         <button class="button-quiet" type="button" @click="press('household-file', $event)">
           Household file
         </button>
@@ -170,6 +174,8 @@ async function saveCurrency(): Promise<void> {
       <RosterPanel v-else-if="settings === 'roster'" :household="household" />
 
       <CategoriesPanel v-else-if="settings === 'categories'" :household="household" />
+
+      <PaymentMethodsPanel v-else-if="settings === 'payment-methods'" :household="household" />
 
       <!-- An import that lands leaves this open, still carrying the sentence
            `HouseholdFile.vue` prints. Dismissing it reveals the Household that arrived. -->
