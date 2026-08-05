@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { monthAt, type Household, type MemberId, type MonthKey } from '../../domain/index.js'
 import CategoriesPanel from '../components/CategoriesPanel.vue'
 import DemoPanel from '../components/DemoPanel.vue'
@@ -7,6 +7,7 @@ import ExpensesPanel from '../components/ExpensesPanel.vue'
 import GoalsPanel from '../components/GoalsPanel.vue'
 import HouseholdFile from '../components/HouseholdFile.vue'
 import IncomePanel from '../components/IncomePanel.vue'
+import Masthead from '../components/Masthead.vue'
 import MonthDrift from '../components/MonthDrift.vue'
 import MonthNavigator from '../components/MonthNavigator.vue'
 import MonthRail from '../components/MonthRail.vue'
@@ -18,10 +19,10 @@ import { useChanges } from '../changes.js'
 import { CURRENCIES } from '../currencies.js'
 import { useDevicePreferences } from '../device-preferences.js'
 import { useHousehold } from '../household.js'
-import { thisMonth } from '../months.js'
+import { useCalendarMonth } from '../months.js'
+import { show } from '../screen.js'
 import { SETTINGS_TITLES, toggleSettings, type SettingsPanel } from '../settings.js'
 import { displayedViewer, viewerOptions, viewerToPin } from '../viewer.js'
-import logo from '../../prometheus-logo.svg'
 
 const props = defineProps<{ household: Household; viewing: MonthKey }>()
 
@@ -72,29 +73,11 @@ watch(
 )
 
 /**
- * The Month the calendar is on. The engine will not guess it — only a Month after this one
- * can drift, and which one that is is the device's to say, not the Household's.
- *
- * Read again whenever the window comes back, because Prometheus is the kind of thing left
- * open on a tab: a session that spans the turn of a month would otherwise go on treating
- * the Month that has just arrived as one still ahead, and offer to refresh a Month that
- * has stopped being a plan.
+ * The Month the calendar is on, which only a Month after can drift against. Kept level
+ * with the calendar for as long as this view is open — `ui/months.ts` holds the rule, and
+ * the trends view reads it from there too, for the same reason from the other end.
  */
-const now = ref(thisMonth())
-
-function catchUpWithTheCalendar(): void {
-  now.value = thisMonth()
-}
-
-onMounted(() => {
-  window.addEventListener('focus', catchUpWithTheCalendar)
-  document.addEventListener('visibilitychange', catchUpWithTheCalendar)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('focus', catchUpWithTheCalendar)
-  document.removeEventListener('visibilitychange', catchUpWithTheCalendar)
-})
+const now = useCalendarMonth()
 
 /** The one settings modal open over the Month, if any. */
 const settings = ref<SettingsPanel | undefined>(undefined)
@@ -120,20 +103,20 @@ async function saveCurrency(): Promise<void> {
 
 <template>
   <div class="dashboard">
-    <header class="masthead">
-      <div class="side">
-        <img :src="logo" alt="" class="mark" />
-        <span class="secondary">Prometheus</span>
-      </div>
+    <Masthead>
+      <template #middle>
+        <MonthNavigator :household="household" :viewing="viewing" />
+      </template>
 
-      <MonthNavigator :household="household" :viewing="viewing" />
-
-      <div class="side right">
+      <template #right>
         <select v-model="chosenViewer" aria-label="Viewer">
           <option v-for="member in options" :key="member.id" :value="member.id">
             Viewer: {{ member.name }}
           </option>
         </select>
+        <!-- The one control here that leaves the Month rather than opening something over
+             it: trends is its own view, and none of what follows applies to it. -->
+        <button class="button-quiet" type="button" @click="show('trends')">Trends</button>
         <button class="button-quiet" type="button" @click="press('roster', $event)">Roster</button>
         <button class="button-quiet" type="button" @click="press('categories', $event)">
           Categories
@@ -150,8 +133,8 @@ async function saveCurrency(): Promise<void> {
         <button v-if="seeded" class="button-quiet" type="button" @click="press('demo', $event)">
           Demo
         </button>
-      </div>
-    </header>
+      </template>
+    </Masthead>
 
     <!--
       None of these is about the Month, so none of them renders in its flow. They open
@@ -251,42 +234,6 @@ async function saveCurrency(): Promise<void> {
   gap: var(--gap);
 }
 
-.masthead {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 12px;
-  padding-bottom: 12px;
-  border-bottom: 0.5px solid var(--hairline);
-}
-
-.side {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.side.right {
-  justify-content: flex-end;
-  flex-wrap: wrap;
-}
-
-/* A control the masthead holds keeps its own width and its own line: squeezed to fit,
-   the Viewer picker becomes a sliver and the longer labels break across two rows. */
-.side.right select {
-  width: 156px;
-  flex: none;
-}
-
-.side.right button {
-  white-space: nowrap;
-}
-
-.mark {
-  width: 22px;
-  height: 22px;
-}
-
 .empty-month {
   flex: 1;
   display: flex;
@@ -331,11 +278,8 @@ async function saveCurrency(): Promise<void> {
 }
 
 /*
-  Below about 1240px the three columns collapse to one and the rail unpins. The
-  masthead comes apart at the same width and for the same reason: three groups on one
-  line stops being three groups and becomes a squeezed picker beside labels breaking
-  across two rows, so the logo, the Month and the controls each take a line of their
-  own and the Month stays centred between them.
+  Below about 1240px the three columns collapse to one and the rail unpins. The masthead
+  comes apart at the same width and for the same reason, and says so itself.
 */
 @media (max-width: 1240px) {
   .columns {
@@ -356,16 +300,6 @@ async function saveCurrency(): Promise<void> {
   .columns > .rail > *,
   .right-column > * {
     flex: 1 1 300px;
-  }
-
-  .masthead {
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: center;
-  }
-
-  .side,
-  .side.right {
-    justify-content: center;
   }
 }
 </style>
