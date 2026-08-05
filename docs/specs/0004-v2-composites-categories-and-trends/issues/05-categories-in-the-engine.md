@@ -33,23 +33,40 @@ Inheritance carries it like any other field.
 
 **Blocked by:** None — can start immediately
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Sonnet, medium thinking — a new entity and a field type change, with
 the reasoning already settled in ADR-0012.
 
-- [ ] `Category` carries an id and a name, and no active flag
-- [ ] `Household.categories` exists and is `[]` for a freshly set-up Household
-- [ ] `ExpenseSnapshot.category` is `CategoryId | null`, and `null` is a permanent legal
+- [x] `Category` carries an id and a name, and no active flag
+- [x] `Household.categories` exists and is `[]` for a freshly set-up Household
+- [x] `ExpenseSnapshot.category` is `CategoryId | null`, and `null` is a permanent legal
       value rather than a transient one
-- [ ] A category can be added, and its id is minted through `domain/identity.ts`
-- [ ] Renaming a category changes what every Month renders, past Months included, and changes
+- [x] A category can be added, and its id is minted through `domain/identity.ts`
+- [x] Renaming a category changes what every Month renders, past Months included, and changes
       no row
-- [ ] Two categories may not share a name — decide and enforce case sensitivity, and say
+- [x] Two categories may not share a name — decide and enforce case sensitivity, and say
       which in the comments
-- [ ] The usage query returns the rows and the Months that reference a given category
-- [ ] Setting a category on an Expense sets `reviewed`, as any edit does
-- [ ] `category` is still a compared `DriftField`, comparing ids
-- [ ] Opening a Month inherits each Expense's category id unchanged
-- [ ] A Household set up fresh has no categories and every Expense uncategorised
-- [ ] `npm run typecheck` is clean and the full suite passes
+- [x] The usage query returns the rows and the Months that reference a given category
+- [x] Setting a category on an Expense sets `reviewed`, as any edit does
+- [x] `category` is still a compared `DriftField`, comparing ids
+- [x] Opening a Month inherits each Expense's category id unchanged
+- [x] A Household set up fresh has no categories and every Expense uncategorised
+- [x] `npm run typecheck` is clean and the full suite passes
+
+**Uniqueness is case-insensitive.** "Groceries" and "groceries" colliding is exactly the
+confusion ADR-0012 exists to end, not a second category worth keeping apart —
+`requireUniqueName` in `domain/categories.ts` says so in the comments.
+
+**`domain/drift.ts` and `domain/inheritance.ts` needed no change at all.** Both already treat
+`category` as an opaque field — Drift's `expenseFields` compares it with `!==`, and
+inheritance's `inheritExpense` spreads the row wholesale — so the type change from `string` to
+`CategoryId | null` is transparent to both.
+
+`CategoryId` is `string`, unbranded, so it costs nothing everywhere the free string used to be
+passed. That is also what let this ticket stay engine-only without breaking the build: a
+handful of boundary spots outside `domain/` would otherwise have failed to compile once
+`Household` gained a required `categories` field — `transfer.ts`'s import, `stored.ts`'s
+read-side default, and `ExpenseForm.vue`'s prop type. Each took the smallest possible fix (a
+`categories: []` default, a widened prop type), commented as temporary and left for the real
+work in tickets 07 and 08.
