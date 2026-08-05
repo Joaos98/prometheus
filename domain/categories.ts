@@ -63,8 +63,8 @@ export function renameCategory(household: Household, id: CategoryId, name: strin
 
 /**
  * Every Expense across the whole record that holds this category, and the Months that
- * hold one. This is what ticket 06's delete confirmation names — a row count and a Month
- * range — and what tells it whether a delete is immediate or refused.
+ * hold one. This is what a delete confirmation names — a row count and a Month range —
+ * and what tells it whether a delete is immediate or has to clear the record first.
  */
 export function categoryUsage(household: Household, id: CategoryId): CategoryUsage {
   let rowCount = 0

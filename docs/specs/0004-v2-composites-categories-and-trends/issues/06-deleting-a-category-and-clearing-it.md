@@ -80,6 +80,16 @@ is the same two figures worded for a member — *"Groceries" is used by 6 rows a
 July 2026 – September 2026 — clear it before deleting it*, and the singular case says the one
 Month plainly rather than as a range.
 
+**One tension in that argument, left for ticket 08 to settle.** The case for exposing the
+immediate `deleteCategory` at all is the race where another member categorises a row between
+the panel reading the count and the member clicking — and in exactly that race the panel's
+figures are stale and the refusal is the only fresh source, yet it carries them as a sentence
+rather than as numbers. That is fine for the path as drawn, since the panel needs to *show*
+the cost rather than compute with it, and can re-query `categoryUsage` before offering the
+clear. If ticket 08 finds it wants the figures structured, the change is a `DomainError`
+subclass carrying `CategoryUsage` — small, and better made when there is a panel to prove it
+is needed.
+
 **The retry is tested on the app that failed, not on a fresh one.** A refused change leaves
 `household.value` holding the record as it stood before the clear, so the app on screen is
 now behind its own store — it still shows rows the store has already cleared. Asking again

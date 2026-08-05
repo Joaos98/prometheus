@@ -111,9 +111,10 @@ export interface LineItem {
  * every write and never separately typeable, so the total and its parts cannot disagree.
  *
  * `category` is `null` when nothing has been chosen — a permanent legal state, matching
- * `amount: null`, and not the same thing as a category that was deleted out from under
- * the row (ticket 06 clears the field first). Otherwise it is the id of an entry in the
- * Household's `categories` list (ADR-0012).
+ * `amount: null`, and never a dangling reference: deleting a category clears the field on
+ * every row that held it first, so the two arrive at `null` by different roads and are
+ * indistinguishable afterwards. Otherwise it is the id of an entry in the Household's
+ * `categories` list (ADR-0012).
  */
 export interface ExpenseSnapshot {
   id: RowId
