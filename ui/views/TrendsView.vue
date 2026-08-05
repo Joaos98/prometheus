@@ -11,8 +11,8 @@ import Masthead from '../components/Masthead.vue'
 import TrendChart from '../components/TrendChart.vue'
 import { useDevicePreferences } from '../device-preferences.js'
 import { useCalendarMonth } from '../months.js'
-import { show } from '../screen.js'
-import { trendAxis, trendMembers, type TrendSlot } from '../trends.js'
+import { show } from '../view.js'
+import { axisSpan, trendAxis, trendMembers, type TrendSlot } from '../trends.js'
 import { displayedViewer } from '../viewer.js'
 
 const props = defineProps<{ household: Household }>()
@@ -32,8 +32,9 @@ const axis = computed(() => trendAxis(props.household, now.value))
 
 /**
  * The device's pick, or the Roster's first active member where nothing has been picked
- * yet. There is no one Month here to substitute against — `trendMembers` stands somebody
- * in against the charted stretch instead, which is the same rule at this view's scale.
+ * yet. There is no one Month here to substitute against, and none is substituted: where
+ * the charted Months hold this member nowhere, `trendMembers` emphasises nobody rather
+ * than standing somebody in, because this view has no picker to say who was stood in.
  *
  * It orders and emphasises a series and does nothing else: every member the charted
  * Months hold is drawn.
@@ -47,6 +48,9 @@ const members = computed(() => trendMembers(props.household, axis.value, naming.
  * appears on, Month by Month. It draws nothing anybody needs, and it exercises every rule
  * the axis has — the slot an unopened Month keeps, the break a series takes across it,
  * the mark on a Month with Pending rows, and the Viewer's series leading and emphasised.
+ *
+ * The count is worked out here rather than in `ui/trends.ts` because it goes when the six
+ * charts arrive; nothing else in the view reaches into a Month's rows.
  */
 const entries = computed(() =>
   members.value.map((member) => ({
@@ -72,13 +76,7 @@ function entryCountFor(slot: TrendSlot, member: MemberId): number | undefined {
  */
 const nothingYet = computed(() => openedMonthKeys(props.household).length === 0)
 
-const span = computed(() => {
-  const first = axis.value[0]
-  const last = axis.value.at(-1)
-  if (!first || !last) return undefined
-  if (first.key === last.key) return monthName(first.key)
-  return `${monthName(first.key)} to ${monthName(last.key)}`
-})
+const span = computed(() => axisSpan(axis.value))
 </script>
 
 <template>

@@ -45,6 +45,19 @@ describe('who the picker names', () => {
   it('names nobody where there is neither a Month nor an active member to name', () => {
     expect(displayedViewer(undefined, undefined, roster(ZOE))).toBeUndefined()
   })
+
+  /**
+   * What a device holds after an import: a pick made against a Household that no longer
+   * exists. It names nobody, so it falls through exactly as an unpicked device does —
+   * rather than naming an identity nothing can look up.
+   */
+  it('falls through a pick the Roster has never heard of, on an unopened Month', () => {
+    expect(displayedViewer('gone', undefined, roster(ZOE, BRUNO, ADA))).toBe('bruno')
+  })
+
+  it('falls through a pick the Roster has never heard of, on an opened one', () => {
+    expect(displayedViewer('gone', monthOf('bruno', 'ada'), roster(ADA, BRUNO))).toBe('bruno')
+  })
 })
 
 describe('what the first load pins', () => {

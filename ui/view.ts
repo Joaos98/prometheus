@@ -11,10 +11,11 @@ import { ref, type Ref } from 'vue'
  * deliberately not remembered across a reload either — where a member left off is the
  * Month they were in, and that is `viewing`'s to answer.
  */
-export type Screen = 'month' | 'trends'
+export type View = 'month' | 'trends'
 
-export const screen: Ref<Screen> = ref('month')
+export const showing: Ref<View> = ref('month')
 
-export function show(view: Screen): void {
-  screen.value = view
+/** Named rather than assigned at each call site, so a view change reads as an act. */
+export function show(view: View): void {
+  showing.value = view
 }

@@ -20,7 +20,7 @@ import { CURRENCIES } from '../currencies.js'
 import { useDevicePreferences } from '../device-preferences.js'
 import { useHousehold } from '../household.js'
 import { useCalendarMonth } from '../months.js'
-import { show } from '../screen.js'
+import { show } from '../view.js'
 import { SETTINGS_TITLES, toggleSettings, type SettingsPanel } from '../settings.js'
 import { displayedViewer, viewerOptions, viewerToPin } from '../viewer.js'
 

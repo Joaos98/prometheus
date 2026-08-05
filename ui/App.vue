@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
 import { useHousehold } from './household.js'
-import { screen } from './screen.js'
+import { showing } from './view.js'
 import SetupView from './views/SetupView.vue'
 import MonthDashboard from './views/MonthDashboard.vue'
 import TrendsView from './views/TrendsView.vue'
@@ -26,7 +26,7 @@ onUnmounted(() => stopWatching?.())
   <SetupView v-else-if="!household" />
   <!-- Trends is its own view rather than a panel: its subject is many Months, and the
        dashboard's three columns are one Month's. -->
-  <TrendsView v-else-if="screen === 'trends'" :household="household" />
+  <TrendsView v-else-if="showing === 'trends'" :household="household" />
   <MonthDashboard v-else-if="viewing" :household="household" :viewing="viewing" />
   <p v-else class="waiting secondary">This Household holds no opened Month.</p>
 </template>

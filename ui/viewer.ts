@@ -12,14 +12,20 @@ import type { MemberId, Month, Member } from '../domain/index.js'
  * This is a display substitution and nothing more: it is never written back. On an
  * unopened Month there is no rail to read a leader from, so the pick stands as it is, or
  * the Roster's first active member stands in until there is a Month to pin one from.
+ *
+ * A pick the Roster has never heard of names nobody, and falls through as though nothing
+ * had been picked. It is what a device that stored a pick against a Household since
+ * replaced by an import is holding — the picker would otherwise show a blank for a name
+ * that cannot be looked up, and a chart would emphasise a series belonging to no one.
  */
 export function displayedViewer(
   picked: MemberId | undefined,
   month: Month | undefined,
   roster: readonly Member[],
 ): MemberId | undefined {
-  if (!month) return picked ?? roster.find((member) => member.active)?.id
-  if (picked && month.members.includes(picked)) return picked
+  const known = picked && roster.some((member) => member.id === picked) ? picked : undefined
+  if (!month) return known ?? roster.find((member) => member.active)?.id
+  if (known && month.members.includes(known)) return known
   return month.members[0]
 }
 

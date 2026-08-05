@@ -113,9 +113,36 @@ the year by splitting `monthName`'s output and matching `-01` on the key, where
 The demo turned up one thing no test had: a Viewer pick the charted Months hold nowhere —
 a stale pick, or a member who joined after the last charted Month — left every series drawn
 alike, while the dashboard's picker went on naming somebody, because `displayedViewer`
-substitutes per Month and there is no one Month here. `trendMembers` now leads with the
-first charted member in that case and reports `emphasis` itself, so the rule lives in the
-tested module rather than in the view.
+substitutes per Month and there is no one Month here. `trendMembers` now reports `emphasis`
+itself, so the rule lives in the tested module rather than in the view.
+
+A second review pass took the substitution back out and fixed the actual cause. Standing
+somebody in was an invented rule: the rail may substitute because the picker beside it
+reads the substitution back, and this view has no picker, so a brightened line has to mean
+the Viewer or nothing. What the demo was really showing was `displayedViewer` honouring a
+pick the Roster has never heard of — what a device holds after an import replaces the
+Household — where it should fall through as though nothing had been picked. That is fixed
+in `ui/viewer.ts` with two tests, and it mends the dashboard's own picker, which until now
+showed a blank for a name it could not look up. `trendMembers` emphasises the Viewer and
+nobody else.
+
+The same pass: the incomplete hatch and the emphasised series were both `--fire-bright`,
+so the mark and the line it most often sits under shared a colour — the emphasis is
+`--fire` now, which is what the brief and the rail keep for the figure being read, and the
+hatch keeps `--fire-bright`, which is the rail's own Pending colour, so the two views say
+Pending alike. The hatch also earned a legend entry, since the count is on hover and a
+sighted member who never hovers was looking at an unexplained stripe. `TrendSeries` moved
+into `ui/trends.ts` beside `TrendSlot` and `TrendPoint`, `axisSpan` joined them with its
+own tests, and `ui/screen.ts` became `ui/view.ts` — `Screen` shadowed the DOM's own global
+and the module called one thing by two names.
+
+Three review findings were left alone deliberately. `useCalendarMonth` stays in
+`ui/months.ts`: the module's subject is the calendar month, which is exactly what the
+composable answers, and splitting it out would put `thisMonth` and "this Month, kept
+level" in different files. `show()` stays despite being a one-line assignment, because a
+view change reading as an act is worth a name. And the placeholder's `entryCountFor` stays
+in the view rather than moving to the tested module, because it goes when tickets 11 to 13
+land and a tested helper written to be deleted is churn; the comment on it says so.
 
 Checked: `npm run typecheck` clean, full suite 881 tests passing (26 new), `npm run
 build:demo` succeeds. Verified by hand in the running demo: the axis reads June to August

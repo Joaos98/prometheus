@@ -4,22 +4,7 @@ import { scaleLinear } from 'd3-scale'
 import { line as lineOf } from 'd3-shape'
 import { monthName, monthOfYear, yearOf } from '../../domain/index.js'
 import { MONTH_NAMES } from '../months.js'
-import { pendingNote, segmentsOf, type TrendSlot } from '../trends.js'
-
-/**
- * One series on the shared axis: one value per slot, `undefined` where there is nothing
- * to draw. A slot the Household never opened is `undefined` for every series, and a
- * series may be `undefined` in an opened Month it has no figure for — a member who was
- * not in that Month, a category nothing was spent under. Both break the line, which is
- * the same answer to the same question: this was not measured.
- */
-export interface TrendSeries {
-  id: string
-  name: string
-  values: (number | undefined)[]
-  /** The Viewer's series, drawn brighter and heavier. Ordering is the caller's. */
-  emphasis?: boolean
-}
+import { pendingNote, segmentsOf, type TrendSeries, type TrendSlot } from '../trends.js'
 
 const props = defineProps<{
   title: string
@@ -100,26 +85,53 @@ const slots = computed(() =>
   })),
 )
 
-/** How wide a slot's own share of the plot is, which is what an incomplete band fills. */
+/** The Months drawn from part of their rows, asked once and marked in three places. */
+const incomplete = computed(() => slots.value.filter((slot) => slot.note !== undefined))
+
+/**
+ * How wide a slot's own share of the plot is, which is what an incomplete band fills.
+ * Capped, so a two-Month axis is not two half-page stripes.
+ */
+const BAND = 34
+
 const slotWidth = computed(() =>
-  props.axis.length > 1 ? Math.min((right - left) / (props.axis.length - 1), 34) : 34,
+  props.axis.length > 1 ? Math.min((right - left) / (props.axis.length - 1), BAND) : BAND,
 )
 
 const path = computed(() => lineOf<{ index: number; value: number }>()
   .x((point) => x.value(point.index))
   .y((point) => y.value(point.value)))
 
+/**
+ * The two colours this chart spends before any series does. `--fire` is what the brief and
+ * the rail keep for the figure being read, so the emphasised series takes it; the rail's
+ * Pending mark is `--fire-bright`, so the incomplete hatch takes that and the two views
+ * say Pending in the same colour.
+ *
+ * Neither is in the palette below. A plain series in either would be competing with the
+ * one series that is meant to stand out, or with a mark that is not a series at all.
+ */
+const EMPHASIS = 'var(--fire)'
+const INCOMPLETE = 'var(--fire-bright)'
+
+/**
+ * The app's own accents for everything else. Beyond them the series repeat colour and are
+ * told apart by the legend, which is the honest end of a chart with more series than a
+ * palette has room for — inventing a colour per member is how a chart stops being readable
+ * at all.
+ */
+const PALETTE = ['var(--ice)', 'var(--text-secondary)', 'var(--text-muted)']
+
 const drawn = computed(() => {
   /**
-   * The palette is walked by the series that are drawing from it, so an emphasised series
-   * does not consume a colour it is not using. Counted any other way, the Viewer leads,
-   * takes `--fire-bright` and leaves `--fire` to whoever is second — the two hardest
-   * colours here to tell apart, given to the one pair the emphasis exists to separate.
+   * The palette is walked by the series drawing from it, so an emphasised series does not
+   * consume a colour it is not using — otherwise the Viewer leads, takes the emphasis
+   * colour, and the palette's first goes to whoever is second by an accident of counting.
    */
   let plain = 0
   return props.series.map((one) => ({
     ...one,
-    colour: one.emphasis === true ? 'var(--fire-bright)' : PALETTE[plain++ % PALETTE.length]!,
+    colour: one.emphasis === true ? EMPHASIS : PALETTE[plain++ % PALETTE.length]!,
     /**
      * Cut into runs, so the line stops at a Month nobody opened and starts again after
      * it. Nothing is interpolated across the gap and nothing is plotted as zero there.
@@ -138,27 +150,14 @@ const drawn = computed(() => {
 })
 
 /**
- * The app's own accents, the emphasised series in the fire the brief keeps for the figure
- * being read. `--fire` is last here because it is the neighbour of that emphasis: it is
- * worth drawing with, and worth being the fourth plain series rather than the first.
- *
- * Beyond the palette the series repeat colour and are told apart by the legend, which is
- * the honest end of a chart with more series than a palette has room for — inventing a
- * colour per member is how a chart stops being readable at all.
- */
-const PALETTE = ['var(--ice)', 'var(--text-secondary)', 'var(--text-muted)', 'var(--fire)']
-
-/**
  * What a screen reader is given, since `role="img"` makes everything inside the drawing
  * presentational and the tips below reach a pointer alone. The incomplete Months are named
  * here rather than only hatched, so the same fact arrives by both roads — which is the
  * shape the rail already gives its own Pending mark.
  */
 const description = computed(() => {
-  const incomplete = props.axis
-    .filter((slot) => slot.pending > 0)
-    .map((slot) => `${monthName(slot.key)}: ${pendingNote(slot.pending)}`)
-  return incomplete.length ? `${props.title}. ${incomplete.join('. ')}` : props.title
+  const marked = incomplete.value.map((slot) => `${monthName(slot.key)}: ${slot.note}`)
+  return marked.length ? `${props.title}. ${marked.join('. ')}` : props.title
 })
 </script>
 
@@ -171,7 +170,7 @@ const description = computed(() => {
         <!-- The incomplete mark: hatching, so a Month drawn from part of its rows never
              reads as a plain value. -->
         <pattern :id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <line x1="0" y1="0" x2="0" y2="6" stroke="var(--fire-bright)" stroke-width="1.5" />
+          <line x1="0" y1="0" x2="0" y2="6" :stroke="INCOMPLETE" stroke-width="1.5" />
         </pattern>
       </defs>
 
@@ -189,7 +188,7 @@ const description = computed(() => {
            anyone who hovers it. The chart's own label names it to anyone who cannot. -->
       <g class="incomplete">
         <rect
-          v-for="slot in slots.filter((one) => one.note)"
+          v-for="slot in incomplete"
           :key="slot.key"
           :x="slot.at - slotWidth / 2"
           :y="top"
@@ -240,6 +239,13 @@ const description = computed(() => {
       <li v-for="one in drawn" :key="one.id" :class="{ emphasis: one.emphasis }">
         <span class="swatch" :style="{ background: one.colour }" aria-hidden="true"></span>
         {{ one.name }}
+      </li>
+
+      <!-- What the hatching means, said where anybody can read it. The count is the
+           band's own to give, but a mark nothing on the page explains is a stripe. -->
+      <li v-if="incomplete.length" class="marked">
+        <span class="swatch hatched" aria-hidden="true"></span>
+        Drawn from part of its rows
       </li>
     </ul>
   </figure>
@@ -314,5 +320,18 @@ svg {
 
 .legend li.emphasis .swatch {
   height: 3px;
+}
+
+/* The band's own hatching at legend size, so the two read as the same mark. */
+.swatch.hatched {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--fire-bright) 0 1.5px,
+    transparent 1.5px 5px
+  );
+  opacity: 0.7;
 }
 </style>

@@ -7,7 +7,7 @@ import type {
   Month,
   MonthKey,
 } from '../domain/index.js'
-import { pendingNote, segmentsOf, trendAxis, trendMembers } from './trends.js'
+import { axisSpan, pendingNote, segmentsOf, trendAxis, trendMembers } from './trends.js'
 
 const income = (amount: number | null): IncomeSnapshot =>
   ({ id: `i${amount}`, amount }) as IncomeSnapshot
@@ -128,6 +128,24 @@ describe('the time axis every chart shares', () => {
   })
 })
 
+describe('the stretch the charts are covering', () => {
+  it('names the ends of the axis', () => {
+    const spread = household({ key: '2026-01' }, { key: '2026-04' })
+
+    expect(axisSpan(trendAxis(spread, '2026-06'))).toBe('January 2026 to April 2026')
+  })
+
+  it('names one Month where that is all there is', () => {
+    const only = household({ key: '2026-03' })
+
+    expect(axisSpan(trendAxis(only, '2026-06'))).toBe('March 2026')
+  })
+
+  it('names nothing where there is nothing to draw', () => {
+    expect(axisSpan([])).toBeUndefined()
+  })
+})
+
 describe('breaking a series across a gap', () => {
   it('keeps a full series as one run', () => {
     expect(segmentsOf([1, 2, 3])).toEqual([
@@ -204,9 +222,9 @@ describe('the members a per-member chart draws', () => {
     ).toContain('ada')
   })
 
-  it('keeps the Roster’s own order where no Viewer is picked', () => {
+  it('keeps the Roster’s own order, emphasising nobody, where no Viewer is picked', () => {
     expect(trendMembers(spread, trendAxis(spread, '2026-03'), undefined)).toEqual([
-      { id: 'ada', name: 'Ada', emphasis: true },
+      { id: 'ada', name: 'Ada', emphasis: false },
       { id: 'bruno', name: 'Bruno', emphasis: false },
     ])
   })
@@ -235,15 +253,15 @@ describe('the members a per-member chart draws', () => {
 
   /**
    * The Viewer is a display pick and may name somebody this stretch of the record has
-   * never held. The charts still draw what the record holds, and the first charted member
-   * leads — the rail never leads with nobody, and a chart emphasising nobody would
-   * disagree with a picker that is naming somebody.
+   * never held — a member who joined after the last charted Month. The charts still draw
+   * what the record holds, and nobody is emphasised: there is no picker here to say who
+   * has been stood in, so a brightened series would be claiming to be the Viewer.
    */
-  it('leads with the first charted member where the Viewer is in none of them', () => {
+  it('emphasises nobody where the Viewer is in none of the charted Months', () => {
     const only = household({ key: '2026-01', members: ['ada'] })
 
     expect(trendMembers(only, trendAxis(only, '2026-03'), 'bruno')).toEqual([
-      { id: 'ada', name: 'Ada', emphasis: true },
+      { id: 'ada', name: 'Ada', emphasis: false },
     ])
   })
 

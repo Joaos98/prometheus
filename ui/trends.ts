@@ -2,6 +2,7 @@ import {
   isPending,
   monthAfter,
   monthAt,
+  monthName,
   openedMonthKeys,
   type Household,
   type MemberId,
@@ -60,10 +61,39 @@ export function trendAxis(household: Household, now: MonthKey): TrendSlot[] {
   return axis
 }
 
+/**
+ * The stretch of the record a chart is drawing, as the view says it above the charts:
+ * one Month where that is all there is, and nothing at all where there is nothing to
+ * draw. It reads the axis rather than the Household, so it can never name a span the
+ * charts below it are not covering.
+ */
+export function axisSpan(axis: readonly TrendSlot[]): string | undefined {
+  const first = axis[0]
+  const last = axis.at(-1)
+  if (!first || !last) return undefined
+  if (first.key === last.key) return monthName(first.key)
+  return `${monthName(first.key)} to ${monthName(last.key)}`
+}
+
 /** A value on the axis, carrying the slot it sits in so a break costs no width. */
 export interface TrendPoint<Value> {
   index: number
   value: Value
+}
+
+/**
+ * One series a chart draws: one value per slot on the axis, `undefined` where there is
+ * nothing to draw. A slot the Household never opened is `undefined` for every series, and
+ * a series may be `undefined` in an opened Month it has no figure for — a member who was
+ * not in that Month, a category nothing was spent under. Both break the line, which is the
+ * same answer to the same question: this was not measured.
+ */
+export interface TrendSeries {
+  id: string
+  name: string
+  values: (number | undefined)[]
+  /** The Viewer's series, drawn brighter and heavier. Ordering is the caller's. */
+  emphasis?: boolean
 }
 
 /**
@@ -127,11 +157,11 @@ export interface TrendMember {
  * confers no permissions and hides nothing from anybody, so it may not decide what data
  * a chart shows.
  *
- * Where this stretch of the record holds the Viewer nowhere — a pick made against a
- * Household since replaced, or a member who joined after the last charted Month — the
- * first charted member leads instead. That is `displayedViewer`'s rule at the scale of
- * many Months: the rail always leads with somebody, and a chart with no series emphasised
- * would disagree with a picker that is naming one.
+ * Where this stretch of the record holds the Viewer nowhere — somebody who joined after
+ * the last charted Month — nobody is emphasised and every series is drawn alike. Leading
+ * with a substitute was tried and taken back out: the rail may substitute because the
+ * picker beside it reads the substitution back, and this view has no picker to say who
+ * has been stood in. A chart that brightens somebody's line has to mean the Viewer.
  */
 export function trendMembers(
   household: Household,
@@ -155,10 +185,7 @@ export function trendMembers(
     }
   }
 
-  const lead = drawn.find((member) => member.id === viewer) ?? drawn[0]
-  if (!lead) return []
-  return [lead, ...drawn.filter((member) => member.id !== lead.id)].map((member) => ({
-    ...member,
-    emphasis: member.id === lead.id,
-  }))
+  const lead = drawn.find((member) => member.id === viewer)
+  const ordered = lead ? [lead, ...drawn.filter((member) => member.id !== lead.id)] : drawn
+  return ordered.map((member) => ({ ...member, emphasis: member.id === lead?.id }))
 }
