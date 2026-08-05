@@ -1,6 +1,9 @@
 /** A member's identity, stable for as long as the Household exists. */
 export type MemberId = string
 
+/** A category's identity, stable for as long as the category exists. */
+export type CategoryId = string
+
 /** A row's stable identity, carried across the Months a row is inherited into. */
 export type RowId = string
 
@@ -27,6 +30,18 @@ export interface Member {
   id: MemberId
   name: string
   active: boolean
+}
+
+/**
+ * A named category in the Household's vocabulary, for grouping Expenses. It is a label
+ * on a row, not a party to it (ADR-0012): nothing computes with it, and renaming one
+ * relabels every Month at once, past Months included, on the same footing as
+ * relabelling the currency. There is no active flag — a category is deleted, never
+ * retired.
+ */
+export interface Category {
+  id: CategoryId
+  name: string
 }
 
 /**
@@ -94,11 +109,16 @@ export interface LineItem {
  * `lines` empty is a simple Expense, whose amount is the figure somebody typed. Any
  * lines at all make it composite, and then the amount is what they come to — computed on
  * every write and never separately typeable, so the total and its parts cannot disagree.
+ *
+ * `category` is `null` when nothing has been chosen — a permanent legal state, matching
+ * `amount: null`, and not the same thing as a category that was deleted out from under
+ * the row (ticket 06 clears the field first). Otherwise it is the id of an entry in the
+ * Household's `categories` list (ADR-0012).
  */
 export interface ExpenseSnapshot {
   id: RowId
   name: string
-  category: string
+  category: CategoryId | null
   amount: Minor | null
   lines: LineItem[]
   participants: MemberId[]
@@ -154,5 +174,6 @@ export interface Month {
 export interface Household {
   currency: Currency
   roster: Member[]
+  categories: Category[]
   months: Record<MonthKey, Month>
 }

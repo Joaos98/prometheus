@@ -16,6 +16,12 @@ export {
   type RowDriftState,
 } from './drift.js'
 export { apportion } from './apportion.js'
+export {
+  addCategory,
+  categoryUsage,
+  renameCategory,
+  type CategoryUsage,
+} from './categories.js'
 export { DomainError } from './errors.js'
 export {
   addExpenseSnapshot,
@@ -120,6 +126,8 @@ export {
   type Replacement,
 } from './transfer.js'
 export type {
+  Category,
+  CategoryId,
   Currency,
   ExpenseSnapshot,
   Household,

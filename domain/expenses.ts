@@ -12,6 +12,7 @@ import {
   type RowChange,
 } from './rows.js'
 import type {
+  CategoryId,
   ExpenseSnapshot,
   Household,
   LineItem,
@@ -25,7 +26,7 @@ import type {
 
 export interface ExpenseDraft {
   name: string
-  category: string
+  category: CategoryId | null
   amount: Minor | null
   participants: MemberId[]
   splitRule?: SplitRule
@@ -43,7 +44,7 @@ export interface ExpenseDraft {
  */
 export interface ExpenseEdits {
   name?: string
-  category?: string
+  category?: CategoryId | null
   amount?: Minor | null
   participants?: MemberId[]
   splitRule?: SplitRule
@@ -83,7 +84,7 @@ export function addExpenseSnapshot(
   const row = consistent(household, {
     id: mintId(),
     name: requireName(draft.name, 'An Expense'),
-    category: draft.category.trim(),
+    category: draft.category,
     amount: requireAmount(draft.amount),
     lines: [],
     participants: requireParticipants(household, month, draft.participants),
@@ -116,7 +117,7 @@ export function editExpenseSnapshot(
   return writeExpense(household, month, {
     ...existing,
     ...(edits.name !== undefined && { name: requireName(edits.name, 'An Expense') }),
-    ...(edits.category !== undefined && { category: edits.category.trim() }),
+    ...(edits.category !== undefined && { category: edits.category }),
     ...(edits.amount !== undefined && { amount: requireAmount(edits.amount) }),
     ...(edits.participants !== undefined && {
       participants: requireParticipants(household, month, edits.participants),

@@ -1,4 +1,7 @@
-import type { ExpenseSnapshot, Household, Month } from '../domain/index.js'
+import type { Category, ExpenseSnapshot, Household, Month } from '../domain/index.js'
+
+/** A Household as an adapter may hand it over: everything a current one has, or less. */
+type StoredHousehold = Omit<Household, 'categories'> & { categories?: Category[] }
 
 /**
  * What a Household read out of storage needs before the engine can be handed it.
@@ -15,10 +18,15 @@ import type { ExpenseSnapshot, Household, Month } from '../domain/index.js'
  * This is a read-side default, not a migration. Nothing is written back and no schema
  * changes, so a Household stored by an older version keeps loading until something in it
  * is edited — at which point the row is written in the current shape like any other.
+ *
+ * `categories` defaulting to `[]` here is temporary: a v1.2 Household has no category
+ * vocabulary at all, and reading them for real — along with the export format and both
+ * adapters — is ticket 07's.
  */
-export function fromStored(household: Household): Household {
+export function fromStored(household: StoredHousehold): Household {
   return {
     ...household,
+    categories: household.categories ?? [],
     months: Object.fromEntries(
       Object.entries(household.months).map(([key, month]) => [key, monthFromStored(month)]),
     ),

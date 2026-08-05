@@ -83,7 +83,12 @@ export function importHousehold(text: string): Household {
   const currency = readCurrency(file.currency)
   const roster = readRoster(file.roster)
   const months = readMonths(file.months, roster, currency)
-  return { currency, roster, months }
+  /**
+   * The category vocabulary is not in the file yet — reading it, along with both storage
+   * adapters and the export side of this format, is ticket 07's. Every row's `category`
+   * still round-trips as whatever id it already held.
+   */
+  return { currency, roster, categories: [], months }
 }
 
 /**
@@ -246,7 +251,7 @@ function readExpense(
   return {
     id: readText(row.id, `The identity of ${key}'s "${named}"`),
     name: named,
-    category: typeof row.category === 'string' ? row.category : '',
+    category: typeof row.category === 'string' ? row.category : null,
     amount,
     lines,
     participants,

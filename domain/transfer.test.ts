@@ -290,7 +290,7 @@ describe('what an import will replace', () => {
   })
 
   it('names no Month when none has been opened', () => {
-    expect(whatImportReplaces({ currency: euro, roster: [], months: {} })).toEqual({
+    expect(whatImportReplaces({ currency: euro, roster: [], categories: [], months: {} })).toEqual({
       months: 0,
       entries: 0,
       members: 0,

@@ -91,13 +91,13 @@ describe('recording an Expense', () => {
   it('mints a stable identity when the Expense first appears', () => {
     const first = addExpenseSnapshot(household, '2026-07', {
       name: 'Rent',
-      category: '',
+      category: null,
       amount: 1,
       participants: [ana],
     })
     const second = addExpenseSnapshot(first.household, '2026-07', {
       name: 'Rent',
-      category: '',
+      category: null,
       amount: 1,
       participants: [ana],
     })
@@ -130,12 +130,12 @@ describe('recording an Expense', () => {
   it('may be recorded without a category', () => {
     const { row } = addExpenseSnapshot(household, '2026-07', {
       name: 'Odds and ends',
-      category: '',
+      category: null,
       amount: 1200,
       participants: [ana],
     })
 
-    expect(row.category).toBe('')
+    expect(row.category).toBe(null)
   })
 
   it('needs a name', () => {

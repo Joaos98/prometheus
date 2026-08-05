@@ -22,7 +22,7 @@ const props = withDefaults(
     currency: Currency
     members: { id: MemberId; name: string }[]
     name?: string
-    category?: string
+    category?: string | null
     amount?: Minor | null
     participants?: MemberId[]
     splitRule?: SplitRule
@@ -36,7 +36,7 @@ const props = withDefaults(
   }>(),
   {
     name: '',
-    category: '',
+    category: null,
     amount: null,
     participants: undefined,
     splitRule: () => ({ kind: 'even' }),
@@ -62,7 +62,12 @@ const emit = defineEmits<{
 }>()
 
 const name = ref(props.name)
-const category = ref(props.category)
+/**
+ * Still a free-text field: category becomes an id into the Household's vocabulary in the
+ * engine (ticket 05), and the picker that reads it is ticket 08's. Until then this box
+ * edits whatever string a row's category id already holds.
+ */
+const category = ref(props.category ?? '')
 const amount = ref(editableAmount(props.amount, props.currency))
 const participants = ref<MemberId[]>(props.participants ?? props.members.map((one) => one.id))
 const kind = ref<SplitRule['kind']>(props.splitRule.kind)
