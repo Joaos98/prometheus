@@ -9,6 +9,12 @@
 # which case the page will not load and the logs here will look perfectly healthy:
 #
 #   PROMETHEUS_PORT=8090 docker compose up -d
+#
+# `up -d` on its own never rebuilds an image that already exists — after pulling or
+# making a change, add --build or the container keeps running whatever it was last
+# built from, silently:
+#
+#   docker compose up -d --build
 services:
   prometheus:
     build: .

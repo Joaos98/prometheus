@@ -45,6 +45,10 @@ Then open <http://localhost:8080> and set the Household up. Port 8080 is popular
 something else may already have it, in which case the page will not load while the logs
 look perfectly healthy — `PROMETHEUS_PORT=8090 docker compose up -d` moves it.
 
+`up -d` never rebuilds an image that is already there. After pulling a change, run
+`docker compose up -d --build` — without `--build` the container keeps serving whatever
+it was last built from, with nothing in the logs to say so.
+
 There is no login, because there are **no accounts and no permissions at all**. Everyone
 who can reach it can see and edit everything. Keep it on your own network; it is not built
 to face the public internet.
