@@ -23,13 +23,16 @@ export interface Deployment {
   close(): Promise<void> | void
 }
 
+/** The one category every fixture Expense below points at, kept to a single id. */
+const HOME_CATEGORY_ID = 'home'
+
 const household = (): Household => ({
   ...setUpHousehold({
     currency: { code: 'EUR', symbol: '€', decimals: 2 },
     memberNames: ['Ana', 'Bruno'],
     startingMonth: '2026-07',
   }),
-  categories: [{ id: 'home', name: 'Home' }],
+  categories: [{ id: HOME_CATEGORY_ID, name: 'Home' }],
 })
 
 const salary = (amount: Minor | null): IncomeSnapshot => ({
@@ -45,7 +48,7 @@ const salary = (amount: Minor | null): IncomeSnapshot => ({
 const expense = (id: string, amount: Minor | null): ExpenseSnapshot => ({
   id,
   name: id,
-  category: 'home',
+  category: HOME_CATEGORY_ID,
   amount,
   lines: [],
   participants: ['ana', 'bruno'],
@@ -59,7 +62,7 @@ const line = (id: string, name: string, amount: Minor | null): LineItem => ({ id
 const composite = (id: string, lines: LineItem[]): ExpenseSnapshot => ({
   id,
   name: id,
-  category: 'home',
+  category: HOME_CATEGORY_ID,
   amount: totalOfLines(lines),
   lines,
   participants: ['ana', 'bruno'],

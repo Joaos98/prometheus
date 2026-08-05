@@ -184,6 +184,12 @@ function readCategories(value: unknown): CategoryContext {
     list.map((category) => category.id),
     'Two categories share an identity',
   )
+  /**
+   * The same case-insensitive rule `requireUniqueName` in `domain/categories.ts` enforces
+   * on every edit, reimplemented rather than shared because the two run over different
+   * shapes — an untrusted file list here, a live `Household` there. If that rule ever
+   * changes (whitespace, normalisation), both sites need the same change.
+   */
   requireDistinct(
     list.map((category) => category.name.toLowerCase()),
     'Two categories share a name',
