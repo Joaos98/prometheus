@@ -22,6 +22,20 @@ Prometheus is a household finance tracker. The name references Prometheus, Titan
 | Accent — primary ("fire") | `#E8935C` / `#F0A868` | primary actions, key totals (e.g. leftover), "+Add" links, active nav item |
 | Accent — secondary ("moon/ice") | `#7DC9E8` | used sparingly — goal progress rings, subtle highlights only. Not a general-purpose color. |
 
+### The category palette
+
+Eight further hues — `#8FD4A8`, `#B39DDB`, `#E8C56C`, `#7F9CF5`, `#E08FA8`, `#6FBFB0`,
+`#C2AB8A`, `#9AA8C9` — spent **only** by the charts that group by category, one per
+category in the Household's own vocabulary order. Uncategorised rows take text muted,
+which is deliberately not a hue: they are not a category.
+
+This is an extension to the palette above, not a loosening of it. A chart grouping by
+category needs as many colours as the Household has categories, and one warm accent cannot
+supply them; nothing outside those charts may reach for these. Every one of them stays
+clear of the two accents, because both already mean something wherever they appear — fire
+is the figure being read, its brighter shade is Pending, and ice is what the chart directly
+above the category chart draws Spendable Income in.
+
 ## Layout
 
 The Month dashboard's layout is settled in [ADR-0010](./docs/adr/0010-month-dashboard-layout.md): a pinned left rail (Leftover Balances, review meter, Month facts), Expenses in the centre, Income and Savings Goals on the right, with the Month's name centred in the header. Panels are flat surfaces separated by hairlines, and a Month fits one desktop window.

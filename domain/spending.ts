@@ -87,7 +87,8 @@ export function spendingChangeByCategory(
   const after = totalsOf(month)
 
   // This Month's categories first, in its own order, then whatever only the Previous
-  // Month held — so that what is on screen leads with what was just entered.
+  // Month held. Determinate rather than meaningful: what order a diverging bar reads best
+  // in is a question about reading, and the caller settles it.
   const categories = [...after.keys(), ...[...before.keys()].filter((one) => !after.has(one))]
 
   return {

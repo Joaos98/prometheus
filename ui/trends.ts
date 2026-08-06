@@ -435,20 +435,21 @@ export function categoryChanges(household: Household, key: MonthKey): CategoryCh
 
   // Summed by the category as this view resolves it, so that an id the vocabulary has
   // lost lands in the Uncategorised group rather than beside a second bar of that name.
-  const totals = new Map<CategoryId | null, { before: Minor; after: Minor }>()
+  // Every figure is the engine's own, this one included: two groups folded together moved
+  // by what both of them moved, so there is nothing to work out here.
+  const totals = new Map<CategoryId | null, Omit<ChangeBar, keyof TrendCategory>>()
   for (const change of moved.changes) {
     const id = inVocabulary(household, change.category)
-    const running = totals.get(id) ?? { before: 0, after: 0 }
-    totals.set(id, { before: running.before + change.before, after: running.after + change.after })
+    const running = totals.get(id) ?? { before: 0, after: 0, change: 0 }
+    totals.set(id, {
+      before: running.before + change.before,
+      after: running.after + change.after,
+      change: running.change + change.change,
+    })
   }
 
   const bars: ChangeBar[] = [...totals.entries()]
-    .map(([id, { before, after }]) => ({
-      ...drawnAs(household, id),
-      before,
-      after,
-      change: after - before,
-    }))
+    .map(([id, figures]) => ({ ...drawnAs(household, id), ...figures }))
     .filter((bar) => bar.change !== 0)
     .sort((one, other) => other.change - one.change)
 

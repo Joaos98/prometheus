@@ -78,7 +78,16 @@ const stackBounds = computed(() => {
     const top = layer.values.map((value, at) =>
       value === undefined || base[at] === undefined ? undefined : base[at]! + value,
     )
-    const bounds = { ...layer, base, top }
+    // Named field by field rather than spread: `emphasis` is a plain series' mark and a
+    // stack has no use for it, so it is not carried in here to be quietly ignored.
+    const bounds = {
+      id: layer.id,
+      name: layer.name,
+      colour: layer.colour,
+      values: layer.values,
+      base,
+      top,
+    }
     base = top
     return bounds
   })
@@ -197,13 +206,13 @@ const STACK_PALETTE = ['var(--ice)', 'var(--text-secondary)']
  * emphasised series, take none — otherwise the Viewer leads, takes the emphasis colour,
  * and the palette's first goes to whoever is second by an accident of counting.
  */
-function walking(palette: string[]): () => string {
+function nextColourFrom(palette: string[]): () => string {
   let taken = 0
   return () => palette[taken++ % palette.length]!
 }
 
 const stacked = computed(() => {
-  const next = walking(STACK_PALETTE)
+  const next = nextColourFrom(STACK_PALETTE)
   return stackBounds.value.map((layer) => ({
     id: layer.id,
     name: layer.name,
@@ -228,7 +237,7 @@ const stacked = computed(() => {
 })
 
 const drawn = computed(() => {
-  const next = walking(PALETTE)
+  const next = nextColourFrom(PALETTE)
   return (props.series ?? []).map((one) => ({
     ...one,
     colour: one.emphasis === true ? EMPHASIS : (one.colour ?? next()),

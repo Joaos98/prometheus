@@ -217,7 +217,10 @@ const span = computed(() => axisSpan(axis.value))
       {{ span }} — opened Months up to this one. A Month ahead holds a plan and is left out.
     </p>
 
-    <div v-if="axis.length === 0" class="empty">
+    <!-- Nothing on the axis does not mean nothing on the page: chart 6 is two Months
+         rather than a stretch of them, so it stands whether or not the axis does, and
+         this fills the window only when it is the whole page. -->
+    <div v-if="axis.length === 0" class="empty" :class="{ alone: !viewing }">
       <section class="card">
         <h2 class="section-label">Nothing to chart yet</h2>
         <p v-if="nothingYet" class="secondary note">
@@ -231,58 +234,54 @@ const span = computed(() => axisSpan(axis.value))
       </section>
     </div>
 
-    <template v-else>
-      <section class="card">
-        <TrendChart
-          title="Income vs Expenses"
-          :axis="axis"
-          :series="expensesSeries"
-          :stack="incomeStack"
-          :format="money"
-        />
+    <section v-if="axis.length" class="card">
+      <TrendChart
+        title="Income vs Expenses"
+        :axis="axis"
+        :series="expensesSeries"
+        :stack="incomeStack"
+        :format="money"
+      />
 
-        <TrendChart title="Spending by category" :axis="axis" :stack="categoryStack" :format="money" />
+      <TrendChart title="Spending by category" :axis="axis" :stack="categoryStack" :format="money" />
 
-        <TrendChart
-          title="Leftover Balance"
-          :axis="axis"
-          :series="leftoverSeries"
-          :format="money"
-        />
+      <TrendChart title="Leftover Balance" :axis="axis" :series="leftoverSeries" :format="money" />
 
-        <TrendChart
-          v-for="goal in goalCharts"
-          :key="goal.id"
-          :title="goal.title"
-          :axis="axis"
-          :series="goal.series"
-          :format="money"
-        />
-      </section>
+      <TrendChart
+        v-for="goal in goalCharts"
+        :key="goal.id"
+        :title="goal.title"
+        :axis="axis"
+        :series="goal.series"
+        :format="money"
+      />
+    </section>
 
-      <!-- Chart 6 stands apart from the axis above it: two Months rather than a stretch
-           of them, and the Month the dashboard is on rather than the record's own end. -->
-      <section v-if="viewing" class="card">
-        <h2 v-if="!moved || !moved.bars.length" class="section-label">{{ movedTitle }}</h2>
+    <!-- Chart 6 stands apart from the charts above it: two Months rather than a stretch
+         of them, and the Month the dashboard is on rather than the record's own end. It
+         is not on the axis, so it is not gated behind one either — a Household whose
+         every opened Month is still ahead has no trend to draw and can still be standing
+         in a Month with a Previous Month behind it. -->
+    <section v-if="viewing" class="card">
+      <h2 v-if="!moved || !moved.bars.length" class="section-label">{{ movedTitle }}</h2>
 
-        <ChangeChart v-else :title="movedTitle" :bars="moved.bars" :format="money" />
+      <ChangeChart v-else :title="movedTitle" :bars="moved.bars" :format="money" />
 
-        <p class="secondary note">
-          <template v-if="!moved">{{ nothingToCompare }}</template>
-          <template v-else-if="!moved.bars.length">
-            No category moved against {{ monthName(moved.from) }}, the Previous Month.
-          </template>
-          <template v-else>
-            Against {{ monthName(moved.from) }}, the Previous Month — the most recent one opened,
-            which need not be the Month before.
-          </template>
-        </p>
+      <p class="secondary note">
+        <template v-if="!moved">{{ nothingToCompare }}</template>
+        <template v-else-if="!moved.bars.length">
+          No category moved against {{ monthName(moved.from) }}, the Previous Month.
+        </template>
+        <template v-else>
+          Against {{ monthName(moved.from) }}, the Previous Month — the most recent one opened,
+          which need not be the Month before.
+        </template>
+      </p>
 
-        <!-- Either Month may still be being filled in, and a Pending row counts as
-             nothing on the side it is on, so the comparison says which and how many. -->
-        <p v-for="note in incomplete" :key="note" class="muted note">{{ note }}</p>
-      </section>
-    </template>
+      <!-- Either Month may still be being filled in, and a Pending row counts as nothing
+           on the side it is on, so the comparison says which and how many. -->
+      <p v-for="note in incomplete" :key="note" class="muted note">{{ note }}</p>
+    </section>
   </div>
 </template>
 
@@ -316,10 +315,15 @@ const span = computed(() => axisSpan(axis.value))
 }
 
 .empty {
-  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Centred in the window only when nothing else is on the page. With chart 6 below it,
+   filling the window would push a chart that has something to say off the bottom. */
+.empty.alone {
+  flex: 1;
 }
 
 .empty .card {

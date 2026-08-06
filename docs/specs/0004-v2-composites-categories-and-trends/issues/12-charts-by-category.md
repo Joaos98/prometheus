@@ -62,9 +62,10 @@ Three decisions worth naming:
 - **Colour is a category's place in the vocabulary**, not its place in a chart. Indexing the
   drawn subset would have let chart 2 and chart 6 disagree about the same category; the
   vocabulary's order is what a rename leaves alone, so it is what a colour hangs off.
-  `--category-1…8` are new tokens, and the first the app has spent beyond its two accents.
-  None of them is `--fire`, `--fire-bright` or `--ice`: all three already mean something,
-  and the last is what the chart directly above draws Spendable Income in.
+  `--category-1…8` are new tokens, and the first the app has spent beyond its two accents,
+  so the design brief carries the extension — a binding palette is not extended in a code
+  comment. None of them is `--fire`, `--fire-bright` or `--ice`: all three already mean
+  something, and the last is what the chart directly above draws Spendable Income in.
 - **A category nothing was spent under in an opened Month is zero, not a gap.** These layers
   are stacked, so a gap in a lower one would take every layer above it — and it would be
   saying the wrong thing anyway. Only a Month nobody opened is unknown. `TrendSeries`'
@@ -85,3 +86,9 @@ comparison drawn from part of one side's rows has to say which side.
 The placeholder chart ticket 11 left behind is gone. Checked against the demo in the browser
 across all four states — a Month that moved, the earliest Month, an unopened Month, and
 navigating between Months.
+
+A second review pass caught chart 6 sitting inside the branch that draws the axis, so a
+Household whose every opened Month is still ahead — the one case the sibling empty state
+exists for — was told there was nothing to chart while holding a perfectly good comparison.
+It is now a sibling of both branches, and the empty state fills the window only when it is
+the whole page. Checked in the browser against a record shifted wholly into next year.
