@@ -37,20 +37,25 @@ type Cost =
        * chart needs to split. */
       participants?: string[]
       splitRule?: ExpenseSnapshot['splitRule']
+      /** Present only to mark an Expense composite for a fixture's own reading — `amount`
+       * is still what `sharesOf` divides, exactly as the engine always derives it as the
+       * lines' own sum before this fixture ever sees it. */
+      lines?: ExpenseSnapshot['lines']
     }
 
 /** `at` is the row's place in its Month, which is all the identity a fixture needs. */
 const expense = (cost: Cost, at: number): ExpenseSnapshot => {
-  const { amount, category, participants, splitRule } =
+  const { amount, category, participants, splitRule, lines } =
     typeof cost === 'object' && cost !== null
       ? cost
-      : { amount: cost, category: null, participants: undefined, splitRule: undefined }
+      : { amount: cost, category: null, participants: undefined, splitRule: undefined, lines: undefined }
   return {
     id: `e${at}-${amount}`,
     amount,
     category: category ?? null,
     participants: participants ?? ['ada'],
     splitRule: splitRule ?? { kind: 'even' },
+    lines: lines ?? [],
   } as ExpenseSnapshot
 }
 
@@ -441,6 +446,33 @@ describe('each member’s share of household spending', () => {
 
     expect(layers[0]).toMatchObject({ id: 'bruno', emphasis: true })
     expect(layers[1]).toMatchObject({ id: 'ada', emphasis: false })
+  })
+
+  /** A composite needs no case of its own: `amount` is already the lines' own sum by the
+      time this reads it, so its Shares come out of `sharesOf` exactly as a simple
+      Expense's do. */
+  it('draws a composite Expense’s Shares the same as a simple one’s', () => {
+    const spread = household({
+      key: '2026-01',
+      members: ['ada', 'bruno'],
+      expenses: [
+        {
+          amount: 6000,
+          participants: ['ada', 'bruno'],
+          lines: [
+            { id: 'l1', name: 'Fruit', amount: 4000 },
+            { id: 'l2', name: 'Veg', amount: 2000 },
+          ],
+        },
+      ],
+    })
+    const axis = trendAxis(spread, '2026-01')
+    const members = trendMembers(spread, axis, 'ada')
+
+    expect(memberShareLayers(spread, axis, members).map((layer) => layer.values)).toEqual([
+      [50],
+      [50],
+    ])
   })
 })
 
