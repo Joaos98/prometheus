@@ -17,6 +17,22 @@
   --fire-bright: #f0a868;
   --ice: #7dc9e8;
 
+  /* The category palette, and the only place the app spends more than two accents. A
+     chart grouping by category needs as many colours as the Household has categories,
+     and the brief's one warm accent cannot supply them. They are muted to sit on the
+     dark surface, and every one of them stays clear of the three colours that already
+     mean something: --fire, which the rail and the charts keep for the figure being
+     read, --fire-bright, which means Pending, and --ice, which the brief spends
+     sparingly and which the chart above these draws Spendable Income in. */
+  --category-1: #8fd4a8;
+  --category-2: #b39ddb;
+  --category-3: #e8c56c;
+  --category-4: #7f9cf5;
+  --category-5: #e08fa8;
+  --category-6: #6fbfb0;
+  --category-7: #c2ab8a;
+  --category-8: #9aa8c9;
+
   --radius-card: 12px;
   --radius-control: 8px;
 

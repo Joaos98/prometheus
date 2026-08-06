@@ -26,7 +26,7 @@ onUnmounted(() => stopWatching?.())
   <SetupView v-else-if="!household" />
   <!-- Trends is its own view rather than a panel: its subject is many Months, and the
        dashboard's three columns are one Month's. -->
-  <TrendsView v-else-if="showing === 'trends'" :household="household" />
+  <TrendsView v-else-if="showing === 'trends'" :household="household" :viewing="viewing" />
   <MonthDashboard v-else-if="viewing" :household="household" :viewing="viewing" />
   <p v-else class="waiting secondary">This Household holds no opened Month.</p>
 </template>

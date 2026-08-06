@@ -6,8 +6,12 @@ import {
   monthAt,
   monthName,
   openedMonthKeys,
+  spendingByCategory,
+  spendingChangeByCategory,
+  type CategoryId,
   type Household,
   type MemberId,
+  type Minor,
   type Month,
   type MonthKey,
   type RowId,
@@ -57,12 +61,19 @@ export function trendAxis(household: Household, now: MonthKey): TrendSlot[] {
     axis.push({
       key,
       opened: month !== undefined,
-      pending: month
-        ? month.income.filter(isPending).length + month.expenses.filter(isPending).length
-        : 0,
+      pending: month ? pendingCount(month) : 0,
     })
   }
   return axis
+}
+
+/**
+ * How many of a Month's rows have no amount entered at all. A Pending row counts as
+ * nothing wherever it is counted, so this is what a chart marks the Month with — and
+ * chart 6, which is not on the axis, needs the same figure for the two Months it compares.
+ */
+export function pendingCount(month: Month): number {
+  return month.income.filter(isPending).length + month.expenses.filter(isPending).length
 }
 
 /**
@@ -89,8 +100,11 @@ export interface TrendPoint<Value> {
  * One series a chart draws: one value per slot on the axis, `undefined` where there is
  * nothing to draw. A slot the Household never opened is `undefined` for every series, and
  * a series may be `undefined` in an opened Month it has no figure for — a member who was
- * not in that Month, a category nothing was spent under. Both break the line, which is the
- * same answer to the same question: this was not measured.
+ * not in that Month, a goal that Month never held. Both break the line, which is the same
+ * answer to the same question: this was not measured.
+ *
+ * A zero is not that. A category nothing was spent under in a Month the Household did
+ * open is a figure its rows answer for, and `categoryLayers` draws it as one.
  */
 export interface TrendSeries {
   id: string
@@ -98,6 +112,11 @@ export interface TrendSeries {
   values: (number | undefined)[]
   /** The Viewer's series, drawn brighter and heavier. Ordering is the caller's. */
   emphasis?: boolean
+  /**
+   * The colour to draw this series in, where what it stands for owns one — a category
+   * keeps its own across every chart. Left out, the chart walks its own palette.
+   */
+  colour?: string
 }
 
 /**
@@ -277,4 +296,207 @@ export function goalProgress(
   return target.some((value) => value !== undefined)
     ? { progress: named, target: { id: `${goal.id}-target`, name: 'Target', values: target } }
     : { progress: named }
+}
+
+/**
+ * What the rows holding no category are drawn under. It is not a category: it is the
+ * model's `null`, given a heading so that a member can see what it comes to. Nothing
+ * renames it and nothing deletes it, because there is nothing there to rename — which is
+ * why it is a constant here rather than an entry in the Household's vocabulary.
+ */
+const UNCATEGORISED = 'Uncategorised'
+
+/** The key a series takes where the category it draws is `null`, since a series is keyed
+ * by a string and `null` is not one. */
+const UNCATEGORISED_KEY = 'uncategorised'
+
+/** Grey rather than a hue, so that the group which is not a category does not read as
+ * one, whichever colours the categories around it took. */
+const UNCATEGORISED_COLOUR = 'var(--text-muted)'
+
+/** The colours a category chart spends, walked in the vocabulary's own order by
+ * `drawnAs`, which is where the reasoning for that lives. */
+const CATEGORY_PALETTE = [
+  'var(--category-1)',
+  'var(--category-2)',
+  'var(--category-3)',
+  'var(--category-4)',
+  'var(--category-5)',
+  'var(--category-6)',
+  'var(--category-7)',
+  'var(--category-8)',
+]
+
+/** A category as a chart draws it, or the Uncategorised group standing in for `null`. */
+export interface TrendCategory {
+  id: CategoryId | null
+  /**
+   * The same group as a string, because a series and a bar are each keyed by one and
+   * `null` is not one. It is minted here, once, so that no template invents a stand-in
+   * for `null` of its own.
+   */
+  key: string
+  name: string
+  colour: string
+}
+
+/**
+ * The categories the charted Months spent under, in the Household's own vocabulary order,
+ * with the Uncategorised group last where any charted Month holds a row without one.
+ *
+ * Each is named as the vocabulary now has it rather than as any Month held it, because no
+ * Month holds a name at all — a row holds the id (ADR-0012). That is the whole of what
+ * makes a rename retroactive, and it is what leaves a chart spanning one drawing a single
+ * series under the new name.
+ *
+ * A category the vocabulary no longer holds falls in with the uncategorised rows, exactly
+ * as `categoryName` renders no chip for one: a delete clears every row first, so this is
+ * only reachable on a screen not yet caught up with another member's delete, and a series
+ * named after an id is worse than one honest heading.
+ */
+export function trendCategories(
+  household: Household,
+  axis: readonly TrendSlot[],
+): TrendCategory[] {
+  const spent = new Set<CategoryId | null>()
+  for (const slot of axis) {
+    const month = monthAt(household, slot.key)
+    if (!month) continue
+    for (const spend of spendingByCategory(month)) spent.add(inVocabulary(household, spend.category))
+  }
+
+  const drawn = household.categories
+    .filter((category) => spent.has(category.id))
+    .map((category) => drawnAs(household, category.id))
+
+  if (spent.has(null)) drawn.push(drawnAs(household, null))
+  return drawn
+}
+
+/**
+ * One layer per category: what the Household spent under it in each Month of the axis.
+ *
+ * A Month nobody opened is `undefined`, as it is for every series. A Month that was opened
+ * and spent nothing under this category is zero, and the distinction matters more here
+ * than anywhere else in the view: these are stacked, so a gap in a lower layer would take
+ * every layer above it with it — and it would be saying the wrong thing anyway. Nothing
+ * spent under a category is a figure the Month's rows answer for, not an absence.
+ */
+export function categoryLayers(
+  household: Household,
+  axis: readonly TrendSlot[],
+  categories: readonly TrendCategory[],
+): TrendSeries[] {
+  const perSlot = axis.map((slot) => {
+    const month = monthAt(household, slot.key)
+    return month ? resolvedTotalsOf(household, month) : undefined
+  })
+
+  return categories.map((category) => ({
+    id: category.key,
+    name: category.name,
+    colour: category.colour,
+    values: perSlot.map((totals) => (totals ? (totals.get(category.id) ?? 0) : undefined)),
+  }))
+}
+
+/** One category's rise or fall against the Previous Month, as a diverging bar draws it. */
+export interface ChangeBar extends TrendCategory {
+  before: Minor
+  after: Minor
+  /** `after` less `before`: positive is a rise, negative a fall. Never zero — a category
+   * that held still has no bar to draw. */
+  change: Minor
+}
+
+/** What moved between the Month being read and the Previous Month, and which two Months
+ * those are. The Months are named because after a gap the Previous Month is not the
+ * obvious one. */
+export interface CategoryChanges {
+  from: MonthKey
+  to: MonthKey
+  bars: ChangeBar[]
+}
+
+/**
+ * What rose and what fell by category against the Previous Month, largest rise first and
+ * largest fall last, for whichever Month is handed in — the dashboard's, not the axis',
+ * since this is a comparison of two Months rather than a series across them.
+ *
+ * A category that did not move is left out. The engine reports it, because two Months
+ * holding the same figure is something it knows; a bar of no length is not a way to say it.
+ *
+ * Nothing comes back where the engine has no comparison to draw: a Month nobody opened, or
+ * one with no Previous Month at all. A caller says so rather than drawing an empty frame.
+ */
+export function categoryChanges(household: Household, key: MonthKey): CategoryChanges | undefined {
+  const moved = spendingChangeByCategory(household, key)
+  if (!moved) return undefined
+
+  // Summed by the category as this view resolves it, so that an id the vocabulary has
+  // lost lands in the Uncategorised group rather than beside a second bar of that name.
+  const totals = new Map<CategoryId | null, { before: Minor; after: Minor }>()
+  for (const change of moved.changes) {
+    const id = inVocabulary(household, change.category)
+    const running = totals.get(id) ?? { before: 0, after: 0 }
+    totals.set(id, { before: running.before + change.before, after: running.after + change.after })
+  }
+
+  const bars: ChangeBar[] = [...totals.entries()]
+    .map(([id, { before, after }]) => ({
+      ...drawnAs(household, id),
+      before,
+      after,
+      change: after - before,
+    }))
+    .filter((bar) => bar.change !== 0)
+    .sort((one, other) => other.change - one.change)
+
+  return { from: moved.from, to: moved.to, bars }
+}
+
+/**
+ * One category as every chart draws it — its key, its name and its colour — so that the
+ * two charts cannot disagree about any of the three.
+ *
+ * The colour is the category's place in the Household's vocabulary, which a rename does
+ * not move (ADR-0012): that is what makes a colour the category's own rather than a
+ * chart's, and what leaves a chart spanning a rename drawing one series in one colour.
+ * `null` — and an id the vocabulary has lost — takes the Uncategorised group's grey.
+ *
+ * A Household with more categories than there are colours has two of them share, and the
+ * legend tells them apart — the same answer `TrendChart`'s own palette gives.
+ */
+function drawnAs(household: Household, id: CategoryId | null): TrendCategory {
+  const at = id === null ? -1 : household.categories.findIndex((one) => one.id === id)
+  return at === -1
+    ? { id: null, key: UNCATEGORISED_KEY, name: UNCATEGORISED, colour: UNCATEGORISED_COLOUR }
+    : {
+        id,
+        key: id!,
+        name: household.categories[at]!.name,
+        colour: CATEGORY_PALETTE[at % CATEGORY_PALETTE.length]!,
+      }
+}
+
+/** The category as this view will draw it: an id the vocabulary no longer holds is not a
+ * category any more, and falls in with the rows that never had one. */
+function inVocabulary(household: Household, id: CategoryId | null): CategoryId | null {
+  if (id === null) return null
+  return household.categories.some((one) => one.id === id) ? id : null
+}
+
+/**
+ * A Month's spending by category as this view groups it, which is not quite as the engine
+ * reports it: an id the vocabulary has lost is folded in with the rows that never had one,
+ * so that a stack still totals the Month's whole Expense figure rather than quietly
+ * dropping a band.
+ */
+function resolvedTotalsOf(household: Household, month: Month): Map<CategoryId | null, Minor> {
+  const totals = new Map<CategoryId | null, Minor>()
+  for (const spend of spendingByCategory(month)) {
+    const id = inVocabulary(household, spend.category)
+    totals.set(id, (totals.get(id) ?? 0) + spend.amount)
+  }
+  return totals
 }

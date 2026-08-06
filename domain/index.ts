@@ -114,6 +114,13 @@ export {
   type RowChange,
 } from './rows.js'
 export { sharesOf, splitOf, type Share, type Split } from './shares.js'
+export {
+  spendingByCategory,
+  spendingChangeByCategory,
+  type CategoryChange,
+  type CategorySpend,
+  type SpendingChange,
+} from './spending.js'
 export { requireConsistentRule } from './split-rules.js'
 export {
   assertMonthKey,

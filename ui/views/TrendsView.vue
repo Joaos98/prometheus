@@ -5,14 +5,16 @@ import {
   householdExpenseTotal,
   householdRestrictedUseIncome,
   householdSpendableIncome,
+  isOpened,
   leftoverBalanceOf,
   monthAt,
   monthName,
   openedMonthKeys,
   type Household,
-  type MemberId,
   type Minor,
+  type MonthKey,
 } from '../../domain/index.js'
+import ChangeChart from '../components/ChangeChart.vue'
 import Masthead from '../components/Masthead.vue'
 import TrendChart from '../components/TrendChart.vue'
 import { useDevicePreferences } from '../device-preferences.js'
@@ -21,15 +23,24 @@ import { show } from '../view.js'
 import {
   axisSpan,
   axisValues,
+  categoryChanges,
+  categoryLayers,
   goalProgress,
+  pendingCount,
+  pendingNote,
   trendAxis,
+  trendCategories,
   trendGoals,
   trendMembers,
-  type TrendSlot,
 } from '../trends.js'
 import { displayedViewer } from '../viewer.js'
 
-const props = defineProps<{ household: Household }>()
+/**
+ * `viewing` is the Month the dashboard is on. Every chart on the shared axis spans the
+ * record and needs nothing of it; chart 6 compares two Months, and which two is exactly
+ * what the dashboard's own navigation says — so moving Months there moves it here.
+ */
+const props = defineProps<{ household: Household; viewing?: MonthKey }>()
 
 /**
  * The Restricted-Use toggle is `useDevicePreferences()`'s other value and is not read
@@ -122,31 +133,63 @@ const leftoverSeries = computed(() =>
 )
 
 /**
- * A placeholder while tickets 12 and 13 build the remaining charts: how many rows each
- * member appears on, Month by Month. It draws nothing anybody needs, and it exercises
- * every rule the axis has — the slot an unopened Month keeps, the break a series takes
- * across it, the mark on a Month with Pending rows, and the Viewer's series leading and
- * emphasised.
+ * Chart 2 — spending by category, stacked, so the full height is the Household's whole
+ * Expense total and each band is one category's share of it. The Uncategorised group is
+ * the model's `null` given a heading: not a category, nothing to rename, and last.
  *
- * The count is worked out here rather than in `ui/trends.ts` because it goes once the
- * remaining charts arrive.
+ * A composite Expense contributes its derived total under its parent's category, because
+ * a Line Item has no category of its own — one row here exactly as in the review model.
  */
-const entries = computed(() =>
-  members.value.map((member) => ({
-    ...member,
-    values: axis.value.map((slot) => entryCountFor(slot, member.id)),
-  })),
+const categories = computed(() => trendCategories(props.household, axis.value))
+
+const categoryStack = computed(() =>
+  categoryLayers(props.household, axis.value, categories.value),
 )
 
-function entryCountFor(slot: TrendSlot, member: MemberId): number | undefined {
-  const month = monthAt(props.household, slot.key)
-  if (!month) return undefined
-  return (
-    month.income.filter((row) => row.member === member).length +
-    month.expenses.filter((row) => row.participants.includes(member)).length +
-    month.goals.filter((row) => row.participants.includes(member)).length
-  )
-}
+/**
+ * Chart 6 — what rose and what fell by category, against the Previous Month. Not a time
+ * series: it reads the Month the dashboard is on, so it is not held to the axis and a
+ * Month ahead of the calendar is charted here if that is where the member is standing.
+ *
+ * The Previous Month is the domain's own — the most recent *opened* Month, which after a
+ * gap in the record is not the preceding calendar one, which is why it is named on screen.
+ */
+const moved = computed(() =>
+  props.viewing ? categoryChanges(props.household, props.viewing) : undefined,
+)
+
+const movedTitle = computed(() =>
+  props.viewing ? `What moved in ${monthName(moved.value?.to ?? props.viewing)}` : '',
+)
+
+/**
+ * What either Month being compared is drawing from part of its rows, named the way every
+ * chart on the axis marks the same fact. Chart 6 has no band to hatch — it is two Months
+ * rather than a stretch of them — so it says it in words instead. A Pending row counts as
+ * nothing on whichever side it is on, and that side's figures understate accordingly.
+ */
+const incomplete = computed(() => {
+  const compared = moved.value
+  if (!compared) return []
+  return [compared.from, compared.to].flatMap((key) => {
+    const note = pendingNote(pendingCount(monthAt(props.household, key)!))
+    return note ? [`${monthName(key)} — ${note}`] : []
+  })
+})
+
+/**
+ * Why there is no comparison, said as the two situations differ. A Month nobody opened
+ * holds nothing to compare; the first Month in the record has nothing behind it. Neither
+ * is an empty chart, and neither is a comparison against zero.
+ */
+const nothingToCompare = computed(() => {
+  const month = props.viewing
+  if (!month || moved.value) return undefined
+  if (!isOpened(props.household, month)) {
+    return `${monthName(month)} has not been opened, so there is nothing to compare.`
+  }
+  return `${monthName(month)} is the earliest Month in the record, so there is no Previous Month to compare it with.`
+})
 
 /**
  * Two empty states, because they are two different situations. A Household that has never
@@ -188,32 +231,58 @@ const span = computed(() => axisSpan(axis.value))
       </section>
     </div>
 
-    <section v-else class="card">
-      <TrendChart
-        title="Income vs Expenses"
-        :axis="axis"
-        :series="expensesSeries"
-        :stack="incomeStack"
-        :format="money"
-      />
+    <template v-else>
+      <section class="card">
+        <TrendChart
+          title="Income vs Expenses"
+          :axis="axis"
+          :series="expensesSeries"
+          :stack="incomeStack"
+          :format="money"
+        />
 
-      <TrendChart title="Leftover Balance" :axis="axis" :series="leftoverSeries" :format="money" />
+        <TrendChart title="Spending by category" :axis="axis" :stack="categoryStack" :format="money" />
 
-      <TrendChart
-        v-for="goal in goalCharts"
-        :key="goal.id"
-        :title="goal.title"
-        :axis="axis"
-        :series="goal.series"
-        :format="money"
-      />
+        <TrendChart
+          title="Leftover Balance"
+          :axis="axis"
+          :series="leftoverSeries"
+          :format="money"
+        />
 
-      <TrendChart title="Entries recorded" :axis="axis" :series="entries" />
-      <p class="muted note">
-        A placeholder while the remaining charts are built: how many rows each member appears on,
-        Month by Month.
-      </p>
-    </section>
+        <TrendChart
+          v-for="goal in goalCharts"
+          :key="goal.id"
+          :title="goal.title"
+          :axis="axis"
+          :series="goal.series"
+          :format="money"
+        />
+      </section>
+
+      <!-- Chart 6 stands apart from the axis above it: two Months rather than a stretch
+           of them, and the Month the dashboard is on rather than the record's own end. -->
+      <section v-if="viewing" class="card">
+        <h2 v-if="!moved || !moved.bars.length" class="section-label">{{ movedTitle }}</h2>
+
+        <ChangeChart v-else :title="movedTitle" :bars="moved.bars" :format="money" />
+
+        <p class="secondary note">
+          <template v-if="!moved">{{ nothingToCompare }}</template>
+          <template v-else-if="!moved.bars.length">
+            No category moved against {{ monthName(moved.from) }}, the Previous Month.
+          </template>
+          <template v-else>
+            Against {{ monthName(moved.from) }}, the Previous Month — the most recent one opened,
+            which need not be the Month before.
+          </template>
+        </p>
+
+        <!-- Either Month may still be being filled in, and a Pending row counts as
+             nothing on the side it is on, so the comparison says which and how many. -->
+        <p v-for="note in incomplete" :key="note" class="muted note">{{ note }}</p>
+      </section>
+    </template>
   </div>
 </template>
 

@@ -15,7 +15,9 @@ import {
 const props = defineProps<{
   title: string
   axis: TrendSlot[]
-  series: TrendSeries[]
+  /** The lines drawn over the stack. Left out where a chart is the stack — the categories
+   * chart has no figure standing apart from the bands it is made of. */
+  series?: TrendSeries[]
   /**
    * Layers drawn as a stacked area beneath the plain series, each one's own magnitude
    * rather than a running total — the running total is worked out here, the same way a
@@ -76,7 +78,7 @@ const stackBounds = computed(() => {
     const top = layer.values.map((value, at) =>
       value === undefined || base[at] === undefined ? undefined : base[at]! + value,
     )
-    const bounds = { id: layer.id, name: layer.name, values: layer.values, base, top }
+    const bounds = { ...layer, base, top }
     base = top
     return bounds
   })
@@ -89,7 +91,7 @@ const stackBounds = computed(() => {
  */
 const y = computed(() => {
   const drawn = [
-    ...props.series.flatMap((one) => one.values.filter(isDrawn)),
+    ...(props.series ?? []).flatMap((one) => one.values.filter(isDrawn)),
     ...stackBounds.value.flatMap((layer) => layer.top.filter(isDrawn)),
   ]
   const low = Math.min(0, ...drawn)
@@ -189,11 +191,23 @@ const PALETTE = ['var(--ice)', 'var(--text-secondary)', 'var(--text-muted)']
  */
 const STACK_PALETTE = ['var(--ice)', 'var(--text-secondary)']
 
-const stacked = computed(() =>
-  stackBounds.value.map((layer, index) => ({
+/**
+ * A palette handed out one colour at a time, in the order it is asked. Only what actually
+ * draws from it takes a colour: a series that arrived with one of its own, and an
+ * emphasised series, take none — otherwise the Viewer leads, takes the emphasis colour,
+ * and the palette's first goes to whoever is second by an accident of counting.
+ */
+function walking(palette: string[]): () => string {
+  let taken = 0
+  return () => palette[taken++ % palette.length]!
+}
+
+const stacked = computed(() => {
+  const next = walking(STACK_PALETTE)
+  return stackBounds.value.map((layer) => ({
     id: layer.id,
     name: layer.name,
-    colour: STACK_PALETTE[index % STACK_PALETTE.length]!,
+    colour: layer.colour ?? next(),
     areas: segmentsOf(
       layer.values.map((value, at) =>
         value === undefined || layer.base[at] === undefined
@@ -210,19 +224,14 @@ const stacked = computed(() =>
         reading: `${monthName(props.axis[point.index]!.key)} — ${layer.name} — ${say.value(point.value.own)}`,
       })),
     })),
-  })),
-)
+  }))
+})
 
 const drawn = computed(() => {
-  /**
-   * The palette is walked by the series drawing from it, so an emphasised series does not
-   * consume a colour it is not using — otherwise the Viewer leads, takes the emphasis
-   * colour, and the palette's first goes to whoever is second by an accident of counting.
-   */
-  let plain = 0
-  return props.series.map((one) => ({
+  const next = walking(PALETTE)
+  return (props.series ?? []).map((one) => ({
     ...one,
-    colour: one.emphasis === true ? EMPHASIS : PALETTE[plain++ % PALETTE.length]!,
+    colour: one.emphasis === true ? EMPHASIS : (one.colour ?? next()),
     /**
      * Cut into runs, so the line stops at a Month nobody opened and starts again after
      * it. Nothing is interpolated across the gap and nothing is plotted as zero there.

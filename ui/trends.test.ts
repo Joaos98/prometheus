@@ -11,10 +11,13 @@ import type {
 import {
   axisSpan,
   axisValues,
+  categoryChanges,
+  categoryLayers,
   goalProgress,
   pendingNote,
   segmentsOf,
   trendAxis,
+  trendCategories,
   trendGoals,
   trendMembers,
 } from './trends.js'
@@ -22,8 +25,15 @@ import {
 const income = (amount: number | null): IncomeSnapshot =>
   ({ id: `i${amount}`, amount }) as IncomeSnapshot
 
-const expense = (amount: number | null): ExpenseSnapshot =>
-  ({ id: `e${amount}`, amount }) as ExpenseSnapshot
+/** A cost, said as a bare amount where the category it holds does not matter. */
+type Cost = number | null | { amount: number | null; category: string | null }
+
+/** `at` is the row's place in its Month, which is all the identity a fixture needs. */
+const expense = (cost: Cost, at: number): ExpenseSnapshot => {
+  const { amount, category } =
+    typeof cost === 'object' && cost !== null ? cost : { amount: cost, category: null }
+  return { id: `e${at}-${amount}`, amount, category } as ExpenseSnapshot
+}
 
 /** A Savings Goal identity, defaulting to one with no target and no Contributions. */
 const goal = (id: string, overrides: Partial<SavingsGoal> = {}): SavingsGoal => ({
@@ -42,7 +52,7 @@ interface Opened {
   key: string
   members?: string[]
   income?: (number | null)[]
-  expenses?: (number | null)[]
+  expenses?: Cost[]
   goals?: SavingsGoal[]
 }
 
@@ -71,6 +81,10 @@ const household = (...opened: Opened[]): Household =>
   }) as Household
 
 const keys = (axis: { key: MonthKey }[]): MonthKey[] => axis.map((slot) => slot.key)
+
+/** The Household's category vocabulary, in the order categories were added to it. */
+const naming = (of: Household, ...categories: [string, string][]): Household =>
+  ({ ...of, categories: categories.map(([id, name]) => ({ id, name })) }) as Household
 
 describe('the time axis every chart shares', () => {
   it('spans the opened Months', () => {
@@ -413,5 +427,297 @@ describe('a goal’s Accumulated Progress across the axis', () => {
     const result = goalProgress(spread, axis, { id: 'g1', name: 'Roof' })
 
     expect(result.progress.values).toEqual([5000, 8000])
+  })
+})
+
+describe('the categories a by-category chart draws', () => {
+  const spread = naming(
+    household(
+      { key: '2026-01', expenses: [{ amount: 4000, category: 'food' }] },
+      { key: '2026-02', expenses: [{ amount: 9000, category: 'home' }] },
+    ),
+    ['home', 'Home'],
+    ['food', 'Food'],
+  )
+
+  it('names every category the charted Months spent under, in the vocabulary’s order', () => {
+    expect(
+      trendCategories(spread, trendAxis(spread, '2026-03')).map((one) => [one.id, one.name]),
+    ).toEqual([
+      ['home', 'Home'],
+      ['food', 'Food'],
+    ])
+  })
+
+  it('leaves out a category no charted Month spent under', () => {
+    const only = naming(
+      household({ key: '2026-01', expenses: [{ amount: 4000, category: 'food' }] }),
+      ['home', 'Home'],
+      ['food', 'Food'],
+    )
+
+    expect(trendCategories(only, trendAxis(only, '2026-03')).map((one) => one.id)).toEqual(['food'])
+  })
+
+  /** Not a category: the model's `null`, rendered under a heading of its own, last. */
+  it('groups the rows holding no category under Uncategorised, behind the categories', () => {
+    const mixed = naming(
+      household({ key: '2026-01', expenses: [4000, { amount: 9000, category: 'home' }] }),
+      ['home', 'Home'],
+    )
+
+    expect(
+      trendCategories(mixed, trendAxis(mixed, '2026-03')).map((one) => [one.id, one.name]),
+    ).toEqual([
+      ['home', 'Home'],
+      [null, 'Uncategorised'],
+    ])
+  })
+
+  it('offers Uncategorised alone for a Month with every row uncategorised', () => {
+    const none = household({ key: '2026-01', expenses: [4000, 9000] })
+
+    expect(trendCategories(none, trendAxis(none, '2026-03')).map((one) => one.id)).toEqual([null])
+  })
+
+  /**
+   * The whole of what ADR-0012's retroactive rename buys: a row holds the id, so a
+   * renamed category is one category still, drawn once and under its new name.
+   */
+  it('draws one series across a rename, under the name the vocabulary now gives', () => {
+    const before = naming(
+      household(
+        { key: '2026-01', expenses: [{ amount: 4000, category: 'food' }] },
+        { key: '2026-02', expenses: [{ amount: 5000, category: 'food' }] },
+      ),
+      ['food', 'Food'],
+    )
+    const renamed = naming(before, ['food', 'Groceries'])
+
+    expect(trendCategories(renamed, trendAxis(renamed, '2026-03'))).toEqual([
+      {
+        id: 'food',
+        key: 'food',
+        name: 'Groceries',
+        colour: trendCategories(before, trendAxis(before, '2026-03'))[0]!.colour,
+      },
+    ])
+  })
+
+  it('gives each category a colour of its own, Uncategorised included', () => {
+    const mixed = naming(
+      household({
+        key: '2026-01',
+        expenses: [4000, { amount: 9000, category: 'home' }, { amount: 1000, category: 'food' }],
+      }),
+      ['home', 'Home'],
+      ['food', 'Food'],
+    )
+
+    const colours = trendCategories(mixed, trendAxis(mixed, '2026-03')).map((one) => one.colour)
+
+    expect(new Set(colours).size).toBe(3)
+  })
+
+  it('draws nothing for a stretch with no Expenses at all', () => {
+    const empty = household({ key: '2026-01' })
+
+    expect(trendCategories(empty, trendAxis(empty, '2026-02'))).toEqual([])
+  })
+})
+
+describe('a category’s spending across the axis', () => {
+  const spread = naming(
+    household(
+      { key: '2026-01', expenses: [{ amount: 4000, category: 'food' }] },
+      { key: '2026-03', expenses: [{ amount: 5000, category: 'food' }] },
+    ),
+    ['food', 'Food'],
+  )
+
+  it('reads each Month’s total under the category, breaking across a Month nobody opened', () => {
+    const axis = trendAxis(spread, '2026-04')
+
+    expect(categoryLayers(spread, axis, trendCategories(spread, axis))).toEqual([
+      { id: 'food', name: 'Food', colour: expect.any(String), values: [4000, undefined, 5000] },
+    ])
+  })
+
+  /**
+   * A Month the Household opened and spent nothing under this category in is a zero, not
+   * a gap: nothing was spent, which is a figure somebody's rows answer for. Only a Month
+   * nobody opened is unknown.
+   */
+  it('reads zero for an opened Month that spent nothing under the category', () => {
+    const patchy = naming(
+      household(
+        { key: '2026-01', expenses: [{ amount: 4000, category: 'food' }] },
+        { key: '2026-02', expenses: [{ amount: 9000, category: 'home' }] },
+      ),
+      ['home', 'Home'],
+      ['food', 'Food'],
+    )
+    const axis = trendAxis(patchy, '2026-03')
+
+    expect(
+      categoryLayers(patchy, axis, trendCategories(patchy, axis)).map((one) => one.values),
+    ).toEqual([
+      [0, 9000],
+      [4000, 0],
+    ])
+  })
+
+  it('carries the colour each category was given', () => {
+    const axis = trendAxis(spread, '2026-04')
+    const categories = trendCategories(spread, axis)
+
+    expect(categoryLayers(spread, axis, categories)[0]!.colour).toBe(categories[0]!.colour)
+  })
+})
+
+describe('what moved against the Previous Month', () => {
+  const spread = naming(
+    household(
+      { key: '2026-01', expenses: [{ amount: 4000, category: 'food' }] },
+      { key: '2026-02', expenses: [{ amount: 5000, category: 'food' }] },
+    ),
+    ['food', 'Food'],
+  )
+
+  it('names the two Months it is comparing', () => {
+    expect(categoryChanges(spread, '2026-02')).toMatchObject({ from: '2026-01', to: '2026-02' })
+  })
+
+  it('reports each category that moved, its rise or fall named', () => {
+    expect(categoryChanges(spread, '2026-02')?.bars).toEqual([
+      {
+        id: 'food',
+        key: 'food',
+        name: 'Food',
+        colour: expect.any(String),
+        before: 4000,
+        after: 5000,
+        change: 1000,
+      },
+    ])
+  })
+
+  /** The comparison is against the most recent *opened* Month, which after a gap is not
+      the preceding calendar one. */
+  it('compares across a gap in the record', () => {
+    const gapped = naming(
+      household(
+        { key: '2026-01', expenses: [{ amount: 4000, category: 'food' }] },
+        { key: '2026-04', expenses: [{ amount: 5000, category: 'food' }] },
+      ),
+      ['food', 'Food'],
+    )
+
+    expect(categoryChanges(gapped, '2026-04')?.from).toBe('2026-01')
+  })
+
+  it('reads a category only the Previous Month held as a fall to nothing', () => {
+    const stopped = naming(
+      household(
+        { key: '2026-01', expenses: [{ amount: 4000, category: 'food' }] },
+        { key: '2026-02', expenses: [] },
+      ),
+      ['food', 'Food'],
+    )
+
+    expect(categoryChanges(stopped, '2026-02')?.bars).toMatchObject([
+      { id: 'food', before: 4000, after: 0, change: -4000 },
+    ])
+  })
+
+  it('reads a category only this Month holds as a rise from nothing', () => {
+    const started = naming(
+      household(
+        { key: '2026-01', expenses: [] },
+        { key: '2026-02', expenses: [{ amount: 5000, category: 'food' }] },
+      ),
+      ['food', 'Food'],
+    )
+
+    expect(categoryChanges(started, '2026-02')?.bars).toMatchObject([
+      { id: 'food', before: 0, after: 5000, change: 5000 },
+    ])
+  })
+
+  /** A diverging bar is read by what moved; a category that held still would draw as a
+      bar of no length. */
+  it('leaves out a category that did not move', () => {
+    const still = naming(
+      household(
+        { key: '2026-01', expenses: [{ amount: 4000, category: 'food' }] },
+        { key: '2026-02', expenses: [{ amount: 4000, category: 'food' }] },
+      ),
+      ['food', 'Food'],
+    )
+
+    expect(categoryChanges(still, '2026-02')?.bars).toEqual([])
+  })
+
+  it('orders the rises first, largest first, and the falls behind them', () => {
+    const mixed = naming(
+      household(
+        {
+          key: '2026-01',
+          expenses: [
+            { amount: 4000, category: 'food' },
+            { amount: 9000, category: 'home' },
+          ],
+        },
+        {
+          key: '2026-02',
+          expenses: [
+            { amount: 9000, category: 'food' },
+            { amount: 1000, category: 'home' },
+          ],
+        },
+      ),
+      ['home', 'Home'],
+      ['food', 'Food'],
+    )
+
+    expect(categoryChanges(mixed, '2026-02')?.bars.map((bar) => bar.change)).toEqual([5000, -8000])
+  })
+
+  it('names the uncategorised rows as their own group', () => {
+    const loose = household(
+      { key: '2026-01', expenses: [4000] },
+      { key: '2026-02', expenses: [5000] },
+    )
+
+    expect(categoryChanges(loose, '2026-02')?.bars).toMatchObject([
+      { id: null, key: 'uncategorised', name: 'Uncategorised', change: 1000 },
+    ])
+  })
+
+  /** The Household's first Month has nothing behind it, and a Month the record does not
+      reach is not opened at all — neither is a comparison against zero. */
+  it('has nothing to say for a Month with no Previous Month', () => {
+    expect(categoryChanges(spread, '2026-01')).toBeUndefined()
+  })
+
+  it('has nothing to say for a Month nobody opened', () => {
+    expect(categoryChanges(spread, '2026-05')).toBeUndefined()
+  })
+
+  /**
+   * Chart 6 is not a time series, so it is not held to the shared axis: it reads
+   * whichever Month the dashboard is on, and a Month ahead of the calendar — which the
+   * axis leaves out — is a Month a member can be standing in.
+   */
+  it('reads a Month the shared axis leaves out', () => {
+    const ahead = naming(
+      household(
+        { key: '2026-01', expenses: [{ amount: 4000, category: 'food' }] },
+        { key: '2026-09', expenses: [{ amount: 5000, category: 'food' }] },
+      ),
+      ['food', 'Food'],
+    )
+
+    expect(categoryChanges(ahead, '2026-09')?.bars).toMatchObject([{ change: 1000 }])
   })
 })
