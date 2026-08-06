@@ -1,6 +1,6 @@
 # Spec 0004 — V2: composite expenses, categories, payment methods and trends
 
-Status: ready-for-agent — fourteen tickets in `issues/`, numbered in dependency order
+Status: done — fourteen tickets in `issues/`, numbered in dependency order, all done
 
 V2, refined into a spec. Vocabulary is [CONTEXT.md](../../../CONTEXT.md); the dashboard
 layout this works within is [ADR-0010](../../adr/0010-month-dashboard-layout.md); the two

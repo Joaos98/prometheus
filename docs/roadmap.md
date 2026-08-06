@@ -7,9 +7,9 @@ names a spec, nothing here is `ready-for-agent`: it still has to be written up u
 `docs/specs/`, with acceptance criteria, before an agent can pick it up.
 
 **Status:** needs-triage — every item on this page that has not been promoted to a spec.
-The v1.1 and v1.2 blocks are kept for the record: both are `done`, not work waiting. So is
-the Dropped section at the foot of the page, which is `wontfix` and not waiting either. V2
-has now been refined into spec 0004 and is `ready-for-agent` there.
+The v1.1, v1.2 and V2 blocks are kept for the record: all three are `done`, not work
+waiting. So is the Dropped section at the foot of the page, which is `wontfix` and not
+waiting either.
 
 The grouping into v1.1, v1.2 and so on is a first guess at sequencing, not a commitment:
 items are grouped by what they touch, roughly cheapest and most contained first. Move
@@ -72,7 +72,7 @@ was declined; each ticket's comments record what was built and how it was checke
   nothing, so the total understates while any income is Pending and says so the way the
   rail already does; with no Spendable Income at all there are no percentages to show.
 
-## V2 — refined into a spec
+## V2 — refined into a spec — **shipped**
 
 V2 is what `prometheus-system-plan.md` §4 and spec 0001's *Out of Scope* already name —
 composite expenses (the main one), visual trends over time, and categories as first-class
@@ -86,7 +86,7 @@ categories are typo-proof, and composite expenses decide what a category attache
 spec records every decision and what was declined;
 [ADR-0012](adr/0012-categories-as-stored-entities.md) and
 [ADR-0013](adr/0013-composite-expense-line-items.md) carry the two that a future reader will
-need the reasoning for. Fourteen tickets, all `ready-for-agent`.
+need the reasoning for. Fourteen tickets, all `done` — shipped as **V2**.
 
 Two things were decided during refinement that this page had assumed otherwise:
 
