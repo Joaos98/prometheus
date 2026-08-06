@@ -1,7 +1,10 @@
 import {
   accumulatedProgress,
+  apportion,
   goalIn,
+  householdExpenseTotal,
   isPending,
+  leftoverBalanceOf,
   monthAfter,
   monthAt,
   monthName,
@@ -211,6 +214,53 @@ export function trendMembers(
   const lead = drawn.find((member) => member.id === viewer)
   const ordered = lead ? [lead, ...drawn.filter((member) => member.id !== lead.id)] : drawn
   return ordered.map((member) => ({ ...member, emphasis: member.id === lead?.id }))
+}
+
+/**
+ * Each drawn member's share of the Household's Expense total for the Month, as a
+ * percentage — this is the chart that draws the Split Rule machinery's cumulative effect,
+ * which nothing else in the app shows across Months. The figures are apportioned by
+ * largest remainder (`domain/apportion.ts`) so every Month totals exactly 100: every other
+ * total in this codebase is exact, and a band summing to 101 beside a rail that never
+ * misses by a unit is not a rounding choice.
+ *
+ * A Month with nothing to apportion — an Expense total of zero, or no Expense with an
+ * amount entered at all — is `undefined` for every member, the same answer a gap gives
+ * everywhere else: there is no proportion to draw, and splitting nothing evenly would draw
+ * one nobody's rows answer for. A member the Month holds who carries no Shares reads as
+ * zero, exactly as a category nothing was spent under does — a fact about the Month, not
+ * an absence. A member the Month does not hold at all is `undefined`, breaking their band
+ * before they joined or after they left, which is what `members` in the Month's own order
+ * already gives every other per-member chart.
+ *
+ * A composite Expense contributes through its Shares like any other — `leftoverBalanceOf`
+ * reads `sharesOf`, which already treats a composite's derived amount as any Expense's own.
+ */
+export function memberShareLayers(
+  household: Household,
+  axis: readonly TrendSlot[],
+  members: readonly TrendMember[],
+): TrendSeries[] {
+  const perSlot = axis.map((slot) => {
+    const month = monthAt(household, slot.key)
+    if (!month) return undefined
+    if (householdExpenseTotal(month) === 0) return undefined
+
+    const weights = members.map((member) =>
+      month.members.includes(member.id)
+        ? BigInt(leftoverBalanceOf(month, member.id).shares)
+        : 0n,
+    )
+    const percentages = apportion(100, weights)
+    return members.map((member, at) => (month.members.includes(member.id) ? percentages[at]! : undefined))
+  })
+
+  return members.map((member, at) => ({
+    id: member.id,
+    name: member.name,
+    emphasis: member.emphasis,
+    values: perSlot.map((row) => row?.[at]),
+  }))
 }
 
 /**

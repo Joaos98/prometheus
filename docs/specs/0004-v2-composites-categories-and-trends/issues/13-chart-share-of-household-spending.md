@@ -30,21 +30,21 @@ Month's own members, which is what the snapshot model already guarantees.
 
 **Blocked by:** 10
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Sonnet, medium thinking — one chart, with the exactness discipline and
 the membership cases being where the work is.
 
-- [ ] Each member's total Shares per Month draws as a proportion of the Household's expense
+- [x] Each member's total Shares per Month draws as a proportion of the Household's expense
       total
-- [ ] The proportions total exactly 100 in every Month, via `apportion`
-- [ ] The Viewer's band is emphasised and ordered first
-- [ ] A member in the Month with no Shares reads as 0% and still appears in the legend
-- [ ] A Month with an expense total of zero draws nothing rather than dividing by zero
-- [ ] A Month with no entered expense amounts at all draws nothing
-- [ ] A member added partway through the record has no band before their first Month
-- [ ] A member deactivated partway keeps their bands up to their last Month
-- [ ] Composite Expenses contribute through their Shares like any other Expense
-- [ ] The chart breaks across unopened Months and marks Pending Months, per ticket 10
-- [ ] Every figure comes from `domain/`
-- [ ] `npm run typecheck` is clean and the full suite passes
+- [x] The proportions total exactly 100 in every Month, via `apportion`
+- [x] The Viewer's band is emphasised and ordered first
+- [x] A member in the Month with no Shares reads as 0% and still appears in the legend
+- [x] A Month with an expense total of zero draws nothing rather than dividing by zero
+- [x] A Month with no entered expense amounts at all draws nothing
+- [x] A member added partway through the record has no band before their first Month
+- [x] A member deactivated partway keeps their bands up to their last Month
+- [x] Composite Expenses contribute through their Shares like any other Expense
+- [x] The chart breaks across unopened Months and marks Pending Months, per ticket 10
+- [x] Every figure comes from `domain/`
+- [x] `npm run typecheck` is clean and the full suite passes

@@ -14,6 +14,7 @@ import {
   categoryChanges,
   categoryLayers,
   goalProgress,
+  memberShareLayers,
   pendingNote,
   segmentsOf,
   trendAxis,
@@ -25,14 +26,32 @@ import {
 const income = (amount: number | null): IncomeSnapshot =>
   ({ id: `i${amount}`, amount }) as IncomeSnapshot
 
-/** A cost, said as a bare amount where the category it holds does not matter. */
-type Cost = number | null | { amount: number | null; category: string | null }
+/** A cost, said as a bare amount where the category and Shares it holds do not matter. */
+type Cost =
+  | number
+  | null
+  | {
+      amount: number | null
+      category?: string | null
+      /** Who divides this Expense, defaulting to a single-member row nobody's percentage
+       * chart needs to split. */
+      participants?: string[]
+      splitRule?: ExpenseSnapshot['splitRule']
+    }
 
 /** `at` is the row's place in its Month, which is all the identity a fixture needs. */
 const expense = (cost: Cost, at: number): ExpenseSnapshot => {
-  const { amount, category } =
-    typeof cost === 'object' && cost !== null ? cost : { amount: cost, category: null }
-  return { id: `e${at}-${amount}`, amount, category } as ExpenseSnapshot
+  const { amount, category, participants, splitRule } =
+    typeof cost === 'object' && cost !== null
+      ? cost
+      : { amount: cost, category: null, participants: undefined, splitRule: undefined }
+  return {
+    id: `e${at}-${amount}`,
+    amount,
+    category: category ?? null,
+    participants: participants ?? ['ada'],
+    splitRule: splitRule ?? { kind: 'even' },
+  } as ExpenseSnapshot
 }
 
 /** A Savings Goal identity, defaulting to one with no target and no Contributions. */
@@ -305,6 +324,123 @@ describe('the members a per-member chart draws', () => {
 
   it('draws nobody for a Household with nothing to chart', () => {
     expect(trendMembers(household(), [], 'ada')).toEqual([])
+  })
+})
+
+describe('each member’s share of household spending', () => {
+  it('apportions by largest remainder so every Month totals exactly 100', () => {
+    const spread = household({
+      key: '2026-01',
+      members: ['ada', 'bruno'],
+      expenses: [
+        { amount: 6000, participants: ['ada'] },
+        { amount: 3000, participants: ['bruno'] },
+      ],
+    })
+    const axis = trendAxis(spread, '2026-01')
+    const members = trendMembers(spread, axis, 'ada')
+
+    const layers = memberShareLayers(spread, axis, members)
+
+    expect(layers.map((layer) => layer.values)).toEqual([[67], [33]])
+    expect(layers.reduce((total, layer) => total + (layer.values[0] ?? 0), 0)).toBe(100)
+  })
+
+  it('reads zero for a member the Month holds who carries no Shares', () => {
+    const spread = household({
+      key: '2026-01',
+      members: ['ada', 'bruno'],
+      expenses: [{ amount: 5000, participants: ['ada'] }],
+    })
+    const axis = trendAxis(spread, '2026-01')
+    const members = trendMembers(spread, axis, 'ada')
+
+    const layers = memberShareLayers(spread, axis, members)
+
+    expect(layers.find((layer) => layer.id === 'bruno')?.values).toEqual([0])
+  })
+
+  it('draws nothing for a Month with an Expense total of zero', () => {
+    const spread = household({
+      key: '2026-01',
+      members: ['ada'],
+      expenses: [{ amount: 0, participants: ['ada'] }],
+    })
+    const axis = trendAxis(spread, '2026-01')
+    const members = trendMembers(spread, axis, 'ada')
+
+    expect(memberShareLayers(spread, axis, members).map((layer) => layer.values)).toEqual([
+      [undefined],
+    ])
+  })
+
+  it('draws nothing for a Month with no entered Expense amounts at all', () => {
+    const spread = household({
+      key: '2026-01',
+      members: ['ada'],
+      expenses: [{ amount: null, participants: ['ada'] }],
+    })
+    const axis = trendAxis(spread, '2026-01')
+    const members = trendMembers(spread, axis, 'ada')
+
+    expect(memberShareLayers(spread, axis, members).map((layer) => layer.values)).toEqual([
+      [undefined],
+    ])
+  })
+
+  it('has no band before a member is added, and keeps their band up to when they leave', () => {
+    const spread = household(
+      { key: '2026-01', members: ['ada'], expenses: [{ amount: 4000, participants: ['ada'] }] },
+      {
+        key: '2026-02',
+        members: ['ada', 'bruno'],
+        expenses: [
+          { amount: 4000, participants: ['ada'] },
+          { amount: 2000, participants: ['bruno'] },
+        ],
+      },
+    )
+    const axis = trendAxis(spread, '2026-02')
+    const members = trendMembers(spread, axis, 'ada')
+
+    const bruno = memberShareLayers(spread, axis, members).find((layer) => layer.id === 'bruno')
+
+    expect(bruno?.values).toEqual([undefined, 33])
+  })
+
+  it('keeps a deactivated member’s band up to their last Month, and none after', () => {
+    const spread = household(
+      {
+        key: '2026-01',
+        members: ['ada', 'mira'],
+        expenses: [
+          { amount: 4000, participants: ['ada'] },
+          { amount: 1000, participants: ['mira'] },
+        ],
+      },
+      { key: '2026-02', members: ['ada'], expenses: [{ amount: 4000, participants: ['ada'] }] },
+    )
+    const axis = trendAxis(spread, '2026-02')
+    const members = trendMembers(spread, axis, 'ada')
+
+    const mira = memberShareLayers(spread, axis, members).find((layer) => layer.id === 'mira')
+
+    expect(mira?.values).toEqual([20, undefined])
+  })
+
+  it('carries the Viewer’s emphasis onto their band', () => {
+    const spread = household({
+      key: '2026-01',
+      members: ['ada', 'bruno'],
+      expenses: [{ amount: 4000, participants: ['ada'] }],
+    })
+    const axis = trendAxis(spread, '2026-01')
+    const members = trendMembers(spread, axis, 'bruno')
+
+    const layers = memberShareLayers(spread, axis, members)
+
+    expect(layers[0]).toMatchObject({ id: 'bruno', emphasis: true })
+    expect(layers[1]).toMatchObject({ id: 'ada', emphasis: false })
   })
 })
 

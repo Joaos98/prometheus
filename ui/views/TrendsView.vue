@@ -26,6 +26,7 @@ import {
   categoryChanges,
   categoryLayers,
   goalProgress,
+  memberShareLayers,
   pendingCount,
   pendingNote,
   trendAxis,
@@ -69,6 +70,8 @@ const naming = computed(() => displayedViewer(viewer.value, undefined, props.hou
 const members = computed(() => trendMembers(props.household, axis.value, naming.value))
 
 const money = (amount: Minor): string => formatAmount(amount, props.household.currency)
+
+const percent = (value: number): string => `${value}%`
 
 /**
  * Chart 1 — income vs expenses. Income is one stacked series, Spendable Income with
@@ -131,6 +134,15 @@ const leftoverSeries = computed(() =>
     ),
   })),
 )
+
+/**
+ * Chart 5 — each member's total Shares as a percentage of the Household's Expense total,
+ * stacked so the full height of a drawn Month is always 100. This is the only chart that
+ * draws the output of the Split Rule machinery: the dashboard shows how one Expense
+ * divided, this shows what that added up to across Months. `trendMembers` again leads
+ * with the Viewer, emphasised.
+ */
+const shareStack = computed(() => memberShareLayers(props.household, axis.value, members.value))
 
 /**
  * Chart 2 — spending by category, stacked, so the full height is the Household's whole
@@ -246,6 +258,13 @@ const span = computed(() => axisSpan(axis.value))
       <TrendChart title="Spending by category" :axis="axis" :stack="categoryStack" :format="money" />
 
       <TrendChart title="Leftover Balance" :axis="axis" :series="leftoverSeries" :format="money" />
+
+      <TrendChart
+        title="Share of household spending"
+        :axis="axis"
+        :stack="shareStack"
+        :format="percent"
+      />
 
       <TrendChart
         v-for="goal in goalCharts"

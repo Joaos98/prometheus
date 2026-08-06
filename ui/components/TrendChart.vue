@@ -78,12 +78,11 @@ const stackBounds = computed(() => {
     const top = layer.values.map((value, at) =>
       value === undefined || base[at] === undefined ? undefined : base[at]! + value,
     )
-    // Named field by field rather than spread: `emphasis` is a plain series' mark and a
-    // stack has no use for it, so it is not carried in here to be quietly ignored.
     const bounds = {
       id: layer.id,
       name: layer.name,
       colour: layer.colour,
+      emphasis: layer.emphasis,
       values: layer.values,
       base,
       top,
@@ -216,7 +215,8 @@ const stacked = computed(() => {
   return stackBounds.value.map((layer) => ({
     id: layer.id,
     name: layer.name,
-    colour: layer.colour ?? next(),
+    emphasis: layer.emphasis === true,
+    colour: layer.emphasis === true ? EMPHASIS : (layer.colour ?? next()),
     areas: segmentsOf(
       layer.values.map((value, at) =>
         value === undefined || layer.base[at] === undefined
@@ -297,7 +297,7 @@ const description = computed(() => {
            behind everything else so the incomplete hatching and the plain series read
            over it rather than under it. Each Month's own slice carries its reading, the
            same way a line series' points do — the fill itself is one path, so it cannot. -->
-      <g v-for="layer in stacked" :key="layer.id" class="band">
+      <g v-for="layer in stacked" :key="layer.id" :class="{ band: true, emphasis: layer.emphasis }">
         <path v-for="area in layer.areas" :key="area.key" :d="area.d" :fill="layer.colour" />
         <template v-for="area in layer.areas" :key="`${area.key}-hover`">
           <rect
@@ -366,7 +366,7 @@ const description = computed(() => {
     </svg>
 
     <ul class="legend">
-      <li v-for="layer in stacked" :key="layer.id">
+      <li v-for="layer in stacked" :key="layer.id" :class="{ emphasis: layer.emphasis }">
         <span class="swatch filled" :style="{ background: layer.colour }" aria-hidden="true"></span>
         {{ layer.name }}
       </li>
@@ -414,6 +414,10 @@ svg {
 
 .band path {
   opacity: 0.55;
+}
+
+.band.emphasis path {
+  opacity: 0.85;
 }
 
 .incomplete rect {
