@@ -4,6 +4,7 @@ import { setUpHousehold } from './household.js'
 import {
   addIncomeSnapshot,
   editIncomeSnapshot,
+  householdRestrictedUseIncome,
   householdSpendableIncome,
   setIncomeOneOff,
   removeIncomeSnapshot,
@@ -337,6 +338,50 @@ describe('the Household’s Spendable Income', () => {
 
   it('is nothing for a Household with no income at all', () => {
     expect(householdSpendableIncome(monthAt(household, '2026-07')!)).toBe(0)
+  })
+})
+
+describe('the Household’s Restricted-Use Income', () => {
+  it('is the sum of every member’s Restricted-Use Income', () => {
+    let after = addIncomeSnapshot(household, '2026-07', {
+      name: 'Meal vouchers',
+      member: ana,
+      amount: 22000,
+      restrictedUse: true,
+    }).household
+    after = addIncomeSnapshot(after, '2026-07', {
+      name: 'Transport vouchers',
+      member: bruno,
+      amount: 8000,
+      restrictedUse: true,
+    }).household
+
+    expect(householdRestrictedUseIncome(monthAt(after, '2026-07')!)).toBe(30000)
+  })
+
+  it('excludes Spendable Income', () => {
+    const after = addIncomeSnapshot(household, '2026-07', {
+      name: 'Salary',
+      member: ana,
+      amount: 320000,
+    }).household
+
+    expect(householdRestrictedUseIncome(monthAt(after, '2026-07')!)).toBe(0)
+  })
+
+  it('counts a Pending row as nothing', () => {
+    const after = addIncomeSnapshot(household, '2026-07', {
+      name: 'Meal vouchers',
+      member: ana,
+      amount: null,
+      restrictedUse: true,
+    }).household
+
+    expect(householdRestrictedUseIncome(monthAt(after, '2026-07')!)).toBe(0)
+  })
+
+  it('is nothing for a Household with no income at all', () => {
+    expect(householdRestrictedUseIncome(monthAt(household, '2026-07')!)).toBe(0)
   })
 })
 

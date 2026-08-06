@@ -1,4 +1,6 @@
 import {
+  accumulatedProgress,
+  goalIn,
   isPending,
   monthAfter,
   monthAt,
@@ -6,7 +8,9 @@ import {
   openedMonthKeys,
   type Household,
   type MemberId,
+  type Month,
   type MonthKey,
+  type RowId,
 } from '../domain/index.js'
 import { nameOf } from './members.js'
 
@@ -188,4 +192,89 @@ export function trendMembers(
   const lead = drawn.find((member) => member.id === viewer)
   const ordered = lead ? [lead, ...drawn.filter((member) => member.id !== lead.id)] : drawn
   return ordered.map((member) => ({ ...member, emphasis: member.id === lead?.id }))
+}
+
+/**
+ * One figure per slot on the axis, read off each opened Month by the caller's own
+ * function — never computed here. `undefined` where the Month was never opened, exactly
+ * as every other series breaks there. This is the one door a chart's figures come
+ * through, so that no chart component ends up doing its own money arithmetic.
+ */
+export function axisValues(
+  household: Household,
+  axis: readonly TrendSlot[],
+  figure: (month: Month) => number,
+): (number | undefined)[] {
+  return axis.map((slot) => {
+    const month = monthAt(household, slot.key)
+    return month ? figure(month) : undefined
+  })
+}
+
+/** A Savings Goal a per-goal chart draws, named as the record most recently held it. */
+export interface TrendGoal {
+  id: RowId
+  name: string
+}
+
+/**
+ * The goals the charted Months hold, one per identity, in the order each was first
+ * charted and named as its latest charted appearance has it — a rename is read fresh
+ * exactly as everywhere else a goal's name is read, rather than frozen at first sight.
+ *
+ * A goal that stopped recurring is still named here if any charted Month held it: it
+ * ended, and the Months it ran for are still part of the record.
+ */
+export function trendGoals(household: Household, axis: readonly TrendSlot[]): TrendGoal[] {
+  const goals = new Map<RowId, string>()
+  for (const slot of axis) {
+    for (const goal of monthAt(household, slot.key)?.goals ?? []) {
+      goals.set(goal.id, goal.name)
+    }
+  }
+  return [...goals.entries()].map(([id, name]) => ({ id, name }))
+}
+
+/** One goal's Accumulated Progress across the axis, and its target where it names one. */
+export interface GoalProgress {
+  progress: TrendSeries
+  /** Absent where the goal never named a target across the whole stretch charted —
+   * there is nothing to measure it against, so no line is drawn for it. */
+  target?: TrendSeries
+}
+
+/**
+ * A goal's Accumulated Progress as of each Month on the axis, and its target line
+ * alongside — both read from `domain/progress.ts`, never recomputed here.
+ *
+ * A slot where this Month never held the goal is `undefined` for both series: a goal
+ * that ended still shows the Months it ran for, and breaks like any other series
+ * afterward. A Month where the goal has no target is `undefined` for the target alone,
+ * which is what leaves that one Month with progress drawn and nothing to measure it
+ * against.
+ */
+export function goalProgress(
+  household: Household,
+  axis: readonly TrendSlot[],
+  goal: TrendGoal,
+): GoalProgress {
+  const progress: (number | undefined)[] = []
+  const target: (number | undefined)[] = []
+
+  for (const slot of axis) {
+    const month = monthAt(household, slot.key)
+    if (!month || !goalIn(month, goal.id)) {
+      progress.push(undefined)
+      target.push(undefined)
+      continue
+    }
+    const figure = accumulatedProgress(household, slot.key, goal.id)
+    progress.push(figure.accumulated)
+    target.push(figure.target ?? undefined)
+  }
+
+  const named = { id: goal.id, name: goal.name, values: progress }
+  return target.some((value) => value !== undefined)
+    ? { progress: named, target: { id: `${goal.id}-target`, name: 'Target', values: target } }
+    : { progress: named }
 }

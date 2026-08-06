@@ -411,6 +411,16 @@ function lineIn(month: Month, row: ExpenseSnapshot, lineId: RowId): LineItem {
   return line
 }
 
+/**
+ * The Household's Expense total for the Month — every Expense's amount, composite or
+ * simple, summed together. A Pending Expense counts as nothing, exactly as a Pending
+ * income row does for `householdSpendableIncome`, so the total understates while any
+ * Expense is Pending rather than treating it as free.
+ */
+export function householdExpenseTotal(month: Month): Minor {
+  return month.expenses.reduce((total, row) => total + (row.amount ?? 0), 0)
+}
+
 /** The Month's Expense of that identity, or nothing if this Month is not on its thread. */
 export function expenseIn(month: Month, id: RowId): ExpenseSnapshot | undefined {
   return month.expenses.find((candidate) => candidate.id === id)

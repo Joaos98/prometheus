@@ -6,8 +6,18 @@ import type {
   MemberId,
   Month,
   MonthKey,
+  SavingsGoal,
 } from '../domain/index.js'
-import { axisSpan, pendingNote, segmentsOf, trendAxis, trendMembers } from './trends.js'
+import {
+  axisSpan,
+  axisValues,
+  goalProgress,
+  pendingNote,
+  segmentsOf,
+  trendAxis,
+  trendGoals,
+  trendMembers,
+} from './trends.js'
 
 const income = (amount: number | null): IncomeSnapshot =>
   ({ id: `i${amount}`, amount }) as IncomeSnapshot
@@ -15,11 +25,25 @@ const income = (amount: number | null): IncomeSnapshot =>
 const expense = (amount: number | null): ExpenseSnapshot =>
   ({ id: `e${amount}`, amount }) as ExpenseSnapshot
 
+/** A Savings Goal identity, defaulting to one with no target and no Contributions. */
+const goal = (id: string, overrides: Partial<SavingsGoal> = {}): SavingsGoal => ({
+  id,
+  name: 'Emergency fund',
+  target: null,
+  startAmount: 0,
+  participants: ['ada'] as MemberId[],
+  contributions: {},
+  reviewed: true,
+  oneOff: false,
+  ...overrides,
+})
+
 interface Opened {
   key: string
   members?: string[]
   income?: (number | null)[]
   expenses?: (number | null)[]
+  goals?: SavingsGoal[]
 }
 
 const household = (...opened: Opened[]): Household =>
@@ -40,7 +64,7 @@ const household = (...opened: Opened[]): Household =>
           members: (month.members ?? ['ada']) as MemberId[],
           income: (month.income ?? []).map(income),
           expenses: (month.expenses ?? []).map(expense),
-          goals: [],
+          goals: month.goals ?? [],
         } satisfies Month,
       ]),
     ),
@@ -267,5 +291,127 @@ describe('the members a per-member chart draws', () => {
 
   it('draws nobody for a Household with nothing to chart', () => {
     expect(trendMembers(household(), [], 'ada')).toEqual([])
+  })
+})
+
+describe('reading one figure per Month off the axis', () => {
+  it('reads the caller’s figure for every opened Month', () => {
+    const spread = household(
+      { key: '2026-01', expenses: [500] },
+      { key: '2026-02', expenses: [700, 100] },
+    )
+    const axis = trendAxis(spread, '2026-03')
+
+    const values = axisValues(spread, axis, (month) =>
+      month.expenses.reduce((total, row) => total + (row.amount ?? 0), 0),
+    )
+
+    expect(values).toEqual([500, 800])
+  })
+
+  it('is undefined for a Month nobody opened, without asking the caller for a figure', () => {
+    const spread = household({ key: '2026-01' }, { key: '2026-03' })
+    const axis = trendAxis(spread, '2026-03')
+
+    const values = axisValues(spread, axis, () => 1)
+
+    expect(values).toEqual([1, undefined, 1])
+  })
+})
+
+describe('the goals a per-goal chart draws', () => {
+  it('lists a goal every charted Month holds', () => {
+    const spread = household({ key: '2026-01', goals: [goal('g1', { name: 'Roof' })] })
+
+    expect(trendGoals(spread, trendAxis(spread, '2026-02'))).toEqual([{ id: 'g1', name: 'Roof' }])
+  })
+
+  it('names a goal as its most recently charted appearance had it', () => {
+    const spread = household(
+      { key: '2026-01', goals: [goal('g1', { name: 'Roof' })] },
+      { key: '2026-02', goals: [goal('g1', { name: 'New roof' })] },
+    )
+
+    expect(trendGoals(spread, trendAxis(spread, '2026-03'))).toEqual([
+      { id: 'g1', name: 'New roof' },
+    ])
+  })
+
+  /** A goal that stopped recurring is still part of the record it ran for. */
+  it('keeps a goal that stopped recurring', () => {
+    const spread = household(
+      { key: '2026-01', goals: [goal('g1', { name: 'Roof' })] },
+      { key: '2026-02', goals: [] },
+    )
+
+    expect(trendGoals(spread, trendAxis(spread, '2026-03'))).toEqual([{ id: 'g1', name: 'Roof' }])
+  })
+
+  it('draws nothing for a stretch with no goals at all', () => {
+    const spread = household({ key: '2026-01' })
+
+    expect(trendGoals(spread, trendAxis(spread, '2026-02'))).toEqual([])
+  })
+})
+
+describe('a goal’s Accumulated Progress across the axis', () => {
+  it('draws progress and target for every Month the goal was held', () => {
+    const spread = household(
+      { key: '2026-01', goals: [goal('g1', { target: 100000, contributions: { ada: 20000 } })] },
+      { key: '2026-02', goals: [goal('g1', { target: 100000, contributions: { ada: 15000 } })] },
+    )
+    const axis = trendAxis(spread, '2026-03')
+
+    const result = goalProgress(spread, axis, { id: 'g1', name: 'Roof' })
+
+    expect(result.progress).toEqual({ id: 'g1', name: 'Roof', values: [20000, 35000] })
+    expect(result.target).toEqual({ id: 'g1-target', name: 'Target', values: [100000, 100000] })
+  })
+
+  it('omits the target entirely where the goal never names one', () => {
+    const spread = household({ key: '2026-01', goals: [goal('g1', { target: null })] })
+
+    const result = goalProgress(spread, trendAxis(spread, '2026-02'), { id: 'g1', name: 'Roof' })
+
+    expect(result.target).toBeUndefined()
+  })
+
+  /** A goal with no target has no line to measure against for that Month alone, even
+      where an earlier or later Month named one. */
+  it('draws progress with no target line for a Month with none, beside one that has one', () => {
+    const spread = household(
+      { key: '2026-01', goals: [goal('g1', { target: null, contributions: { ada: 5000 } })] },
+      { key: '2026-02', goals: [goal('g1', { target: 100000, contributions: { ada: 5000 } })] },
+    )
+    const axis = trendAxis(spread, '2026-03')
+
+    const result = goalProgress(spread, axis, { id: 'g1', name: 'Roof' })
+
+    expect(result.target?.values).toEqual([undefined, 100000])
+  })
+
+  it('breaks across a Month the goal did not hold, and keeps counting once it returns', () => {
+    const spread = household(
+      { key: '2026-01', goals: [goal('g1', { contributions: { ada: 5000 } })] },
+      { key: '2026-02', goals: [] },
+      { key: '2026-03', goals: [goal('g1', { contributions: { ada: 2000 } })] },
+    )
+    const axis = trendAxis(spread, '2026-04')
+
+    const result = goalProgress(spread, axis, { id: 'g1', name: 'Roof' })
+
+    expect(result.progress.values).toEqual([5000, undefined, 7000])
+  })
+
+  it('reports a Month’s progress as of that Month, never as of today', () => {
+    const spread = household(
+      { key: '2026-01', goals: [goal('g1', { contributions: { ada: 5000 } })] },
+      { key: '2026-02', goals: [goal('g1', { contributions: { ada: 3000 } })] },
+    )
+    const axis = trendAxis(spread, '2026-03')
+
+    const result = goalProgress(spread, axis, { id: 'g1', name: 'Roof' })
+
+    expect(result.progress.values).toEqual([5000, 8000])
   })
 })

@@ -153,6 +153,18 @@ export function householdSpendableIncome(month: Month): Minor {
 }
 
 /**
+ * The Household's Restricted-Use Income for the Month — every source every member holds
+ * that is Restricted-Use, and nothing else. A Pending row counts as nothing, exactly as
+ * `householdSpendableIncome` already has it. Stacked above Spendable Income, the two sum
+ * to the Household's total Income for the Month.
+ */
+export function householdRestrictedUseIncome(month: Month): Minor {
+  return month.income
+    .filter((row) => row.restrictedUse)
+    .reduce((total, row) => total + (row.amount ?? 0), 0)
+}
+
+/**
  * Each member's share of the Household's Spendable Income as a whole percent, apportioned
  * by largest remainder so the percentages sum to exactly 100. One entry per member of the
  * Month, in the Month's own member order, including any at zero.

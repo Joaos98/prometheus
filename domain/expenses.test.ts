@@ -5,6 +5,7 @@ import {
   addLineItem,
   editExpenseSnapshot,
   editLineItem,
+  householdExpenseTotal,
   itemiseExpense,
   setExpenseOneOff,
   removeExpenseSnapshot,
@@ -459,6 +460,42 @@ describe('removing an Expense', () => {
 
   it('refuses a row that is not in that Month', () => {
     expect(() => removeExpenseSnapshot(household, '2026-07', 'no-such-row')).toThrow(DomainError)
+  })
+})
+
+describe('the Household’s Expense total', () => {
+  it('is the sum of every Expense’s amount', () => {
+    const rent = addExpenseSnapshot(household, '2026-07', {
+      name: 'Rent',
+      category: 'Home',
+      amount: 120000,
+      participants: [ana],
+    })
+    const food = addExpenseSnapshot(rent.household, '2026-07', {
+      name: 'Groceries',
+      category: 'Home',
+      amount: 30000,
+      participants: [ana, bruno],
+    })
+
+    expect(householdExpenseTotal(monthAt(food.household, '2026-07')!)).toBe(150000)
+  })
+
+  it('sums a composite’s derived amount, not a typed figure', () => {
+    const { household: after, row } = itemisedGroceries()
+
+    expect(householdExpenseTotal(monthAt(after, '2026-07')!)).toBe(3000)
+    expect(row.amount).toBe(3000)
+  })
+
+  it('counts a Pending Expense as nothing', () => {
+    const { household: after } = groceries(null)
+
+    expect(householdExpenseTotal(monthAt(after, '2026-07')!)).toBe(0)
+  })
+
+  it('is nothing for a Month with no Expenses at all', () => {
+    expect(householdExpenseTotal(monthAt(household, '2026-07')!)).toBe(0)
   })
 })
 
