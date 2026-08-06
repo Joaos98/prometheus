@@ -26,20 +26,20 @@ is not already exposed, expose it from `domain/` and test it there.
 
 **Blocked by:** 10
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Sonnet, medium thinking — three charts on an axis that already exists,
 with the care going into where the numbers come from.
 
-- [ ] Chart 1 draws household income and expense totals per Month
-- [ ] Income is stacked Spendable / Restricted-Use, full height being total Income
-- [ ] No part of chart 1 reads the Restricted-Use toggle
-- [ ] Chart 3 draws each goal's Accumulated Progress as of each Month, never as of today
-- [ ] A goal with no target draws its progress with no target line
-- [ ] A goal that ended still shows the Months it ran for
-- [ ] Chart 4 draws each member's Leftover Balance, on Spendable Income
-- [ ] Chart 4's scale accommodates negative values and marks zero
-- [ ] The Viewer's series is emphasised and first in chart 4
-- [ ] Every figure drawn comes from `domain/`; no money arithmetic happens in a component
-- [ ] All three break across unopened Months and mark Pending Months, per ticket 10
-- [ ] `npm run typecheck` is clean and the full suite passes
+- [x] Chart 1 draws household income and expense totals per Month
+- [x] Income is stacked Spendable / Restricted-Use, full height being total Income
+- [x] No part of chart 1 reads the Restricted-Use toggle
+- [x] Chart 3 draws each goal's Accumulated Progress as of each Month, never as of today
+- [x] A goal with no target draws its progress with no target line
+- [x] A goal that ended still shows the Months it ran for
+- [x] Chart 4 draws each member's Leftover Balance, on Spendable Income
+- [x] Chart 4's scale accommodates negative values and marks zero
+- [x] The Viewer's series is emphasised and first in chart 4
+- [x] Every figure drawn comes from `domain/`; no money arithmetic happens in a component
+- [x] All three break across unopened Months and mark Pending Months, per ticket 10
+- [x] `npm run typecheck` is clean and the full suite passes
