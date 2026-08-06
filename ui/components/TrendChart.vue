@@ -58,6 +58,12 @@ const x = computed(() =>
     .range([left, right]),
 )
 
+/** A value the y-scale has to reach, whether a plain series' own figure or a stack layer's
+ * running top — the one predicate both share for narrowing away the gaps. */
+function isDrawn(value: number | undefined): value is number {
+  return value !== undefined
+}
+
 /**
  * Each stack layer's own base and running top across the axis, bottom layer first — the
  * running total is worked out here so no layer carries another's figure. A slot is
@@ -83,8 +89,8 @@ const stackBounds = computed(() => {
  */
 const y = computed(() => {
   const drawn = [
-    ...props.series.flatMap((one) => one.values.filter((value): value is number => value !== undefined)),
-    ...stackBounds.value.flatMap((layer) => layer.top.filter((value): value is number => value !== undefined)),
+    ...props.series.flatMap((one) => one.values.filter(isDrawn)),
+    ...stackBounds.value.flatMap((layer) => layer.top.filter(isDrawn)),
   ]
   const low = Math.min(0, ...drawn)
   const high = Math.max(0, ...drawn)

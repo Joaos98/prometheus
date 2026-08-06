@@ -11,6 +11,7 @@ import {
   openedMonthKeys,
   type Household,
   type MemberId,
+  type Minor,
 } from '../../domain/index.js'
 import Masthead from '../components/Masthead.vue'
 import TrendChart from '../components/TrendChart.vue'
@@ -56,7 +57,7 @@ const naming = computed(() => displayedViewer(viewer.value, undefined, props.hou
 
 const members = computed(() => trendMembers(props.household, axis.value, naming.value))
 
-const money = (amount: number): string => formatAmount(amount, props.household.currency)
+const money = (amount: Minor): string => formatAmount(amount, props.household.currency)
 
 /**
  * Chart 1 — income vs expenses. Income is one stacked series, Spendable Income with
@@ -121,13 +122,14 @@ const leftoverSeries = computed(() =>
 )
 
 /**
- * A placeholder while tickets 11 to 13 build the six charts: how many rows each member
- * appears on, Month by Month. It draws nothing anybody needs, and it exercises every rule
- * the axis has — the slot an unopened Month keeps, the break a series takes across it,
- * the mark on a Month with Pending rows, and the Viewer's series leading and emphasised.
+ * A placeholder while tickets 12 and 13 build the remaining charts: how many rows each
+ * member appears on, Month by Month. It draws nothing anybody needs, and it exercises
+ * every rule the axis has — the slot an unopened Month keeps, the break a series takes
+ * across it, the mark on a Month with Pending rows, and the Viewer's series leading and
+ * emphasised.
  *
- * The count is worked out here rather than in `ui/trends.ts` because it goes when the six
- * charts arrive; nothing else in the view reaches into a Month's rows.
+ * The count is worked out here rather than in `ui/trends.ts` because it goes once the
+ * remaining charts arrive.
  */
 const entries = computed(() =>
   members.value.map((member) => ({
