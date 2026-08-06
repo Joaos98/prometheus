@@ -34,22 +34,22 @@ at in it.
 
 **Blocked by:** 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Suggested model:** Sonnet, medium thinking — no new decisions, but the seed has to drive
 public operations only and stay readable as a story.
 
-- [ ] The seed builds its Household through public domain operations, with no row constructed
+- [x] The seed builds its Household through public domain operations, with no row constructed
       by hand
-- [ ] It seeds a categories list and a payment methods list, both in use
-- [ ] At least one Expense is left uncategorised
-- [ ] It seeds at least one composite with several lines, whose amounts differ across Months
-- [ ] One seeded composite has a Pending line in one Month, and reads as Pending there
-- [ ] It seeds enough Months for every chart to draw a trend rather than a point
-- [ ] One Month in the middle of the record is left unopened, and the axis breaks there
-- [ ] Somebody has Restricted-Use income, so chart 1's stack is visible
-- [ ] There is a goal with a target and a goal without
-- [ ] No category or payment method deletion is seeded
-- [ ] `demo/seed.test.ts` passes, and the seeded Household exports and re-imports cleanly
-- [ ] `npm run build:demo` succeeds and the seeded demo renders every chart
-- [ ] `npm run typecheck` is clean and the full suite passes
+- [x] It seeds a categories list and a payment methods list, both in use
+- [x] At least one Expense is left uncategorised
+- [x] It seeds at least one composite with several lines, whose amounts differ across Months
+- [x] One seeded composite has a Pending line in one Month, and reads as Pending there
+- [x] It seeds enough Months for every chart to draw a trend rather than a point
+- [x] One Month in the middle of the record is left unopened, and the axis breaks there
+- [x] Somebody has Restricted-Use income, so chart 1's stack is visible
+- [x] There is a goal with a target and a goal without
+- [x] No category or payment method deletion is seeded
+- [x] `demo/seed.test.ts` passes, and the seeded Household exports and re-imports cleanly
+- [x] `npm run build:demo` succeeds and the seeded demo renders every chart
+- [x] `npm run typecheck` is clean and the full suite passes
